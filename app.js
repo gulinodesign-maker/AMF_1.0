@@ -1,7 +1,7 @@
-/* AMF_1.008 */
+/* AMF_1.009 */
 (() => {
-  const BUILD = "AMF_1.008";
-  const DISPLAY = "1.008";
+  const BUILD = "AMF_1.009";
+  const DISPLAY = "1.009";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -483,6 +483,17 @@ function normTime(t) {
 
   // Normalize separators (09.30 -> 09:30)
   s = s.replace(".", ":");
+
+  // ISO/DateTime string from Sheets/API (e.g., 1899-12-30T09:00:00.000Z) -> HH:MM
+  // Only attempt if it contains a time component
+  if ((s.includes("T") || s.includes(" ")) && s.includes(":")) {
+    const dt = new Date(s);
+    if (!isNaN(dt)) {
+      const hh = String(dt.getHours()).padStart(2, "0");
+      const mm = String(dt.getMinutes()).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+  }
 
   // "9" or "9:" -> "09:00"
   let m = s.match(/^(\d{1,2})\s*:?$/);
