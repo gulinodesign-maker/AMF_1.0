@@ -1,7 +1,7 @@
-/* AMF_1.020 */
+/* AMF_2.000 */
 (() => {
-  const BUILD = "AMF_1.020";
-  const DISPLAY = "1.020";
+  const BUILD = "AMF_2.000";
+  const DISPLAY = "2.000";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -438,14 +438,85 @@ function initials(name) {
 }
 
 
-function getSocTagIndexByName(socName) {
-  const name = String(socName || "").trim();
-  if (!name) return 0;
-  const map = safeJsonParse(localStorage.getItem("AMF_SOC_TAGS") || "", {});
-  const raw = map && Object.prototype.hasOwnProperty.call(map, name) ? map[name] : 0;
-  const n = parseInt(raw, 10);
-  if (isNaN(n)) return 0;
-  return Math.max(0, Math.min(5, n));
+function parseGiorniMap(raw) {
+  if (raw == null) return {};
+  if (typeof raw === "object") {
+    try { return Object.assign({}, raw); } catch { return {}; }
+  }
+  const s = String(raw).trim();
+  if (!s || s === "—") return {};
+  try {
+    const obj = JSON.parse(s);
+    return (obj && typeof obj === "object") ? obj : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeTimeList(value) {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.map(normTime).filter(Boolean);
+  if (typeof value === "object") {
+    const maybe = value.ora_inizio || value.time || value.ora || "";
+    const t = normTime(maybe);
+    return t ? [t] : [];
+  }
+  const s = String(value).trim();
+  if (!s || s === "—") return [];
+  const parts = s.split(/[,;\n]+/).map((x) => normTime(x)).filter(Boolean);
+  return parts.length ? parts : (normTime(s) ? [normTime(s)] : []);
+}
+
+
+
+// --- Società cache (id -> {nome, tag})
+let societaCache = null;
+let societaMapById = new Map();
+
+function buildSocietaMap_(arr) {
+  societaMapById = new Map();
+  (arr || []).forEach((s) => {
+    if (!s) return;
+    const id = String(s.id || "").trim();
+    if (!id) return;
+    const nome = String(s.nome || "").trim();
+    const tagRaw = (s.tag !== undefined && s.tag !== null) ? s.tag : 0;
+    const tag = Math.max(0, Math.min(5, parseInt(tagRaw, 10) || 0));
+    societaMapById.set(id, { id, nome, tag });
+  });
+}
+
+async function loadSocietaCache(force = false) {
+  const user = getSession();
+  if (!user || !user.id) return [];
+  if (societaCache && !force) return societaCache;
+  try {
+    const data = await apiCached("listSocieta", { userId: user.id }, 15000);
+    const arr = Array.isArray(data && data.societa) ? data.societa : [];
+    societaCache = arr;
+    buildSocietaMap_(arr);
+    return arr;
+  } catch {
+    societaCache = [];
+    buildSocietaMap_([]);
+    return [];
+  }
+}
+
+function getSocietaById(id) {
+  const key = String(id || "").trim();
+  if (!key) return null;
+  return societaMapById.get(key) || null;
+}
+
+function getSocNameById(id) {
+  const s = getSocietaById(id);
+  return s && s.nome ? s.nome : "";
+}
+
+function getSocTagIndexById(id) {
+  const s = getSocietaById(id);
+  return s && s.tag !== undefined && s.tag !== null ? (Number(s.tag) || 0) : 0;
 }
 
 
@@ -500,8 +571,7 @@ function fillCalendarFromPatients(patients) {
     const raw = p.giorni_settimana || p.giorni || "";
     if (!raw) return;
 
-    let map = {};
-    try { map = JSON.parse(raw); } catch { map = {}; }
+    const map = parseGiorniMap(raw);
     if (!map || typeof map !== "object") return;
 
     Object.keys(map).forEach((k) => {
@@ -513,17 +583,19 @@ function fillCalendarFromPatients(patients) {
       const cellDate = dateForDayKey(dayKey);
       if (!inRange(cellDate, p.data_inizio, p.data_fine)) return;
 
-      const t = normTime(map[k]);
-      if (!t) return;
+      const times = normalizeTimeList(map[k]);
+      if (!times.length) return;
 
-      const slotKey = `${dayKey}|${t}`;
-      const prev = slots.get(slotKey) || { count: 0, names: [], ids: [], tags: [] };
-      prev.count += 1;
-      prev.names.push(p.nome_cognome || "Paziente");
-      prev.ids.push(p.id);
-      // Tag color for society (from popup Società)
-      prev.tags.push(getSocTagIndexByName(p.societa || ""));
-      slots.set(slotKey, prev);
+      times.forEach((t) => {
+        const slotKey = `${dayKey}|${t}`;
+        const prev = slots.get(slotKey) || { count: 0, names: [], ids: [], tags: [] };
+        prev.count += 1;
+        prev.names.push(p.nome_cognome || "Paziente");
+        prev.ids.push(p.id);
+        // Tag colore società (da foglio societa)
+        prev.tags.push(getSocTagIndexById(p.societa_id || ""));
+        slots.set(slotKey, prev);
+      });
     });
   });
 
@@ -583,7 +655,7 @@ async function ensurePatientsForCalendar() {
       calDaysCol.appendChild(el);
     });
 
-    // Hours (scrollable) - 30 min slots 06:00 -> 21:30
+    // Hours (scrollable) - 30 min slots 06:00 -> 21:30 (coerente con selettore terapia)
     calHours = [];
     for (let h = 6; h <= 21; h++) {
       for (let m = 0; m < 60; m += 30) {
@@ -671,6 +743,7 @@ async function ensurePatientsForCalendar() {
 
   // Fill therapies from patients schedule
   clearCalendarCells();
+  await loadSocietaCache();
   const patients = await ensurePatientsForCalendar();
   fillCalendarFromPatients(patients);
 }
@@ -864,6 +937,7 @@ async function ensurePatientsForCalendar() {
   async function openPatientsAfterLogin() {
     showView("patients");
     try {
+      await loadSocietaCache();
       await loadPatients();
     } catch (e) {
       toast("Pazienti non disponibili");
@@ -971,7 +1045,7 @@ async function ensurePatientsForCalendar() {
 
     if (patientsSortMode === "soc") {
       arr.sort((a,b) =>
-        String(a.societa||"").localeCompare(String(b.societa||""), "it", { sensitivity: "base" }) ||
+        String(getSocNameById(a.societa_id||"")||"").localeCompare(String(getSocNameById(b.societa_id||"")||""), "it", { sensitivity: "base" }) ||
         String(a.nome_cognome||"").localeCompare(String(b.nome_cognome||""), "it", { sensitivity: "base" })
       );
     } else {
@@ -999,7 +1073,7 @@ async function ensurePatientsForCalendar() {
       row.dataset.idx = String(i);
 
       const name = p.nome_cognome || p.nome || "—";
-      const soc = p.societa || "—";
+      const soc = getSocNameById(p.societa_id || "") || "—";
       const dt = fmtIsoDate(p.createdAt || p.created_at || "");
 
       row.innerHTML = `
@@ -1071,10 +1145,8 @@ async function ensurePatientsForCalendar() {
   modalPickSoc?.addEventListener("click", (e) => { if (e.target === modalPickSoc) closePickSocModal(); });
 
   async function loadSocietaForPick() {
-    const user = getSession();
-    if (!user) return [];
-    const data = await apiCached("listSocieta", { userId: user.id }, 15000);
-    const arr = Array.isArray(data.societa) ? data.societa : [];
+    await loadSocietaCache();
+    const arr = Array.isArray(societaCache) ? societaCache : [];
     return arr;
   }
 
@@ -1103,6 +1175,7 @@ async function ensurePatientsForCalendar() {
         timePickList.querySelectorAll(".pill-btn.selected").forEach((el) => el.classList.remove("selected")); 
         btn.classList.add("selected");
           $("#patSoc").value = s.nome || s;
+          $("#patSocId").value = (s && s.id) ? String(s.id) : "";
           closePickSocModal();
         });
         socPickList.appendChild(btn);
@@ -1222,7 +1295,8 @@ async function ensurePatientsForCalendar() {
 
           const payload = {
             nome_cognome,
-            societa,
+            societa_id,
+      societa_nome,
             livello: liv,
             data_inizio,
             data_fine,
@@ -1234,7 +1308,6 @@ async function ensurePatientsForCalendar() {
           if (!ok) return;
 
           await api("updatePatient", { userId: user.id, id: currentPatient.id, payload: JSON.stringify(payload) });
-          invalidateApiCache("listPatients");
           try { await loadPatients(); } catch {}
           toast("Giorno rimosso");
         } catch {
@@ -1281,6 +1354,7 @@ async function ensurePatientsForCalendar() {
     level = "";
     $("#patName").value = "";
     $("#patSoc").value = "";
+    $("#patSocId").value = "";
     $("#patStart").value = "";
     $("#patEnd").value = "";
     setLevel("");
@@ -1297,15 +1371,13 @@ async function ensurePatientsForCalendar() {
     }
     currentPatient = Object.assign({}, p || {});
     // parse giorni_settimana JSON map (se presente)
-    let map = {};
-    const raw = currentPatient.giorni_settimana || currentPatient.giorni || "";
-    if (raw) {
-      try { map = JSON.parse(raw); } catch { map = {}; }
-    }
-    currentPatient.giorni_map = map && typeof map === "object" ? map : {};
+    const raw = currentPatient.giorni_settimana || currentPatient.giorni || null;
+    const map = parseGiorniMap(raw);
+    currentPatient.giorni_map = map;
     level = String(currentPatient.livello || "");
     $("#patName").value = currentPatient.nome_cognome || "";
-    $("#patSoc").value = currentPatient.societa || "";
+    $("#patSocId").value = currentPatient.societa_id ? String(currentPatient.societa_id) : "";
+    $("#patSoc").value = String(currentPatient.societa_nome || currentPatient.societa || getSocNameById($("#patSocId").value) || "").trim();
     $("#patStart").value = fmtIsoDate(currentPatient.data_inizio || "");
     $("#patEnd").value = fmtIsoDate(currentPatient.data_fine || "");
     setLevel(level);
@@ -1330,7 +1402,7 @@ async function ensurePatientsForCalendar() {
     const data_fine = ($("#patEnd")?.value || "").trim();
 
     if (!nome_cognome) { toast("Inserisci il nome"); return; }
-    if (!societa) { toast("Seleziona la società"); return; }
+    if (!societa_id) { toast("Seleziona la società"); return; }
     if (!level) { toast("Seleziona il livello"); return; }
 
     const payload = {
@@ -1352,7 +1424,6 @@ async function ensurePatientsForCalendar() {
       } else {
         await api("createPatient", { userId: user.id, payload: JSON.stringify(payload) });
       }
-      invalidateApiCache("listPatients");
       toast("Salvato");
       await openPatientsAfterLogin();
     } catch (err) {
@@ -1480,7 +1551,6 @@ async function ensurePatientsForCalendar() {
       return;
     }
     const arr = Array.isArray(data && data.societa) ? data.societa : [];
-    const tagMap = getSocTagMap();
 
     if (!socDeleteList) return;
     socDeleteList.replaceChildren();
@@ -1545,7 +1615,6 @@ async function ensurePatientsForCalendar() {
           ["deleteSocieta", "delSocieta", "removeSocieta", "deleteSociety"],
           { userId: user.id, id: id || undefined, nome: nome || undefined }
         );
-        deleteSocTagForName(nome);
         invalidateApiCache("listSocieta");
         toast("Società eliminata");
         await renderSocietaDeleteList();
@@ -1566,7 +1635,6 @@ async function ensurePatientsForCalendar() {
     if (!user) { toast("Accesso richiesto"); return; }
     try {
       await api("addSocieta", { userId: user.id, nome, tag: selectedSocTag });
-      setSocTagForName(nome, selectedSocTag);
       invalidateApiCache("listSocieta");
       toast("Società aggiunta");
       closeSocModal();
