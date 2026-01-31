@@ -1,4 +1,4 @@
-/* AMF_2.000 */
+/* AMF_1.007 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -701,6 +701,10 @@ select.field{ appearance: none; }
   opacity: .80;
   padding:0;
 }
+
+.mini-icon.circle{
+  border-radius: 999px;
+}
 .mini-icon svg{
   width: 20px;
   height: 20px;
@@ -709,6 +713,9 @@ select.field{ appearance: none; }
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+
+.mini-dot{ border-radius: 50%; }
+
 }
 
 .divider{

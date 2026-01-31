@@ -1,5 +1,5 @@
-/* AMF_1.006 */
-const CACHE_NAME = "amf-cache-1.006";
+/* AMF_1.007 */
+const CACHE_NAME = "amf-cache-1.007";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -7,8 +7,7 @@ const APP_SHELL = [
   "./config.js",
   "./app.js",
   "./manifest.json",
-  "./version.json",
-  "./assets/pwa_gradient.png"
+  "./version.json"
 ];
 
 self.addEventListener("install", (event) => {

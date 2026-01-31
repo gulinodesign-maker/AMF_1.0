@@ -1,7 +1,7 @@
-/* AMF_1.006 */
+/* AMF_1.007 */
 (() => {
-  const BUILD = "AMF_1.006";
-  const DISPLAY = "1.006";
+  const BUILD = "AMF_1.007";
+  const DISPLAY = "1.007";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -696,21 +696,7 @@ function fillCalendarFromPatients(patients) {
 
   calSlotPatients = slots;
 
-  slots.forEach((info, slotKey) => {
-    const [dayKey, time] = slotKey.split("|");
-    const cell = calBody.querySelector(`.cal-cell[data-day-key="${dayKey}"][data-time="${time}"]`);
-    if (!cell) return;
-
-    cell.classList.add("filled");
-    if (info.count === 1) {
-      const tagIdx = Array.isArray(info.tags) && info.tags.length ? info.tags[0] : 0;
-      const lab = initials(info.names[0]);
-      cell.innerHTML = `<span class="cal-socdot t${tagIdx + 1}" aria-hidden="true"></span><span class="cal-cell-text">${escapeHtml(lab)}</span>`;
-    } else {
-      cell.innerHTML = `<span class="cal-cell-text">${escapeHtml(String(info.count))}</span>`;
-    }
-    cell.title = info.names.slice(0, 8).join("\n") + (info.names.length > 8 ? "\n…" : "");
-  });
+  // NOTE: Visual rendering of therapy slots removed (AMF_1.007). Keep only internal slot map.
 }
 
 
@@ -781,12 +767,12 @@ async function ensurePatientsForCalendar() {
         cell.dataset.dayKey = String(d.key);
         cell.dataset.time = t;
         cell.addEventListener("click", async () => {
-          if (!cell.classList.contains("filled")) return;
           const slotKey = `${cell.dataset.dayKey}|${cell.dataset.time}`;
           const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
           const ids = info && Array.isArray(info.ids) ? info.ids.filter((x) => x != null) : [];
+          if (ids.length === 0) return;
           if (ids.length !== 1) {
-            toast(ids.length > 1 ? "Più pazienti in questo slot" : "Paziente non disponibile");
+            toast("Più pazienti in questo slot");
             return;
           }
           const pid = ids[0];
@@ -1219,6 +1205,15 @@ async function ensurePatientsForCalendar() {
     $("#btnPatSave")?.toggleAttribute("disabled", !patientEditEnabled);
     if (!patientEditEnabled) $("#btnPatSave")?.classList.add("pill-gray");
     else $("#btnPatSave")?.classList.remove("pill-gray");
+
+    // Mostra il tasto elimina solo in sola-lettura (scheda esistente)
+    const btnDel = $("#btnPatDelete");
+    if (btnDel) {
+      const canShow = !patientEditEnabled && currentPatient && currentPatient.id;
+      if (canShow) btnDel.removeAttribute("hidden");
+      else btnDel.setAttribute("hidden", "");
+    }
+
   }
 
   // ---- Società picker (modal)
@@ -1485,6 +1480,33 @@ async function ensurePatientsForCalendar() {
 
   $("#btnPatCalendar")?.addEventListener("click", () => openCalendarFlow());
   $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
+  $("#btnPatDelete")?.addEventListener("click", async () => {
+    // Solo scheda esistente in sola lettura
+    if (patientEditEnabled) return;
+    const user = getSession();
+    if (!user) { toast("Devi accedere"); return; }
+    if (!currentPatient || !currentPatient.id) { toast("Paziente non valido"); return; }
+
+    const ok = await ensureApiReady();
+    if (!ok) return;
+
+    const sure = confirm("Eliminare definitivamente questo paziente dal database?");
+    if (!sure) return;
+
+    const btn = $("#btnPatDelete");
+    try {
+      if (btn) btn.setAttribute("disabled", "");
+      await api("deletePatient", { userId: user.id, id: currentPatient.id });
+      toast("Paziente eliminato");
+      await openPatientsAfterLogin();
+    } catch (err) {
+      if (apiHintIfUnknownAction(err)) return;
+      toast(String(err && err.message ? err.message : "Errore"));
+    } finally {
+      if (btn) btn.removeAttribute("disabled");
+    }
+  });
+
 
   $("#formPatient")?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1783,7 +1805,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.006").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.007").catch(() => {});
     });
   }
 })();
