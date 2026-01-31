@@ -1,7 +1,7 @@
-/* AMF_1.005 */
+/* AMF_1.006 */
 (() => {
-  const BUILD = "AMF_1.005";
-  const DISPLAY = "1.005";
+  const BUILD = "AMF_1.006";
+  const DISPLAY = "1.006";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -446,13 +446,68 @@ const DAY_LABEL_TO_KEY = {
 };
 
 function normTime(t) {
-  if (!t) return "";
-  const s = String(t).trim();
-  const m = s.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return s;
-  const hh = String(parseInt(m[1], 10)).padStart(2, "0");
-  const mm = m[2];
-  return `${hh}:${mm}`;
+  if (t == null || t === "") return "";
+
+  // Date object -> HH:MM
+  if (t instanceof Date) {
+    if (isNaN(t)) return "";
+    const hh = String(t.getHours()).padStart(2, "0");
+    const mm = String(t.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
+  // Google Sheets time serials or numeric times
+  if (typeof t === "number" && isFinite(t)) {
+    let totalMinutes = null;
+
+    // Common Sheet time: fraction of day (0..1)
+    if (t >= 0 && t < 1) {
+      totalMinutes = Math.round(t * 24 * 60);
+    } else if (t >= 1 && t < 24) {
+      // hours as number (e.g., 9.5 -> 09:30)
+      totalMinutes = Math.round(t * 60);
+    } else if (t >= 0 && t < 24 * 60) {
+      // minutes as number (fallback)
+      totalMinutes = Math.round(t);
+    }
+
+    if (totalMinutes != null) {
+      const hh = String(Math.floor(totalMinutes / 60) % 24).padStart(2, "0");
+      const mm = String(totalMinutes % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+  }
+
+  let s = String(t).trim();
+  if (!s) return "";
+
+  // Normalize separators (09.30 -> 09:30)
+  s = s.replace(".", ":");
+
+  // "9" or "9:" -> "09:00"
+  let m = s.match(/^(\d{1,2})\s*:?$/);
+  if (m) {
+    const hh = String(parseInt(m[1], 10)).padStart(2, "0");
+    return `${hh}:00`;
+  }
+
+  // "9:0" -> "09:00"
+  m = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (m) {
+    const hh = String(parseInt(m[1], 10)).padStart(2, "0");
+    const mm = String(parseInt(m[2], 10)).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
+  // Already HH:MM
+  m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (m) {
+    const hh = String(parseInt(m[1], 10)).padStart(2, "0");
+    const mm = m[2];
+    return `${hh}:${mm}`;
+  }
+
+  return s;
 }
 
 function initials(name) {
@@ -481,12 +536,21 @@ function parseGiorniMap(raw) {
 
 function normalizeTimeList(value) {
   if (value == null) return [];
+
+  // If value is a Sheet serial/number or a Date, normalize directly
+  if (typeof value === "number" || value instanceof Date) {
+    const t = normTime(value);
+    return t ? [t] : [];
+  }
+
   if (Array.isArray(value)) return value.map(normTime).filter(Boolean);
+
   if (typeof value === "object") {
-    const maybe = value.ora_inizio || value.time || value.ora || "";
+    const maybe = (value.ora_inizio ?? value.time ?? value.ora ?? value.orario ?? "");
     const t = normTime(maybe);
     return t ? [t] : [];
   }
+
   const s = String(value).trim();
   if (!s || s === "—") return [];
   const parts = s.split(/[,;\n]+/).map((x) => normTime(x)).filter(Boolean);
@@ -565,7 +629,7 @@ function fillCalendarFromPatients(patients) {
     const d = new Date(dateObj);
     d.setHours(0, 0, 0, 0);
     const jsDay = d.getDay(); // 0=Sun..6=Sat
-    const diff = (jsDay === 0) ? -6 : (1 - jsDay); // move back to Monday
+    const diff = (jsDay === 0) ? 1 : (1 - jsDay); // Sun -> next Monday, else back to Monday
     d.setDate(d.getDate() + diff);
     return d;
   }
@@ -1719,7 +1783,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.005").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.006").catch(() => {});
     });
   }
 })();
