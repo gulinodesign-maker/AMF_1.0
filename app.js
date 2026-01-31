@@ -678,21 +678,17 @@ function fillCalendarFromPatients(patients) {
   }
 
   function inRange(cellDate, startStr, endStr) {
-    // Week-based range: if the current calendar week is between the week of start and the week of end, include it
+    // Date-based range: include only if the specific cell date is within [start, end] (inclusive)
     const s = dateOnlyLocal(startStr);
     const e = dateOnlyLocal(endStr);
     if (!s && !e) return true;
+    if (!cellDate) return true;
 
-    const curWeek = mondayOfWeek(cellDate || calSelectedDate);
+    const d = dateOnlyLocal(cellDate);
+    if (!d) return false;
 
-    if (s) {
-      const sWeek = mondayOfWeek(s);
-      if (curWeek.getTime() < sWeek.getTime()) return false;
-    }
-    if (e) {
-      const eWeek = mondayOfWeek(e);
-      if (curWeek.getTime() > eWeek.getTime()) return false;
-    }
+    if (s && d.getTime() < s.getTime()) return false;
+    if (e && d.getTime() > e.getTime()) return false;
     return true;
   }
 
