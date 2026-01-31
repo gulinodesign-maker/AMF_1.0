@@ -383,7 +383,7 @@
     } else {
       showView("home");
     }
-  }
+  });
 
   btnTopBackPatients?.addEventListener("click", async () => {
     // Torna alla lista pazienti dal calendario
@@ -394,7 +394,7 @@
       await openPatientsFlow();
     }
   });
-);
+
 
   function setTopPlusVisible(isVisible) {
     if (!btnTopPlus) return;
