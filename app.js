@@ -1,7 +1,7 @@
-/* AMF_2.000 */
+/* AMF_1.004 */
 (() => {
-  const BUILD = "AMF_2.000";
-  const DISPLAY = "2.003";
+  const BUILD = "AMF_1.004";
+  const DISPLAY = "1.004";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1688,7 +1688,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=2.003").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.004").catch(() => {});
     });
   }
 })();

@@ -1,5 +1,5 @@
-/* AMF_2.003 */
-const CACHE_NAME = "amf-cache-2.003";
+/* AMF_1.004 */
+const CACHE_NAME = "amf-cache-1.004";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,12 +8,7 @@ const APP_SHELL = [
   "./app.js",
   "./manifest.json",
   "./version.json",
-  "./assets/bg-montalto.png",
-  "./assets/logo.jpg",
-  "./assets/pwa_gradient.png",
-  "./assets/apple-touch-icon.png",
-  "./assets/icon-192.png",
-  "./assets/icon-512.png"
+  "./assets/pwa_gradient.png"
 ];
 
 self.addEventListener("install", (event) => {

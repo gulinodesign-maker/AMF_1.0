@@ -41,14 +41,14 @@ body{
   height:3px;
   /* UNICA SFUMATURA CONSENTITA: separatore topbar (palette pwa_gradient) */
   background: linear-gradient(90deg,
-    rgba(230,230,230,1) 0%,
-    rgba(150,150,150,1) 20%,
-    rgba(0,0,0,1) 38%,
-    rgba(42,116,184,1) 62%,
-    rgba(105,185,243,1) 82%,
-    rgba(166,217,255,1) 100%
+    #2B2B2B 0%,
+    #32444D 20%,
+    #385D6F 40%,
+    #3F7592 60%,
+    #458EB4 80%,
+    #4CA7D6 100%
   );
-}
+  }
 
 .topbar-left{
   display:flex;
@@ -953,27 +953,24 @@ select.field{ appearance: none; }
 }
 
 
-/* --- Calendario: colori per giorno (gradient app) + opacità richieste --- */
-.cal-day[data-day-key="1"]{ background: rgba(230,230,230,.70); color: rgba(27,31,35,.92); }
-.cal-day[data-day-key="2"]{ background: rgba(0,0,0,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="3"]{ background: rgba(42,116,184,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="4"]{ background: rgba(105,185,243,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="5"]{ background: rgba(166,217,255,.70); color: rgba(27,31,35,.92); }
-.cal-day[data-day-key="6"]{ background: rgba(150,150,150,.70); color: rgba(27,31,35,.92); }
+/* --- Calendario: colori per giorno (pwa_gradient) + opacità richieste --- */
+.cal-day[data-day-key="1"]{ background: rgba(43,43,43,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
+.cal-day[data-day-key="2"]{ background: rgba(50,68,77,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
+.cal-day[data-day-key="3"]{ background: rgba(56,93,111,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
+.cal-day[data-day-key="4"]{ background: rgba(63,117,146,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
+.cal-day[data-day-key="5"]{ background: rgba(69,142,180,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
+.cal-day[data-day-key="6"]{ background: rgba(76,167,214,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
 
-.cal-row[data-day-key="1"] .cal-cell{ background: rgba(230,230,230,.50); }
-.cal-row[data-day-key="2"] .cal-cell{ background: rgba(0,0,0,.50); border-color: rgba(255,255,255,.14); }
-.cal-row[data-day-key="3"] .cal-cell{ background: rgba(42,116,184,.50); border-color: rgba(255,255,255,.14); }
-.cal-row[data-day-key="4"] .cal-cell{ background: rgba(105,185,243,.50); border-color: rgba(255,255,255,.14); }
-.cal-row[data-day-key="5"] .cal-cell{ background: rgba(166,217,255,.50); }
-.cal-row[data-day-key="6"] .cal-cell{ background: rgba(150,150,150,.50); }
+.cal-row[data-day-key="1"] .cal-cell{ background: rgba(43,43,43,.50); border-color: rgba(255,255,255,.14); }
+.cal-row[data-day-key="2"] .cal-cell{ background: rgba(50,68,77,.50); border-color: rgba(255,255,255,.14); }
+.cal-row[data-day-key="3"] .cal-cell{ background: rgba(56,93,111,.50); border-color: rgba(255,255,255,.14); }
+.cal-row[data-day-key="4"] .cal-cell{ background: rgba(63,117,146,.50); border-color: rgba(255,255,255,.14); }
+.cal-row[data-day-key="5"] .cal-cell{ background: rgba(69,142,180,.50); border-color: rgba(255,255,255,.14); }
+.cal-row[data-day-key="6"] .cal-cell{ background: rgba(76,167,214,.50); border-color: rgba(255,255,255,.14); }
 
-.cal-row[data-day-key="2"] .cal-cell.filled,
-.cal-row[data-day-key="3"] .cal-cell.filled,
-.cal-row[data-day-key="4"] .cal-cell.filled{ color: rgba(255,255,255,.92); }
-.cal-row[data-day-key="1"] .cal-cell.filled,
-.cal-row[data-day-key="5"] .cal-cell.filled,
-.cal-row[data-day-key="6"] .cal-cell.filled{ color: rgba(27,31,35,.92); }
+/* Iniziali pazienti: sempre nere in tutte le celle */
+.cal-row .cal-cell.filled,
+.cal-row .cal-cell.filled .cal-cell-text{ color: #000 !important; }
 
 .cal-cell-text{ position: relative; z-index: 1; font-size: 14px; letter-spacing: .4px; }
 
