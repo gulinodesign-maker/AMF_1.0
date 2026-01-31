@@ -1,5 +1,5 @@
-/* AMF_1.006 */
-const CACHE_NAME = "amf-cache-1.006";
+/* AMF_1.005 */
+const CACHE_NAME = "amf-cache-1.005";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,13 +8,8 @@ const APP_SHELL = [
   "./app.js",
   "./manifest.json",
   "./version.json",
+  "./assets/pwa_gradient.png"
 ];
-
-self.addEventListener("message", (event) => {
-  if (event && event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -61,9 +56,7 @@ self.addEventListener("fetch", (event) => {
       try {
         const fresh = await fetch(req, { cache: "no-store" });
         const cache = await caches.open(CACHE_NAME);
-        cache.put(req, fresh.clone());
-        // also refresh index.html key for offline fallback
-        try { cache.put("./index.html", fresh.clone()); } catch (_) {}
+        cache.put("./index.html", fresh.clone());
         return fresh;
       } catch (e) {
         const cached = await caches.match("./index.html");

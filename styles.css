@@ -968,6 +968,14 @@ select.field{ appearance: none; }
 .cal-row[data-day-key="5"] .cal-cell{ background: rgba(69,142,180,.50); border-color: rgba(255,255,255,.14); }
 .cal-row[data-day-key="6"] .cal-cell{ background: rgba(76,167,214,.50); border-color: rgba(255,255,255,.14); }
 
+/* Celle con terapia: opacità 20% (solo sfondo, testo invariato) */
+.cal-row[data-day-key="1"] .cal-cell.filled{ background: rgba(43,43,43,.20); }
+.cal-row[data-day-key="2"] .cal-cell.filled{ background: rgba(50,68,77,.20); }
+.cal-row[data-day-key="3"] .cal-cell.filled{ background: rgba(56,93,111,.20); }
+.cal-row[data-day-key="4"] .cal-cell.filled{ background: rgba(63,117,146,.20); }
+.cal-row[data-day-key="5"] .cal-cell.filled{ background: rgba(69,142,180,.20); }
+.cal-row[data-day-key="6"] .cal-cell.filled{ background: rgba(76,167,214,.20); }
+
 /* Iniziali pazienti: sempre nere in tutte le celle */
 .cal-row .cal-cell.filled,
 .cal-row .cal-cell.filled .cal-cell-text{ color: #000 !important; }
