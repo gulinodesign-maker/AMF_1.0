@@ -671,8 +671,6 @@ select.field{ appearance: none; }
 }
 
 .patient-card{ width: min(520px, 100%); }
-.patient-card.is-editing{ background: rgba(255,165,0,.20) !important; }
-
 
 .patient-card.patient-readonly{
   background: rgba(42,116,184,.20);
