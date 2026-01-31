@@ -1,7 +1,7 @@
-/* AMF_1.012 */
+/* AMF_1.013 */
 (() => {
-  const BUILD = "AMF_1.012";
-  const DISPLAY = "1.012";
+  const BUILD = "AMF_1.013";
+  const DISPLAY = "1.013";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -412,6 +412,7 @@
   const calDaysCol = $("#calDaysCol");
   const calHoursRow = $("#calHoursRow");
   const calBody = $("#calBody");
+  const calScroll = $("#calScroll");
 
   const CAL_DAYS = [
     { key: 1, label: "LU" },
@@ -808,10 +809,54 @@ async function ensurePatientsForCalendar() {
 }
 
 
-  function openCalendarFlow() {
+  async function openCalendarFlow() {
     ensureCalendarBuilt();
+    const now = new Date();
+    // Se è domenica (non presente), sposta a lunedì (più vicino e utilizzabile)
+    if (now.getDay() === 0) now.setDate(now.getDate() + 1);
+    calSelectedDate = now;
     showView("calendar");
-    updateCalendarUI();
+    await updateCalendarUI();
+    focusCalendarNow();
+  }
+
+
+  function focusCalendarNow() {
+    if (!calScroll) return;
+    const now = new Date();
+    // Allinea la data mostrata a quella selezionata (gestione domenica già fatta in openCalendarFlow)
+    const ref = new Date(calSelectedDate || now);
+    let jsDay = ref.getDay(); // 0=Sun..6=Sat
+    if (jsDay === 0) jsDay = 1; // fallback (non dovrebbe accadere)
+    const dayKey = jsDay; // 1=Mon..6=Sat
+
+    // Trova lo slot orario più vicino (30 minuti) nel range 06:00-21:30
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const nearest = Math.round(mins / 30) * 30;
+    const minSlot = 6 * 60;
+    const maxSlot = 21 * 60 + 30;
+    const clamped = Math.max(minSlot, Math.min(maxSlot, nearest));
+    const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
+    const mm = String(clamped % 60).padStart(2, "0");
+    const timeStr = `${hh}:${mm}`;
+
+    const cell = document.querySelector(`.cal-cell[data-day-key="${dayKey}"][data-time="${timeStr}"]`);
+    if (!cell) return;
+
+    // Scorri orizzontalmente per rendere visibile la cella più vicina ad oggi/ora
+    try {
+      cell.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      return;
+    } catch (_) {}
+
+    try {
+      const cellRect = cell.getBoundingClientRect();
+      const scrollRect = calScroll.getBoundingClientRect();
+      const delta = (cellRect.left + cellRect.width / 2) - (scrollRect.left + scrollRect.width / 2);
+      const targetLeft = calScroll.scrollLeft + delta;
+      if (calScroll.scrollTo) calScroll.scrollTo({ left: targetLeft, behavior: "smooth" });
+      else calScroll.scrollLeft = targetLeft;
+    } catch (_) {}
   }
 
   function ensureCalendarBuilt() {
@@ -1320,12 +1365,25 @@ async function ensurePatientsForCalendar() {
 
   function setPatientFormEnabled(enabled) {
     patientEditEnabled = !!enabled;
+
+    // Stato sola-lettura: solo per scheda paziente (viewPatientForm)
+    const patCard = document.querySelector("#viewPatientForm .patient-card");
+    if (patCard) patCard.classList.toggle("patient-readonly", !patientEditEnabled);
+    const rowSoc = document.querySelector("#viewPatientForm .row-soc");
+    if (rowSoc) rowSoc.classList.toggle("no-drop", !patientEditEnabled);
+
     const ids = ["patName","patStart","patEnd"];
     ids.forEach(id => {
       const el = $("#" + id);
       if (el) el.disabled = !patientEditEnabled;
     });
-    $("#btnPickSoc")?.toggleAttribute("disabled", !patientEditEnabled);
+    const btnPick = $("#btnPickSoc");
+    if (btnPick) {
+      // In sola lettura non serve la freccia (selezione società)
+      if (!patientEditEnabled) btnPick.setAttribute("hidden", "");
+      else btnPick.removeAttribute("hidden");
+      btnPick.toggleAttribute("disabled", !patientEditEnabled);
+    }
     document.querySelectorAll(".circle-btn").forEach(b => b.toggleAttribute("disabled", !patientEditEnabled));
     document.querySelectorAll(".day-btn").forEach(b => b.toggleAttribute("disabled", !patientEditEnabled));
     $("#btnPatSave")?.toggleAttribute("disabled", !patientEditEnabled);
@@ -1931,7 +1989,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.008").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.013").catch(() => {});
     });
   }
 })();

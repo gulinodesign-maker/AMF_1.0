@@ -672,6 +672,14 @@ select.field{ appearance: none; }
 
 .patient-card{ width: min(520px, 100%); }
 
+.patient-card.patient-readonly{
+  background: rgba(42,116,184,.20);
+}
+
+.row-soc.no-drop{ gap: 0; }
+.row-soc.no-drop .drop-btn{ display:none; }
+.row-soc.no-drop #patSoc{ flex: 1 1 auto; width: 100%; }
+
 .patient-head{
   width:100%;
   display:flex;
@@ -829,10 +837,10 @@ select.field{ appearance: none; }
 }
 
 
-/* FIX AMF_1.012: date inputs alignment */
+/* FIX AMF_1.013: date inputs alignment */
 .date-row,.period-row,.row-dates{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:nowrap}
 .date-row input,.period-row input,.row-dates input{flex:1 1 0;min-width:0}
-/* FIX AMF_1.012: home icons vertical position */
+/* FIX AMF_1.013: home icons vertical position */
 .home-layout{padding-top:12px}
 
 /* --- Calendario (ore scroll, giorni fissi) --- */
