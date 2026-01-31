@@ -1,7 +1,7 @@
-/* AMF_1.009 */
+/* AMF_1.010 */
 (() => {
-  const BUILD = "AMF_1.009";
-  const DISPLAY = "1.009";
+  const BUILD = "AMF_1.010";
+  const DISPLAY = "1.010";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -493,6 +493,38 @@ function normTime(t) {
       const mm = String(dt.getMinutes()).padStart(2, "0");
       return `${hh}:${mm}`;
     }
+  }
+
+  // Pure time with seconds/millis (e.g., 09:00:00, 09:00:00.000, 9:0:0) -> HH:MM
+  let ms = s.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.\d+)?)?$/);
+  if (ms) {
+    const hh = String(parseInt(ms[1], 10)).padStart(2, "0");
+    const mm = String(parseInt(ms[2], 10)).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
+  // Time with AM/PM (e.g., 9:00 AM, 09:00PM, 9 AM) -> HH:MM
+  ms = s.match(/^(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2})(?:\.\d+)?)?\s*(AM|PM)$/i);
+  if (ms) {
+    let h = parseInt(ms[1], 10);
+    const m2 = ms[2] != null ? parseInt(ms[2], 10) : 0;
+    const ap = String(ms[4] || "").toUpperCase();
+    if (ap === "AM") {
+      if (h === 12) h = 0;
+    } else if (ap === "PM") {
+      if (h < 12) h += 12;
+    }
+    const hh = String(h).padStart(2, "0");
+    const mm = String(m2).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
+  // Fallback: if string starts with HH:MM (even if it has more), keep only HH:MM
+  ms = s.match(/^(\d{1,2}):(\d{2})/);
+  if (ms) {
+    const hh = String(parseInt(ms[1], 10)).padStart(2, "0");
+    const mm = ms[2];
+    return `${hh}:${mm}`;
   }
 
   // "9" or "9:" -> "09:00"
