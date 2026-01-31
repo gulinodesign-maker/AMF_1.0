@@ -1,7 +1,7 @@
-/* AMF_1.004 */
+/* AMF_1.005 */
 (() => {
-  const BUILD = "AMF_1.004";
-  const DISPLAY = "1.004";
+  const BUILD = "AMF_1.005";
+  const DISPLAY = "1.005";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -417,7 +417,51 @@
   let calBuilt = false;
   let calSlotPatients = new Map(); // key "dayKey|HH:MM" -> {count, ids:[]}
 
-const DAY_LABEL_TO_KEY = { LU: 1, MA: 2, ME: 3, GI: 4, VE: 5, SA: 6 };
+const DAY_LABEL_TO_KEY = {
+  // Canonical (Mon-Sat)
+  LU: 1, MA: 2, ME: 3, GI: 4, VE: 5, SA: 6,
+
+  // Common 3-letter abbreviations
+  LUN: 1, MAR: 2, MER: 3, GIO: 4, VEN: 5, SAB: 6,
+
+  // Full Italian names (with/without accents)
+  LUNEDI: 1, LUNEDÌ: 1,
+  MARTEDI: 2, MARTEDÌ: 2,
+  MERCOLEDI: 3, MERCOLEDÌ: 3,
+  GIOVEDI: 4, GIOVEDÌ: 4,
+  VENERDI: 5, VENERDÌ: 5,
+  SABATO: 6
+};
+
+function normalizeDayLabel(label) {
+  if (label == null) return "";
+  let s = String(label).trim().toUpperCase();
+  if (!s) return "";
+  // Normalize accents (VENERDÌ -> VENERDI)
+  try {
+    s = s.normalize("NFD").replace(/[\u0300-\u036f]+/g, "");
+  } catch (_) {
+    // Fallback for older engines
+    s = s.replace(/[ÀÁÂÃÄÅ]/g, "A")
+         .replace(/[ÈÉÊË]/g, "E")
+         .replace(/[ÌÍÎÏ]/g, "I")
+         .replace(/[ÒÓÔÕÖ]/g, "O")
+         .replace(/[ÙÚÛÜ]/g, "U");
+  }
+  // Keep only letters
+  s = s.replace(/[^A-Z]/g, "");
+  return s;
+}
+
+function dayKeyFromLabel(label) {
+  const k = normalizeDayLabel(label);
+  if (!k) return 0;
+  if (DAY_LABEL_TO_KEY[k]) return DAY_LABEL_TO_KEY[k];
+  const k2 = k.slice(0, 2);
+  const k3 = k.slice(0, 3);
+  return DAY_LABEL_TO_KEY[k3] || DAY_LABEL_TO_KEY[k2] || 0;
+}
+
 
 function normTime(t) {
   if (!t) return "";
@@ -575,8 +619,7 @@ function fillCalendarFromPatients(patients) {
     if (!map || typeof map !== "object") return;
 
     Object.keys(map).forEach((k) => {
-      const dayLabel = String(k || "").trim().toUpperCase();
-      const dayKey = DAY_LABEL_TO_KEY[dayLabel];
+      const dayKey = dayKeyFromLabel(k);
       if (!dayKey) return;
 
       // Date-range filter (patient should only appear within its active period)
