@@ -1,7 +1,7 @@
-/* AMF_1.013 */
+/* AMF_1.014 */
 (() => {
-  const BUILD = "AMF_1.013";
-  const DISPLAY = "1.013";
+  const BUILD = "AMF_1.014";
+  const DISPLAY = "1.014";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -102,9 +102,11 @@
   }
   function setSession(user) {
     localStorage.setItem("AMF_SESSION", JSON.stringify(user));
+    try { updateTopbarTitle(); } catch (_) {}
   }
   function clearSession() {
     localStorage.removeItem("AMF_SESSION");
+    try { updateTopbarTitle(); } catch (_) {}
   }
 
   // Migrazione build: se cambia build e config.js ha un URL valido, aggiorna l"API_URL locale
@@ -325,6 +327,27 @@
     calendar: $("#viewCalendar")
   };
 
+  const btnTopBackPatients = $("#btnTopBackPatients");
+  const topbarTitle = $("#topbarTitle");
+
+  function getPhysioNameFromUser(u) {
+    if (!u) return "";
+    return (u.nome || u.name || u.username || u.email || "").toString().trim();
+  }
+  function updateTopbarTitle() {
+    if (!topbarTitle) return;
+    const u = getSession();
+    const n = getPhysioNameFromUser(u);
+    topbarTitle.textContent = n ? n : "Montalto PMS";
+    try { document.title = topbarTitle.textContent; } catch (_) {}
+  }
+
+  function setTopBackPatientsVisible(visible) {
+    if (!btnTopBackPatients) return;
+    if (visible) btnTopBackPatients.removeAttribute("hidden");
+    else btnTopBackPatients.setAttribute("hidden","");
+  }
+
   const btnTopRight = $("#btnTopRight");
   const iconTopRight = $("#iconTopRight");
   const btnTopPlus = $("#btnTopPlus");
@@ -362,6 +385,8 @@
 
     setTopPlusVisible(name === "patients");
     setCalendarControlsVisible(name === "calendar");
+    setTopBackPatientsVisible(name === "calendar");
+    updateTopbarTitle();
   }
 
   btnTopRight?.addEventListener("click", () => {
@@ -371,6 +396,13 @@
       showView("home");
     }
   });
+
+  btnTopBackPatients?.addEventListener("click", async () => {
+    const user = getSession();
+    if (!user) { showView("auth"); return; }
+    await openPatientsAfterLogin();
+  });
+
 
   function setTopPlusVisible(isVisible) {
     if (!btnTopPlus) return;
@@ -1005,6 +1037,9 @@ async function ensurePatientsForCalendar() {
   const buildLabel = $("#buildLabel");
   if (buildLabel) buildLabel.textContent = DISPLAY;
 
+  // Topbar title (fisioterapista account attivo)
+  updateTopbarTitle();
+
   // --- Auth buttons
   $("#btnGoCreate")?.addEventListener("click", () => showView("create"));
   $("#btnGoModify")?.addEventListener("click", () => openModify());
@@ -1368,7 +1403,10 @@ async function ensurePatientsForCalendar() {
 
     // Stato sola-lettura: solo per scheda paziente (viewPatientForm)
     const patCard = document.querySelector("#viewPatientForm .patient-card");
-    if (patCard) patCard.classList.toggle("patient-readonly", !patientEditEnabled);
+    if (patCard) {
+      patCard.classList.toggle("patient-readonly", !patientEditEnabled);
+      patCard.classList.toggle("patient-editing", patientEditEnabled);
+    }
     const rowSoc = document.querySelector("#viewPatientForm .row-soc");
     if (rowSoc) rowSoc.classList.toggle("no-drop", !patientEditEnabled);
 
