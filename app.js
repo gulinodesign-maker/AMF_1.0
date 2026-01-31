@@ -1,7 +1,7 @@
-/* AMF_1.010 */
+/* AMF_1.011 */
 (() => {
-  const BUILD = "AMF_1.010";
-  const DISPLAY = "1.010";
+  const BUILD = "AMF_1.011";
+  const DISPLAY = "1.011";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -668,15 +668,6 @@ function fillCalendarFromPatients(patients) {
 
   // Compute the real date for each weekday cell (Mon-Sat) in the week of calSelectedDate
 
-  function mondayOfWeek(dateObj) {
-    const d = new Date(dateObj);
-    d.setHours(0, 0, 0, 0);
-    const jsDay = d.getDay(); // 0=Sun..6=Sat
-    const diff = (jsDay === 0) ? 1 : (1 - jsDay); // Sun -> next Monday, else back to Monday
-    d.setDate(d.getDate() + diff);
-    return d;
-  }
-
   const weekMon = mondayOfWeek(calSelectedDate);
 
   function dateForDayKey(dayKey) {
@@ -687,12 +678,21 @@ function fillCalendarFromPatients(patients) {
   }
 
   function inRange(cellDate, startStr, endStr) {
-    if (!cellDate) return false;
+    // Week-based range: if the current calendar week is between the week of start and the week of end, include it
     const s = dateOnlyLocal(startStr);
     const e = dateOnlyLocal(endStr);
-    const t = cellDate.getTime();
-    if (s && t < s.getTime()) return false;
-    if (e && t > e.getTime()) return false;
+    if (!s && !e) return true;
+
+    const curWeek = mondayOfWeek(cellDate || calSelectedDate);
+
+    if (s) {
+      const sWeek = mondayOfWeek(s);
+      if (curWeek.getTime() < sWeek.getTime()) return false;
+    }
+    if (e) {
+      const eWeek = mondayOfWeek(e);
+      if (curWeek.getTime() > eWeek.getTime()) return false;
+    }
     return true;
   }
 
@@ -901,9 +901,24 @@ async function ensurePatientsForCalendar() {
 
   function shiftCalendarDay(delta) {
     const d = new Date(calSelectedDate);
-    d.setDate(d.getDate() + delta);
+    d.setDate(d.getDate() + (delta * 7));
     calSelectedDate = d;
     updateCalendarUI();
+  }
+
+  function formatItMonth(dateObj) {
+    const fmt = new Intl.DateTimeFormat("it-IT", { month: "long" });
+    let s = fmt.format(dateObj);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  function mondayOfWeek(dateObj) {
+    const d = new Date(dateObj);
+    d.setHours(0, 0, 0, 0);
+    const jsDay = d.getDay(); // 0=Sun..6=Sat
+    const diff = (jsDay === 0) ? 1 : (1 - jsDay); // Sun -> next Monday, else back to Monday
+    d.setDate(d.getDate() + diff);
+    return d;
   }
 
   function formatItDate(dateObj) {
@@ -916,7 +931,20 @@ async function ensurePatientsForCalendar() {
   async function updateCalendarUI() {
   if (!calDateTitle || !calDaysCol) return;
 
-  calDateTitle.textContent = formatItDate(calSelectedDate);
+  const weekMon = mondayOfWeek(calSelectedDate);
+  calDateTitle.textContent = formatItMonth(weekMon);
+
+  // Update day labels with day-of-month numbers for the current week
+  calDaysCol.querySelectorAll(".cal-day").forEach((el) => {
+    if (el.classList.contains("cal-day-spacer")) return;
+    const dk = parseInt(el.dataset.dayKey || "0", 10);
+    if (!dk) return;
+    const d = new Date(weekMon);
+    d.setDate(d.getDate() + (dk - 1));
+    const dd = d.getDate();
+    const base = (CAL_DAYS.find(x => x.key === dk)?.label) || el.textContent.trim().slice(0,2);
+    el.textContent = `${base} ${dd}`;
+  });
 
   // Active weekday (Mon-Sat only)
   const jsDay = calSelectedDate.getDay(); // 0=Sun ... 6=Sat
