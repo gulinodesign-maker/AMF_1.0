@@ -1,7 +1,7 @@
-/* AMF_1.011 */
+/* AMF_1.012 */
 (() => {
-  const BUILD = "AMF_1.011";
-  const DISPLAY = "1.011";
+  const BUILD = "AMF_1.012";
+  const DISPLAY = "1.012";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -678,20 +678,19 @@ function fillCalendarFromPatients(patients) {
   }
 
   function inRange(cellDate, startStr, endStr) {
-    // Date-based range: include only if the specific cell date is within [start, end] (inclusive)
+    // Date-based inclusive range (per-cell). Prevents spillover into the same week beyond end date.
     const s = dateOnlyLocal(startStr);
     const e = dateOnlyLocal(endStr);
     if (!s && !e) return true;
     if (!cellDate) return true;
 
-    const d = dateOnlyLocal(cellDate);
-    if (!d) return false;
+    const d = new Date(cellDate);
+    d.setHours(0, 0, 0, 0);
 
     if (s && d.getTime() < s.getTime()) return false;
     if (e && d.getTime() > e.getTime()) return false;
     return true;
   }
-
   const slots = new Map(); // key -> {count, names:[], ids:[], tags:[]}
 
   (patients || []).forEach((p) => {
