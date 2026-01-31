@@ -426,12 +426,12 @@ select.field{ appearance: none; }
   border-bottom: 2px solid #ffffff;
   transform: rotate(45deg);
 }
-.tag-dot.t1{ background:#2a74b8; }
-.tag-dot.t2{ background:#69b9f3; }
-.tag-dot.t3{ background:#c57b2a; }
-.tag-dot.t4{ background:#2a9d6f; }
-.tag-dot.t5{ background:#8b5cf6; }
-.tag-dot.t6{ background:#d94a4a; }
+.tag-dot.t1{ background:#3a3a3a; }
+.tag-dot.t2{ background:#6b6b6b; }
+.tag-dot.t3{ background:#b9b9b9; }
+.tag-dot.t4{ background:#a8d8ff; }
+.tag-dot.t5{ background:#69b9f3; }
+.tag-dot.t6{ background:#2a74b8; }
 
 /* 3 tasti in riga nel modal società */
 .row3{
@@ -988,10 +988,10 @@ select.field{ appearance: none; }
   z-index: 2;
   border: 0;
 }
-.cal-socdot.t1{ background:#2a74b8; }
-.cal-socdot.t2{ background:#69b9f3; }
-.cal-socdot.t3{ background:#c57b2a; }
-.cal-socdot.t4{ background:#2a9d6f; }
-.cal-socdot.t5{ background:#8b5cf6; }
-.cal-socdot.t6{ background:#d94a4a; }
+.cal-socdot.t1{ background:#3a3a3a; }
+.cal-socdot.t2{ background:#6b6b6b; }
+.cal-socdot.t3{ background:#b9b9b9; }
+.cal-socdot.t4{ background:#a8d8ff; }
+.cal-socdot.t5{ background:#69b9f3; }
+.cal-socdot.t6{ background:#2a74b8; }
 

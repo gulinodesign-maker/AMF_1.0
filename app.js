@@ -1,7 +1,7 @@
-/* AMF_1.019 */
+/* AMF_1.020 */
 (() => {
-  const BUILD = "AMF_1.019";
-  const DISPLAY = "1.019";
+  const BUILD = "AMF_1.020";
+  const DISPLAY = "1.020";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -583,11 +583,10 @@ async function ensurePatientsForCalendar() {
       calDaysCol.appendChild(el);
     });
 
-    // Hours (scrollable) - 30 min slots 08:00 -> 20:00
+    // Hours (scrollable) - 30 min slots 06:00 -> 21:30
     calHours = [];
-    for (let h = 8; h <= 20; h++) {
+    for (let h = 6; h <= 21; h++) {
       for (let m = 0; m < 60; m += 30) {
-        if (h === 20 && m > 0) continue;
         const hh = String(h).padStart(2, "0");
         const mm = String(m).padStart(2, "0");
         calHours.push(`${hh}:${mm}`);
@@ -1235,6 +1234,7 @@ async function ensurePatientsForCalendar() {
           if (!ok) return;
 
           await api("updatePatient", { userId: user.id, id: currentPatient.id, payload: JSON.stringify(payload) });
+          invalidateApiCache("listPatients");
           try { await loadPatients(); } catch {}
           toast("Giorno rimosso");
         } catch {
@@ -1352,6 +1352,7 @@ async function ensurePatientsForCalendar() {
       } else {
         await api("createPatient", { userId: user.id, payload: JSON.stringify(payload) });
       }
+      invalidateApiCache("listPatients");
       toast("Salvato");
       await openPatientsAfterLogin();
     } catch (err) {
