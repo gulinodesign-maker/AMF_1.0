@@ -1,7 +1,7 @@
-/* AMF_2.000 */
+/* AMF_2.002 */
 (() => {
-  const BUILD = "AMF_2.000";
-  const DISPLAY = "2.000";
+  const BUILD = "AMF_2.002";
+  const DISPLAY = "2.002";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1286,17 +1286,20 @@ async function ensurePatientsForCalendar() {
 
           const nome_cognome = ($("#patName")?.value || currentPatient.nome_cognome || "").trim();
           const societa = ($("#patSoc")?.value || currentPatient.societa || "").trim();
+          const societa_id = ($("#patSocId")?.value || (currentPatient.societa_id ? String(currentPatient.societa_id) : "") || "").trim();
+          const societa_nome = ($("#patSoc")?.value || currentPatient.societa_nome || currentPatient.societa || "").trim();
           const data_inizio = ($("#patStart")?.value || currentPatient.data_inizio || "").trim();
           const data_fine = ($("#patEnd")?.value || currentPatient.data_fine || "").trim();
           const liv = level || (currentPatient && currentPatient.livello) || "";
 
           if (!currentPatient.id) return; // nothing to persist yet
-          if (!nome_cognome || !societa || !liv) return;
+          if (!nome_cognome || (!societa_id && !societa_nome && !societa) || !liv) return;
 
           const payload = {
             nome_cognome,
             societa_id,
-      societa_nome,
+            societa_nome,
+            societa,
             livello: liv,
             data_inizio,
             data_fine,
@@ -1398,15 +1401,19 @@ async function ensurePatientsForCalendar() {
 
     const nome_cognome = ($("#patName")?.value || "").trim();
     const societa = ($("#patSoc")?.value || "").trim();
+    const societa_id = ($("#patSocId")?.value || "").trim();
+    const societa_nome = societa;
     const data_inizio = ($("#patStart")?.value || "").trim();
     const data_fine = ($("#patEnd")?.value || "").trim();
 
     if (!nome_cognome) { toast("Inserisci il nome"); return; }
-    if (!societa_id) { toast("Seleziona la società"); return; }
+    if (!societa_id && !societa_nome) { toast("Seleziona la società"); return; }
     if (!level) { toast("Seleziona il livello"); return; }
 
     const payload = {
       nome_cognome,
+      societa_id,
+      societa_nome,
       societa,
       livello: level,
       data_inizio,
