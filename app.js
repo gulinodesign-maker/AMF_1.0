@@ -1,7 +1,7 @@
-/* AMF_1.013 */
+/* AMF_1.014 */
 (() => {
-  const BUILD = "AMF_1.013";
-  const DISPLAY = "1.013";
+  const BUILD = "AMF_1.014";
+  const DISPLAY = "1.014";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -102,9 +102,18 @@
   }
   function setSession(user) {
     localStorage.setItem("AMF_SESSION", JSON.stringify(user));
+    updateTopbarTitle(user);
   }
   function clearSession() {
     localStorage.removeItem("AMF_SESSION");
+    updateTopbarTitle(null);
+  }
+
+  function updateTopbarTitle(user) {
+    if (!topbarTitle) return;
+    const u = user || getSession();
+    const name = (u && u.nome) ? String(u.nome).trim() : "";
+    topbarTitle.textContent = name || "Montalto PMS";
   }
 
   // Migrazione build: se cambia build e config.js ha un URL valido, aggiorna l"API_URL locale
@@ -328,10 +337,13 @@
   const btnTopRight = $("#btnTopRight");
   const iconTopRight = $("#iconTopRight");
   const btnTopPlus = $("#btnTopPlus");
+  const btnTopBackPatients = $("#btnTopBackPatients");
   const btnCalPrev = $("#btnCalPrev");
   const btnCalToday = $("#btnCalToday");
   const btnCalNext = $("#btnCalNext");
   const btnCalMonth = $("#btnCalMonth");
+
+  const topbarTitle = $("#topbarTitle") || document.querySelector(".brand-title");
 
   function setTopRight(mode) {
     if (!btnTopRight || !iconTopRight) return;
@@ -362,6 +374,7 @@
 
     setTopPlusVisible(name === "patients");
     setCalendarControlsVisible(name === "calendar");
+    setTopBackPatientsVisible(name === "calendar");
   }
 
   btnTopRight?.addEventListener("click", () => {
@@ -370,12 +383,30 @@
     } else {
       showView("home");
     }
+  }
+
+  btnTopBackPatients?.addEventListener("click", async () => {
+    // Torna alla lista pazienti dal calendario
+    const session = getSession();
+    if (session) {
+      await openPatientsAfterLogin();
+    } else {
+      await openPatientsFlow();
+    }
   });
+);
 
   function setTopPlusVisible(isVisible) {
     if (!btnTopPlus) return;
     btnTopPlus.hidden = !isVisible;
   }
+
+  function setTopBackPatientsVisible(isVisible) {
+    if (!btnTopBackPatients) return;
+    if (isVisible) btnTopBackPatients.removeAttribute("hidden");
+    else btnTopBackPatients.setAttribute("hidden", "");
+  }
+
 
 
   function setCalendarControlsVisible(isVisible) {
@@ -1004,6 +1035,7 @@ async function ensurePatientsForCalendar() {
   // Build label
   const buildLabel = $("#buildLabel");
   if (buildLabel) buildLabel.textContent = DISPLAY;
+  updateTopbarTitle();
 
   // --- Auth buttons
   $("#btnGoCreate")?.addEventListener("click", () => showView("create"));
@@ -1387,6 +1419,9 @@ async function ensurePatientsForCalendar() {
     document.querySelectorAll(".circle-btn").forEach(b => b.toggleAttribute("disabled", !patientEditEnabled));
     document.querySelectorAll(".day-btn").forEach(b => b.toggleAttribute("disabled", !patientEditEnabled));
     $("#btnPatSave")?.toggleAttribute("disabled", !patientEditEnabled);
+    // Scheda modifica paziente: card arancione al 20% in modalità modifica
+    const patCard = document.querySelector(".patient-card");
+    if (patCard) patCard.classList.toggle("is-editing", !!patientEditEnabled);
     if (!patientEditEnabled) $("#btnPatSave")?.classList.add("pill-gray");
     else $("#btnPatSave")?.classList.remove("pill-gray");
 
