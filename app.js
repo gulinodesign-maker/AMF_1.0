@@ -1,7 +1,7 @@
-/* AMF_1.007 */
+/* AMF_1.008 */
 (() => {
-  const BUILD = "AMF_1.007";
-  const DISPLAY = "1.007";
+  const BUILD = "AMF_1.008";
+  const DISPLAY = "1.008";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -694,12 +694,72 @@ function fillCalendarFromPatients(patients) {
     });
   });
 
+
   calSlotPatients = slots;
 
-  // NOTE: Visual rendering of therapy slots removed (AMF_1.007). Keep only internal slot map.
+  // Render: initials + società dot(s) inside each day/time cell
+  calBody.querySelectorAll(".cal-cell").forEach((cell) => {
+    const slotKey = `${cell.dataset.dayKey}|${cell.dataset.time}`;
+    const info = slots.get(slotKey);
+    if (!info) return;
+
+    const names = Array.isArray(info.names) ? info.names : [];
+    const tags = Array.isArray(info.tags) ? info.tags : [];
+
+    cell.classList.add("filled");
+    cell.innerHTML = "";
+
+    // Text (initials). If multiple patients, show up to 3 initials + counter.
+    const inits = names.map((n) => initials(n)).filter(Boolean);
+    let txt = "";
+    if (inits.length === 1) {
+      txt = inits[0];
+    } else if (inits.length > 1) {
+      const shown = inits.slice(0, 3);
+      txt = shown.join(" ");
+      if (inits.length > 3) txt += ` +${inits.length - 3}`;
+    }
+
+    const textEl = document.createElement("div");
+    textEl.className = "cal-cell-text";
+    textEl.textContent = txt || "•";
+    cell.appendChild(textEl);
+
+    // Dots (unique società tags)
+    const uniq = [];
+    tags.forEach((t) => {
+      const n = Math.max(0, Math.min(5, parseInt(t, 10) || 0));
+      if (!uniq.includes(n)) uniq.push(n);
+    });
+
+    if (uniq.length === 1) {
+      const dot = document.createElement("div");
+      dot.className = `cal-socdot t${uniq[0] + 1}`;
+      cell.appendChild(dot);
+    } else if (uniq.length > 1) {
+      const cont = document.createElement("div");
+      cont.className = "cal-socdots";
+      uniq.slice(0, 3).forEach((tg) => {
+        const d = document.createElement("div");
+        d.className = `cal-socdot t${tg + 1}`;
+        cont.appendChild(d);
+      });
+      if (uniq.length > 3) {
+        const more = document.createElement("div");
+        more.className = "cal-socdot cal-socdot-more";
+        more.textContent = `+${uniq.length - 3}`;
+        cont.appendChild(more);
+      }
+      cell.appendChild(cont);
+    }
+
+    // Tooltip with full names (compact)
+    if (names.length) {
+      const shown = names.slice(0, 6);
+      cell.title = shown.join(", ") + (names.length > 6 ? ` +${names.length - 6}` : "");
+    }
+  });
 }
-
-
 async function ensurePatientsForCalendar() {
   const user = getSession();
   if (!user || !user.id) return [];
@@ -1805,7 +1865,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.007").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.008").catch(() => {});
     });
   }
 })();

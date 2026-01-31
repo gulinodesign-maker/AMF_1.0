@@ -1,4 +1,4 @@
-/* AMF_1.007 */
+/* AMF_1.008 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -1006,4 +1006,33 @@ select.field{ appearance: none; }
 .cal-socdot.t4{ background:#b7dcff; }
 .cal-socdot.t5{ background:#4fa3e3; }
 .cal-socdot.t6{ background:#1f5fa8; }
+
+/* Multiple dots in the same slot (overlaps) */
+.cal-socdots{
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+.cal-socdots .cal-socdot{
+  position: static;
+  left: auto;
+  top: auto;
+  width: 10px;
+  height: 10px;
+}
+.cal-socdot-more{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width: 18px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.80);
+  color: #000;
+  font-size: 9px;
+  font-weight: 900;
+}
 
