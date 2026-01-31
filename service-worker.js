@@ -1,28 +1,25 @@
-/* Service Worker - Montalto Fisio (Build 1.003) */
-const BUILD = "1.003";
-const CACHE_NAME = "montalto-cache-" + BUILD;
-
-const CORE_ASSETS = [
+/* AMF_2.000 */
+const CACHE_NAME = "amf-cache-2.000";
+const APP_SHELL = [
   "./",
-  "./index.html?v=" + BUILD,
-  "./styles.css?v=" + BUILD,
-  "./app.js?v=" + BUILD,
-  "./config.js?v=" + BUILD,
-  "./manifest.json?v=" + BUILD,
+  "./index.html",
+  "./styles.css",
+  "./config.js",
+  "./app.js",
+  "./manifest.json",
   "./version.json",
-  "./assets/logo.jpg?v=" + BUILD,
-  "./assets/bg-montalto.png?v=" + BUILD,
-  "./assets/icons/icon-192.png?v=" + BUILD,
-  "./assets/icons/icon-512.png?v=" + BUILD,
-  "./assets/icons/favicon-16.png?v=" + BUILD,
-  "./assets/icons/favicon-32.png?v=" + BUILD,
-  "./assets/icons/apple-touch-icon.png?v=" + BUILD,
+  "./assets/bg-montalto.png",
+  "./assets/logo.jpg",
+  "./assets/pwa_gradient.png",
+  "./assets/apple-touch-icon.png",
+  "./assets/icon-192.png",
+  "./assets/icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)).catch(() => {})
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => {})
   );
 });
 
@@ -34,52 +31,57 @@ self.addEventListener("activate", (event) => {
   })());
 });
 
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
-});
+function isApiRequest(request) {
+  const url = new URL(request.url);
 
-function isApiRequest(url) {
-  // Google Apps Script endpoint (non cache)
-  return url.origin.includes("script.google.com") || url.origin.includes("googleusercontent.com");
+  // Evita cache per Google Apps Script Web App e chiamate con action=...
+  const host = url.hostname || "";
+  if (host.includes("script.google.com") || host.includes("script.googleusercontent.com")) return true;
+  if (url.searchParams.has("action")) return true;
+  if (url.pathname.includes("/exec")) return true;
+
+  return false;
 }
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  const url = new URL(req.url);
-
   if (req.method !== "GET") return;
 
-  if (isApiRequest(url)) {
-    // no cache for API
-    event.respondWith(fetch(req));
+  if (isApiRequest(req)) {
+    event.respondWith(fetch(req, { cache: "no-store" }));
     return;
   }
 
-  const isNav = req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html");
+  const url = new URL(req.url);
+
+  // Network-first per navigazioni e index.html (iOS update)
+  const isNav = req.mode === "navigate" || url.pathname.endsWith("/index.html") || url.pathname === "/" || url.pathname.endsWith("/");
   if (isNav) {
-    // network-first for navigation (iOS update friendly)
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req, { cache: "no-store" });
         const cache = await caches.open(CACHE_NAME);
-        cache.put("./index.html?v=" + BUILD, fresh.clone()).catch(() => {});
+        cache.put("./index.html", fresh.clone());
         return fresh;
       } catch (e) {
-        const cached = await caches.match("./index.html?v=" + BUILD);
-        return cached || caches.match("./") || new Response("Offline", { status: 503 });
+        const cached = await caches.match("./index.html");
+        return cached || Response.error();
       }
     })());
     return;
   }
 
-  // stale-while-revalidate for assets
+  // Cache-first per static assets
   event.respondWith((async () => {
     const cached = await caches.match(req);
-    const fetchPromise = fetch(req).then((fresh) => {
-      caches.open(CACHE_NAME).then((cache) => cache.put(req, fresh.clone()).catch(() => {}));
+    if (cached) return cached;
+    try {
+      const fresh = await fetch(req);
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(req, fresh.clone());
       return fresh;
-    }).catch(() => cached);
-
-    return cached || fetchPromise;
+    } catch (e) {
+      return cached || Response.error();
+    }
   })());
 });
