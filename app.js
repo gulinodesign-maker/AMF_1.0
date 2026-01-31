@@ -1,7 +1,7 @@
-/* AMF_1.013 */
+/* AMF_1.014 */
 (() => {
-  const BUILD = "AMF_1.013";
-  const DISPLAY = "1.013";
+  const BUILD = "AMF_1.014";
+  const DISPLAY = "1.014";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1390,12 +1390,13 @@ async function ensurePatientsForCalendar() {
     if (!patientEditEnabled) $("#btnPatSave")?.classList.add("pill-gray");
     else $("#btnPatSave")?.classList.remove("pill-gray");
 
-    // Mostra il tasto elimina solo in sola-lettura (scheda esistente)
+    // Mostra il tasto X: in modifica = chiudi; in sola-lettura = elimina (solo se esistente)
     const btnDel = $("#btnPatDelete");
     if (btnDel) {
-      const canShow = !patientEditEnabled && currentPatient && currentPatient.id;
+      const canShow = patientEditEnabled ? true : (!!(currentPatient && currentPatient.id));
       if (canShow) btnDel.removeAttribute("hidden");
       else btnDel.setAttribute("hidden", "");
+      btnDel.setAttribute("aria-label", patientEditEnabled ? "Chiudi" : "Elimina paziente");
     }
 
   }
@@ -1665,8 +1666,18 @@ async function ensurePatientsForCalendar() {
   $("#btnPatCalendar")?.addEventListener("click", () => openCalendarFlow());
   $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
   $("#btnPatDelete")?.addEventListener("click", async () => {
-    // Solo scheda esistente in sola lettura
-    if (patientEditEnabled) return;
+    // In modifica: chiudi scheda
+    if (patientEditEnabled) {
+      const session = getSession();
+      if (session && session.id) {
+        await openPatientsAfterLogin();
+      } else {
+        showView("home");
+      }
+      return;
+    }
+
+    // In sola lettura: elimina paziente
     const user = getSession();
     if (!user) { toast("Devi accedere"); return; }
     if (!currentPatient || !currentPatient.id) { toast("Paziente non valido"); return; }
@@ -1989,7 +2000,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.013").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.014").catch(() => {});
     });
   }
 })();
