@@ -676,11 +676,6 @@ select.field{ appearance: none; }
   background: rgba(42,116,184,.20);
 }
 
-/* Scheda modifica paziente: card arancione 20% */
-.patient-card.patient-editing{
-  background: rgba(255,140,0,.20);
-}
-
 .row-soc.no-drop{ gap: 0; }
 .row-soc.no-drop .drop-btn{ display:none; }
 .row-soc.no-drop #patSoc{ flex: 1 1 auto; width: 100%; }
