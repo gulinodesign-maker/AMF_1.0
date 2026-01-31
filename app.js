@@ -1,7 +1,7 @@
-/* AMF_1.005 */
+/* AMF_1.006 */
 (() => {
-  const BUILD = "AMF_1.005";
-  const DISPLAY = "1.005";
+  const BUILD = "AMF_1.006";
+  const DISPLAY = "1.006";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -39,11 +39,11 @@
       return new Date(value.getFullYear(), value.getMonth(), value.getDate());
     }
 
-    const s = String(value).trim();
-    if (!s) return null;
+    const s0 = String(value).trim();
+    if (!s0) return null;
 
     // YYYY-MM-DD (date-only)
-    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    let m = s0.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (m) {
       const y = parseInt(m[1], 10);
       const mo = parseInt(m[2], 10) - 1;
@@ -51,8 +51,8 @@
       return new Date(y, mo, d);
     }
 
-    // dd/mm/yyyy (common Sheet formatting)
-    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    // dd/mm/yyyy or d/m/yyyy
+    m = s0.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (m) {
       const d = parseInt(m[1], 10);
       const mo = parseInt(m[2], 10) - 1;
@@ -60,14 +60,24 @@
       return new Date(y, mo, d);
     }
 
-    // ISO / any parsable datetime -> convert to LOCAL date (fixes -1 day when server returns UTC date-times)
-    const dt = new Date(s);
+    // dd/mm/yy (Sheets often shows 1/2/26)
+    m = s0.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+    if (m) {
+      const d = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const yy = parseInt(m[3], 10);
+      const y = yy >= 70 ? (1900 + yy) : (2000 + yy);
+      return new Date(y, mo, d);
+    }
+
+    // ISO / any parsable datetime -> convert to LOCAL date (fixes timezone shifts)
+    const dt = new Date(s0);
     if (!isNaN(dt)) {
       return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
     }
 
     // Fallback: extract YYYY-MM-DD prefix
-    m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    m = s0.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (m) {
       const y = parseInt(m[1], 10);
       const mo = parseInt(m[2], 10) - 1;
@@ -77,6 +87,7 @@
 
     return null;
   }
+
 
   function ymdLocal(value) {
     const d = dateOnlyLocal(value);
@@ -383,7 +394,7 @@
   const routes = {
     
     pazienti: () => openPatientsFlow(),
-    calendario: () => openCalendarFlow(),
+    calendario: () => openCalendarFlow({ range: null }),
     statistiche: () => toast("Statistiche (da implementare)")
   };
   document.querySelectorAll("[data-route]").forEach((btn) => {
@@ -416,12 +427,13 @@
   let calHours = [];
   let calBuilt = false;
   let calSlotPatients = new Map(); // key "dayKey|HH:MM" -> {count, ids:[]}
+let calContextRange = null; // { start, end } when opened from a patient
 
 const DAY_LABEL_TO_KEY = {
   // Canonical (Mon-Sat)
   LU: 1, MA: 2, ME: 3, GI: 4, VE: 5, SA: 6,
 
-  // Common 3-letter abbreviations
+  // Common abbreviations
   LUN: 1, MAR: 2, MER: 3, GIO: 4, VEN: 5, SAB: 6,
 
   // Full Italian names (with/without accents)
@@ -448,12 +460,18 @@ function normalizeDayLabel(label) {
          .replace(/[ÒÓÔÕÖ]/g, "O")
          .replace(/[ÙÚÛÜ]/g, "U");
   }
-  // Keep only letters
+  // Keep letters only
   s = s.replace(/[^A-Z]/g, "");
   return s;
 }
 
 function dayKeyFromLabel(label) {
+  if (label == null) return 0;
+
+  // numeric keys (e.g., "5" or 5)
+  const n = parseInt(String(label).trim(), 10);
+  if (!isNaN(n) && n >= 1 && n <= 7) return n;
+
   const k = normalizeDayLabel(label);
   if (!k) return 0;
   if (DAY_LABEL_TO_KEY[k]) return DAY_LABEL_TO_KEY[k];
@@ -461,7 +479,6 @@ function dayKeyFromLabel(label) {
   const k3 = k.slice(0, 3);
   return DAY_LABEL_TO_KEY[k3] || DAY_LABEL_TO_KEY[k2] || 0;
 }
-
 
 function normTime(t) {
   if (!t) return "";
@@ -619,7 +636,8 @@ function fillCalendarFromPatients(patients) {
     if (!map || typeof map !== "object") return;
 
     Object.keys(map).forEach((k) => {
-      const dayKey = dayKeyFromLabel(k);
+      const dayLabel = String(k || "").trim().toUpperCase();
+      const dayKey = dayKeyFromLabel(dayLabel);
       if (!dayKey) return;
 
       // Date-range filter (patient should only appear within its active period)
@@ -672,7 +690,19 @@ async function ensurePatientsForCalendar() {
 }
 
 
-  function openCalendarFlow() {
+  function openCalendarFlow(opts) {
+    calContextRange = (opts && opts.range) ? opts.range : null;
+
+    // If we have a start date, align selected date so the visible week includes the first working day
+    if (calContextRange && calContextRange.start) {
+      const d0 = dateOnlyLocal(calContextRange.start);
+      if (d0) {
+        // If Sunday, move to Monday (calendar grid is Mon-Sat)
+        if (d0.getDay() === 0) d0.setDate(d0.getDate() + 1);
+        calSelectedDate = d0;
+      }
+    }
+
     ensureCalendarBuilt();
     showView("calendar");
     updateCalendarUI();
@@ -775,7 +805,20 @@ async function ensurePatientsForCalendar() {
   async function updateCalendarUI() {
   if (!calDateTitle || !calDaysCol) return;
 
+  if (calContextRange && (calContextRange.start || calContextRange.end)) {
+  const ds = dateOnlyLocal(calContextRange.start);
+  const de = dateOnlyLocal(calContextRange.end);
+  const fmtNum = (d) => {
+    if (!d) return "—";
+    const dd = String(d.getDate()).padStart(2,"0");
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${dd}/${mm}/${yy}`;
+  };
+  calDateTitle.textContent = `${fmtNum(ds)} → ${fmtNum(de)}`;
+} else {
   calDateTitle.textContent = formatItDate(calSelectedDate);
+}
 
   // Active weekday (Mon-Sat only)
   const jsDay = calSelectedDate.getDay(); // 0=Sun ... 6=Sat
@@ -1431,7 +1474,7 @@ async function ensurePatientsForCalendar() {
     showView("patientForm");
   }
 
-  $("#btnPatCalendar")?.addEventListener("click", () => openCalendarFlow());
+  $("#btnPatCalendar")?.addEventListener("click", () => openCalendarFlow({ range: currentPatient ? { start: currentPatient.data_inizio, end: currentPatient.data_fine } : null }));
   $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
 
   $("#formPatient")?.addEventListener("submit", async (e) => {
@@ -1728,10 +1771,31 @@ async function ensurePatientsForCalendar() {
   // Default view: home
   showView("home");
 
-  // PWA (iOS): registra Service Worker
+  // PWA (iOS): registra Service Worker (forza update immediato dopo deploy)
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.004").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=" + DISPLAY).then((reg) => {
+        try { reg.update(); } catch (_) {}
+
+        // Se c'è una SW in attesa, chiedi attivazione immediata
+        if (reg && reg.waiting) {
+          try { reg.waiting.postMessage({ type: "SKIP_WAITING" }); } catch (_) {}
+        }
+
+        reg.addEventListener("updatefound", () => {
+          const sw = reg.installing;
+          if (!sw) return;
+          sw.addEventListener("statechange", () => {
+            if (sw.state === "installed" && navigator.serviceWorker.controller) {
+              try { sw.postMessage({ type: "SKIP_WAITING" }); } catch (_) {}
+            }
+          });
+        });
+
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          try { window.location.reload(); } catch (_) {}
+        });
+      }).catch(() => {});
     });
   }
 })();
