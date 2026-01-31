@@ -1,381 +1,260 @@
 <!doctype html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Montalto PMS</title>
-  <link rel="stylesheet" href="./styles.css" />
-  <link rel="manifest" href="./manifest.json" />
-  <meta name="theme-color" content="#2a74b8" />
-  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1, viewport-fit=cover" />
+  <title>Montalto Fisio</title>
+
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <link rel="stylesheet" href="./styles.css?v=1.003" />
+  <link rel="manifest" href="./manifest.json?v=1.003" />
+
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/icons/apple-touch-icon.png?v=1.003" />
+  <link rel="apple-touch-icon-precomposed" sizes="180x180" href="./assets/icons/apple-touch-icon.png?v=1.003" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/icons/favicon-32.png?v=1.003" />
+  <link rel="icon" type="image/png" sizes="16x16" href="./assets/icons/favicon-16.png?v=1.003" />
+
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Montalto Fisio" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 </head>
+
 <body>
   <header class="topbar">
-    <div class="topbar-left">
-      <img class="logo" src="./assets/logo.jpg" alt="Logo" />
-      <div class="brand">
-        <div class="brand-title">Montalto PMS</div>
+    <div class="brand">
+      <div class="brand-left">
+        <img class="logo" src="./assets/logo.jpg?v=1.003" alt="Logo" />
+        <div class="top-led-grid" id="topLedGrid" aria-label="Stato" role="status">
+          <span class="top-led" id="ledNet"></span>
+          <span class="top-led" id="ledDbRead"></span>
+          <span class="top-led" id="ledDbWrite"></span>
+          <span class="top-led" id="ledErr"></span>
+        </div>
+        <h1 id="appTitle">Montalto Fisio</h1>
+      </div>
+
+      <div class="brand-right" aria-label="Azioni">
+        <!-- Impostazioni: visibile solo in Home -->
+        <button class="topbar-btn" id="btnSettings" type="button" aria-label="Impostazioni">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+            <path d="M19.4 15a7.9 7.9 0 0 0 .1-1l2-1.5-2-3.4-2.4 1a8.2 8.2 0 0 0-1.7-1L15 6h-6l-.4 3.1a8.2 8.2 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7.9 7.9 0 0 0 .1 1 7.9 7.9 0 0 0-.1 1l-2 1.5 2 3.4 2.4-1a8.2 8.2 0 0 0 1.7 1L9 22h6l.4-3.1a8.2 8.2 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7.9 7.9 0 0 0 .1-1Z"></path>
+          </svg>
+        </button>
+
+        <!-- Home: visibile fuori dalla Home, sempre all'estrema destra -->
+        <button class="topbar-btn" id="btnHome" type="button" aria-label="Home">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 10.5 12 3l9 7.5"></path>
+            <path d="M5 10v11h14V10"></path>
+          </svg>
+        </button>
       </div>
     </div>
-
-    <div class="topbar-right">
-      <button class="icon-btn" id="btnTopPlus" aria-label="Aggiungi" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 5v14"></path>
-          <path d="M5 12h14"></path>
-        </svg>
-      </button>
-<!-- In Home: mostra Impostazioni. Fuori dalla Home: mostra Home -->
-      <button class="icon-btn" id="btnTopRight" aria-label="Impostazioni">
-      <svg id="iconTopRight" viewBox="0 0 24 24" aria-hidden="true">
-        <!-- settings icon (default) -->
-        <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
-        <path d="M19.4 15a7.9 7.9 0 0 0 .1-1l2-1.5-2-3.5-2.4 1a8.6 8.6 0 0 0-1.7-1L15 5H9L8.6 7.9a8.6 8.6 0 0 0-1.7 1L4.5 8l-2 3.5L4.5 13a7.9 7.9 0 0 0 .1 1l-2 1.5 2 3.5 2.4-1a8.6 8.6 0 0 0 1.7 1L9 19h6l.4-2.9a8.6 8.6 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5Z"></path>
-      </svg>
-    </button>
-    </div>
+    <div class="topbar-sep"></div>
   </header>
 
-  <main class="main">
-    <!-- HOME -->
-    <section class="view" id="viewHome" aria-label="Home">
-      <div class="home-layout">
-        <div class="home-center" aria-label="Home">
-          <section class="grid" aria-label="Home">
-        <button class="nav-btn" data-route="pazienti" aria-label="Pazienti">
-          <div class="app-icon" aria-hidden="true">
-            <svg class="nav-ic" viewBox="0 0 24 24">
-              <path d="M20 21a8 8 0 1 0-16 0"></path>
-              <path d="M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"></path>
+  <main>
+    <section id="viewHome" class="home-screen" aria-label="Home">
+      <div class="home-year-pill" id="homeYearPill" role="button" tabindex="0" aria-label="Anno di riferimento"></div>
+
+      <div class="home-grid-1x3" role="navigation" aria-label="Sezioni">
+        <button class="home-tile" id="tilePazienti" type="button" aria-label="Pazienti">
+          <div class="home-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+              <path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"></path>
+              <path d="M20 8v6"></path><path d="M23 11h-6"></path>
             </svg>
           </div>
-          <div class="nav-label">Pazienti</div>
+          <div class="home-tile-label">Pazienti</div>
         </button>
 
-        <button class="nav-btn" data-route="calendario" aria-label="Calendario">
-          <div class="app-icon" aria-hidden="true">
-            <svg class="nav-ic" viewBox="0 0 24 24">
-              <path d="M8 2v3"></path>
-              <path d="M16 2v3"></path>
-              <path d="M3 9h18"></path>
-              <path d="M5 5h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"></path>
-              <path d="M8 13h.01"></path><path d="M12 13h.01"></path><path d="M16 13h.01"></path>
-              <path d="M8 17h.01"></path><path d="M12 17h.01"></path><path d="M16 17h.01"></path>
+        <button class="home-tile" id="tileCalendario" type="button" aria-label="Calendario">
+          <div class="home-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M7 3v3"></path><path d="M17 3v3"></path><path d="M4.5 8h15"></path>
+              <path d="M6 6h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"></path>
+              <path d="M8 12h3"></path><path d="M13 12h3"></path><path d="M8 16h3"></path><path d="M13 16h3"></path>
             </svg>
           </div>
-          <div class="nav-label">Calendario</div>
+          <div class="home-tile-label">Calendario</div>
         </button>
 
-        <button class="nav-btn" data-route="statistiche" aria-label="Statistiche">
-          <div class="app-icon" aria-hidden="true">
-            <svg class="nav-ic" viewBox="0 0 24 24">
-              <path d="M4 19V5"></path>
-              <path d="M4 19h16"></path>
-              <path d="M8 16v-6"></path>
-              <path d="M12 16v-9"></path>
-              <path d="M16 16v-3"></path>
+        <button class="home-tile" id="tileStatistiche" type="button" aria-label="Statistiche">
+          <div class="home-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 19V5"></path><path d="M4 19h16"></path>
+              <path d="M8 17V11"></path><path d="M12 17V7"></path><path d="M16 17V13"></path>
             </svg>
           </div>
-          <div class="nav-label">Statistiche</div>
+          <div class="home-tile-label">Statistiche</div>
         </button>
-      </section>
-        </div>
-        <div class="home-footer" aria-label="Build">
-          <div class="build" id="buildLabel">2.000</div>
-        </div>
       </div>
+
+      <div class="home-build" id="homeBuild">fm_1.003</div>
     </section>
 
-    <!-- AUTH: landing con 3 tasti verticali -->
-    <section class="view" id="viewAuth" aria-label="Accesso">
-      <div class="card">
-        <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <div class="stack">
-          <button class="pill-btn pill-blue" id="btnGoCreate">crea account</button>
-          <button class="pill-btn pill-gray" id="btnGoModify">modifica account</button>
-          <button class="pill-btn pill-green" id="btnGoLogin">login</button>
-        </div>
+    <section id="viewPazienti" class="card" style="display:none">
+      <div class="row" style="justify-content:space-between">
+        <div class="h2">Pazienti</div>
+        <button class="btn" id="btnNewPatient" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+          Aggiungi
+        </button>
       </div>
+      <div class="muted" id="patientsHint"></div>
+      <div style="height:10px"></div>
+      <div class="list" id="patientsList"></div>
     </section>
 
-    <!-- CREA ACCOUNT -->
-    <section class="view" id="viewCreate" aria-label="Crea account">
-      <div class="card card-form">
-        <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <form class="form" id="formCreate">
-          <input class="field" id="createNome" type="text" placeholder="Nome fisioterapista" autocomplete="name" required />
-          <input class="field" id="createPass" type="password" placeholder="Password" autocomplete="new-password" required />
-          <input class="field" id="createPass2" type="password" placeholder="Conferma password" autocomplete="new-password" required />
-          <div class="row2">
-            <button class="pill-btn pill-gray" type="button" id="btnCreateBack">indietro</button>
-            <button class="pill-btn pill-blue" type="submit">crea account</button>
+    <section id="viewCalendario" class="card" style="display:none">
+      <div class="h2">Calendario (settimanale)</div>
+      <div class="muted">Arriva nel prossimo step: qui mostreremo la settimana con le sedute generate.</div>
+    </section>
+
+    <section id="viewStatistiche" class="card" style="display:none">
+      <div class="h2">Statistiche</div>
+      <div class="muted">In questa sezione inseriremo le statistiche per anno e per paziente.</div>
+    </section>
+
+    <section id="viewImpostazioni" class="view">
+      <div class="settings-card">
+        <img class="settings-logo" src="./assets/logo.jpg?v=1.003" alt="Logo" />
+
+        <div id="settingsPhase1" class="settings-phase">
+          <div class="settings-actions-grid grid-1x3">
+            <button class="settings-action-btn action-edit" id="btnAccModify">modifica account</button>
+            <button class="settings-action-btn action-login" id="btnAccLogin">accedi account</button>
           </div>
-        </form>
-      </div>
-    </section>
+        </div>
 
-    <!-- LOGIN -->
-    <section class="view" id="viewLogin" aria-label="Login">
-      <div class="card card-form">
-        <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <form class="form" id="formLogin">
-          <select class="field" id="loginNome" required></select>
-          <input class="field" id="loginPass" type="password" placeholder="Password" autocomplete="current-password" required />
-          <div class="row2">
-            <button class="pill-btn pill-gray" type="button" id="btnLoginBack">indietro</button>
-            <button class="pill-btn pill-green" type="submit">login</button>
+        <div id="settingsPhase2" class="settings-phase hidden">
+          <div class="settings-form">
+            <input id="accUsername" type="text" placeholder="Nome utente" autocomplete="username" />
+            <input id="accPassword" type="password" placeholder="Password" autocomplete="current-password" />
+            <input id="accPassword2" type="password" placeholder="Ripeti password" autocomplete="new-password" />
           </div>
-        </form>
-      </div>
-    </section>
-
-    <!-- MODIFICA ACCOUNT -->
-    <section class="view" id="viewModify" aria-label="Modifica account">
-      <div class="card card-form">
-        <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <form class="form" id="formModify">
-          <select class="field" id="modNome" required></select>
-          <input class="field" id="modOld" type="password" placeholder="Password attuale" autocomplete="current-password" required />
-          <input class="field" id="modNew" type="password" placeholder="Nuova password" autocomplete="new-password" required />
-          <input class="field" id="modNew2" type="password" placeholder="Conferma nuova password" autocomplete="new-password" required />
-          <div class="row2">
-            <button class="pill-btn pill-gray" type="button" id="btnModBack">indietro</button>
-            <button class="pill-btn pill-blue" type="submit">salva</button>
+          <div class="settings-form-actions">
+            <button class="btn secondary" id="btnAccBack">indietro</button>
+            <button class="btn primary" id="btnAccSubmit">continua</button>
           </div>
-        </form>
-      </div>
-    </section>
-
-    <!-- IMPOSTAZIONI -->
-    <section class="view" id="viewSettings" aria-label="Impostazioni">
-      <div class="page">
-        <div class="page-header">
-          <div class="page-title">Impostazioni</div>
         </div>
 
-        <div class="pill-row">
-          <div class="pill-wide" id="pillUser">—</div>
-          <div class="pill-wide" id="pillYear">—</div>
-        </div>
+        <div id="settingsPhase3" class="settings-phase hidden">
+          <div class="settings-logged">
+            <span>account:</span> <strong id="loggedUserLabel">—</strong>
+          </div>
 
-        <div class="settings-form">
-          <label class="label">Anno di esercizio</label>
-          <input class="field" id="setAnno" type="number" inputmode="numeric" placeholder="Anno di esercizio" />
+          <div class="settings-fields">
+            <label class="field-label" for="setAnnoEsercizio">Anno di esercizio</label>
+            <input id="setAnnoEsercizio" type="number" inputmode="numeric" />
 
-          <label class="label">Tariffa livello 1</label>
-          <input class="field" id="setL1" type="number" inputmode="decimal" placeholder="Tariffa livello 1" />
+            <label class="field-label" for="setPrezzo1">Costo prestazione livello 1 (€)</label>
+            <input id="setPrezzo1" type="number" inputmode="decimal" />
 
-          <label class="label">Tariffa livello 2</label>
-          <input class="field" id="setL2" type="number" inputmode="decimal" placeholder="Tariffa livello 2" />
+            <label class="field-label" for="setPrezzo2">Costo prestazione livello 2 (€)</label>
+            <input id="setPrezzo2" type="number" inputmode="decimal" />
 
-          <label class="label">Tariffa livello 3</label>
-          <input class="field" id="setL3" type="number" inputmode="decimal" placeholder="Tariffa livello 3" />
-        </div>
+            <label class="field-label" for="setPrezzo3">Costo prestazione livello 3 (€)</label>
+            <input id="setPrezzo3" type="number" inputmode="decimal" />
+          </div>
 
-        <div class="actions5" aria-label="Azioni impostazioni">
-          <button class="action-btn a1" id="btnSave" aria-label="Salva dati">
-            <svg viewBox="0 0 24 24"><path d="M4 4h13l3 3v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z"></path><path d="M8 4v6h8V4"></path><path d="M8 20v-6h8v6"></path></svg>
-          </button>
-          <button class="action-btn a2" id="btnLoad" aria-label="Richiama dati">
-            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
-          </button>
-          <button class="action-btn a3" id="btnAddSoc" aria-label="Aggiungi società">
-            <svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-          </button>
-          <button class="action-btn a4" id="btnWipe" aria-label="Cancella account e dati">
-            <svg viewBox="0 0 24 24"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 16h10l1-16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
-          </button>
-          <button class="action-btn a5" id="btnLogout" aria-label="Esci dall'account">
-            <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M21 3v18"></path></svg>
-          </button>
-        </div>
-      </div>
-    </section>
-
-
-    <!-- PAZIENTI: LISTA -->
-    <section class="view" id="viewPatients" aria-label="Pazienti">
-      <div class="page">
-        <div class="page-header">
-          <div class="page-title">Pazienti</div>
-        </div>
-
-        <div class="pill-row pill-row-2" aria-label="Ordinamento">
-          <button class="pill-wide pill-tab" id="patSortDate">Data</button>
-          <button class="pill-wide pill-tab" id="patSortSoc">Società</button>
-        </div>
-
-        <div class="list" id="patientsList" aria-label="Lista pazienti"></div>
-      </div>
-    </section>
-
-    <!-- PAZIENTE: SCHEDA -->
-    <section class="view" id="viewPatientForm" aria-label="Scheda paziente">
-      <div class="card card-form patient-card">
-        <div class="patient-head">
-          <div class="patient-title">Scheda paziente</div>
-          <div class="patient-head-actions">
-            <button class="mini-icon" id="btnPatCalendar" aria-label="Calendario">
-              <svg viewBox="0 0 24 24"><path d="M8 2v3"></path><path d="M16 2v3"></path><path d="M3 9h18"></path><path d="M5 5h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"></path></svg>
+          <div class="actionbar">
+            <button class="actionbar-btn blue" id="btnSetSave" title="Salva" aria-label="Salva">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6" /></svg>
             </button>
-            <button class="mini-icon" id="btnPatEdit" aria-label="Modifica">
-              <svg viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg>
+            <button class="actionbar-btn black" id="btnSetReload" title="Ricarica" aria-label="Ricarica">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v7h-7"/></svg>
+            </button>
+            <button class="actionbar-btn violet" id="btnAddSocieta" title="Aggiungi società" aria-label="Aggiungi società">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </button>
+            <button class="actionbar-btn red" id="btnDeleteAccount" title="Cancella account" aria-label="Cancella account">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 16h10l1-16"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+            <button class="actionbar-btn orange" id="btnLogout" title="Esci" aria-label="Esci">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 3v18"/></svg>
             </button>
           </div>
         </div>
-        <div class="divider"></div>
-
-        <form class="form" id="formPatient">
-          <input class="field" id="patName" type="text" placeholder="Nome e cognome" autocomplete="name" required />
-
-          <div class="row-soc">
-            <input class="field" id="patSoc" type="text" placeholder="Società" readonly />
-            <input id="patSocId" type="hidden" />
-            <button class="drop-btn" id="btnPickSoc" type="button" aria-label="Seleziona società">
-              <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg>
-            </button>
-          </div>
-
-          <div class="row-level" aria-label="Livello">
-            <button class="circle-btn" id="btnL1" type="button">L1</button>
-            <button class="circle-btn" id="btnL2" type="button">L2</button>
-            <button class="circle-btn" id="btnL3" type="button">L3</button>
-          </div>
-
-          <div class="row2">
-            <input class="field" id="patStart" type="date" placeholder="Data inizio" />
-            <input class="field" id="patEnd" type="date" placeholder="Data fine" />
-          </div>
-
-          <div class="row-days" aria-label="Giorni settimana">
-            <button class="day-btn" data-day="LU" type="button"><span class="day">LU</span><span class="time" id="t_LU">—</span></button>
-            <button class="day-btn" data-day="MA" type="button"><span class="day">MA</span><span class="time" id="t_MA">—</span></button>
-            <button class="day-btn" data-day="ME" type="button"><span class="day">ME</span><span class="time" id="t_ME">—</span></button>
-            <button class="day-btn" data-day="GI" type="button"><span class="day">GI</span><span class="time" id="t_GI">—</span></button>
-            <button class="day-btn" data-day="VE" type="button"><span class="day">VE</span><span class="time" id="t_VE">—</span></button>
-            <button class="day-btn" data-day="SA" type="button"><span class="day">SA</span><span class="time" id="t_SA">—</span></button>
-          </div>
-
-          <button class="pill-btn pill-blue" id="btnPatSave" type="submit">salva</button>
-        </form>
       </div>
     </section>
-
-
-    <!-- CALENDARIO -->
-    <section class="view" id="viewCalendar" aria-label="Calendario">
-      <div class="calendar-wrap" aria-label="Calendario">
-        <div class="calendar-nav" aria-label="Navigazione calendario">
-          <div class="calendar-nav-left" aria-hidden="true"></div>
-          <div class="calendar-nav-center" aria-label="Navigazione">
-            <button class="icon-btn" id="btnCalPrev" aria-label="Giorno precedente" hidden>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M15 18l-6-6 6-6"></path>
-            </svg>
-          </button>
-            <button class="icon-btn" id="btnCalToday" aria-label="Giorno attuale" hidden>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="7"></circle>
-              <path d="M12 12h.01"></path>
-            </svg>
-          </button>
-            <button class="icon-btn" id="btnCalNext" aria-label="Giorno successivo" hidden>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9 6l6 6-6 6"></path>
-            </svg>
-          </button>
-          </div>
-          <div class="calendar-nav-right" aria-label="Vista">
-            <button class="icon-btn" id="btnCalMonth" aria-label="Vista mese" hidden>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M8 2v3"></path>
-              <path d="M16 2v3"></path>
-              <path d="M3 9h18"></path>
-              <path d="M5 5h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"></path>
-            </svg>
-          </button>
-          </div>
-        </div>
-
-        <div class="calendar-date" id="calDateTitle">—</div>
-
-        <div class="calendar-grid" aria-label="Griglia calendario">
-          <div class="cal-days" id="calDaysCol" aria-label="Giorni"></div>
-
-          <div class="cal-scroll" id="calScroll" aria-label="Ore (scorri)">
-            <div class="cal-hours" id="calHoursRow" aria-label="Ore"></div>
-            <div class="cal-body" id="calBody" aria-label="Slot"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- MODAL: Seleziona società -->
-    <div class="modal" id="modalPickSoc" aria-hidden="true">
-      <div class="modal-card">
-        <button class="dot-close" id="btnPickSocClose" aria-label="Chiudi"></button>
-        <div class="modal-title">Società</div>
-        <div class="list" id="socPickList" aria-label="Elenco società"></div>
-      </div>
-    </div>
-
-    <!-- MODAL: Ora inizio -->
-    <div class="modal" id="modalPickTime" aria-hidden="true">
-      <div class="modal-card">
-        <button class="dot-close" id="btnPickTimeClose" aria-label="Chiudi"></button>
-        <div class="modal-title">Ora inizio</div>
-        <div class="list" id="timePickList" aria-label="Elenco orari"></div>
-      </div>
-    </div>
-
-    <!-- MODAL: API URL -->
-    <div class="modal" id="modalApi" aria-hidden="true">
-      <div class="modal-card">
-        <div class="modal-title">Collegamento database</div>
-        <div class="modal-text">Incolla l’URL /exec della Web App Google Apps Script.</div>
-        <input class="field" id="apiUrlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
-        <div class="row2">
-          <button class="pill-btn pill-gray" type="button" id="btnApiCancel">chiudi</button>
-          <button class="pill-btn pill-blue" type="button" id="btnApiSave">salva</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL: Aggiungi società -->
-    <div class="modal" id="modalSoc" aria-hidden="true">
-      <div class="modal-card">
-        <button class="dot-close" id="btnSocClose" aria-label="Chiudi"></button>
-        <div class="modal-title">Aggiungi società</div>
-
-        <input class="field" id="socNomeInput" type="text" placeholder="Nome società" />
-
-        <div class="tag-dots" id="socTagDots" role="group" aria-label="Tag società">
-          <button class="tag-dot t1" type="button" data-tag="0" aria-label="Tag 1"></button>
-          <button class="tag-dot t2" type="button" data-tag="1" aria-label="Tag 2"></button>
-          <button class="tag-dot t3" type="button" data-tag="2" aria-label="Tag 3"></button>
-          <button class="tag-dot t4" type="button" data-tag="3" aria-label="Tag 4"></button>
-          <button class="tag-dot t5" type="button" data-tag="4" aria-label="Tag 5"></button>
-          <button class="tag-dot t6" type="button" data-tag="5" aria-label="Tag 6"></button>
-        </div>
-
-        <div class="row3">
-                    <button class="pill-btn pill-red" type="button" id="btnSocDelete">elimina</button>
-          <button class="pill-btn pill-blue" type="button" id="btnSocSave">salva</button>
-        </div>
-
-        <div class="soc-delete-panel" id="socDeletePanel" hidden>
-          <div class="soc-delete-title">Elimina società</div>
-          <div class="soc-delete-list" id="socDeleteList" aria-label="Elenco società"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TOAST -->
-    <div class="toast" id="toast" aria-live="polite" aria-atomic="true"></div>
-
   </main>
 
-  <script src="./config.js"></script>
-  <script src="./app.js"></script>
+  <!-- Modal: Orario giorno -->
+  <div class="modal" id="timeModal" role="dialog" aria-modal="true" aria-label="Imposta orario">
+    <div class="modal-card">
+      <div class="modal-title" id="timeModalTitle">Orario</div>
+      <label>Ora inizio</label>
+      <input class="input" id="timeInput" type="time" />
+      <label>Durata (min)</label>
+      <input class="input" id="durInput" type="number" min="0" step="5" placeholder="es. 45" />
+      <div class="modal-actions">
+        <button class="btn ghost" id="timeCancel" type="button">Annulla</button>
+        <button class="btn" id="timeOk" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nuovo paziente -->
+  <div class="modal" id="patientModal" role="dialog" aria-modal="true" aria-label="Nuovo paziente">
+    <div class="modal-card">
+      <div class="modal-title">Scheda paziente</div>
+
+      <label>Nome e Cognome</label>
+      <input class="input" id="patName" placeholder="Es. Mario Rossi" />
+
+      <label>Società di appartenenza</label>
+      <input class="input" id="patSoc" placeholder="Es. Azienda XYZ" />
+
+      <label>Tipo prestazione</label>
+      <div class="pills" id="levelPills">
+        <div class="pill" data-level="1">1</div>
+        <div class="pill" data-level="2">2</div>
+        <div class="pill" data-level="3">3</div>
+      </div>
+
+      <div class="row" style="gap:12px">
+        <div class="grow">
+          <label>Data inizio</label>
+          <input class="input" id="patStart" type="date" />
+        </div>
+        <div class="grow">
+          <label>Data fine</label>
+          <input class="input" id="patEnd" type="date" />
+        </div>
+      </div>
+
+      <label>Giorni terapia (tap per impostare orario)</label>
+      <div class="pills" id="dayChips">
+        <div class="daychip" data-day="lun">Lu</div>
+        <div class="daychip" data-day="mar">Ma</div>
+        <div class="daychip" data-day="mer">Me</div>
+        <div class="daychip" data-day="gio">Gi</div>
+        <div class="daychip" data-day="ven">Ve</div>
+        <div class="daychip" data-day="sab">Sa</div>
+      </div>
+
+      <div style="height:12px"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="patCancel" type="button">Annulla</button>
+        <button class="btn" id="patSave" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+          Salva
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./config.js?v=1.003"></script>
+  <script src="./app.js?v=1.003"></script>
 </body>
 </html>

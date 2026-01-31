@@ -1,1688 +1,757 @@
-/* AMF_2.000 */
-(() => {
-  const BUILD = "AMF_2.000";
-  const DISPLAY = "2.000";
+/* Montalto Fisio - app.js (Build 1.000) */
 
-  // --- Helpers
-  const $ = (sel) => document.querySelector(sel);
+const BUILD = "1.003";
 
-  const toastEl = $("#toast");
-  let toastTimer = null;
-  function toast(msg) {
-    if (!toastEl) return;
-    toastEl.textContent = msg;
-    toastEl.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2200);
+const UI = {
+  ledNet: document.getElementById("ledNet"),
+  ledDbRead: document.getElementById("ledDbRead"),
+  ledDbWrite: document.getElementById("ledDbWrite"),
+  ledErr: document.getElementById("ledErr"),
+
+  viewHome: document.getElementById("viewHome"),
+  viewPazienti: document.getElementById("viewPazienti"),
+  viewCalendario: document.getElementById("viewCalendario"),
+  viewStatistiche: document.getElementById("viewStatistiche"),
+  viewImpostazioni: document.getElementById("viewImpostazioni"),
+
+  homeBuild: document.getElementById("homeBuild"),
+  homeYearPill: document.getElementById("homeYearPill"),
+
+  tilePazienti: document.getElementById("tilePazienti"),
+  tileCalendario: document.getElementById("tileCalendario"),
+  tileStatistiche: document.getElementById("tileStatistiche"),
+
+  btnHome: document.getElementById("btnHome"),
+  btnSettings: document.getElementById("btnSettings"),
+
+  btnNewPatient: document.getElementById("btnNewPatient"),
+
+  patientsList: document.getElementById("patientsList"),
+  patientsHint: document.getElementById("patientsHint"),
+
+  // Impostazioni (phases)
+  settingsPhase1: document.getElementById("settingsPhase1"),
+  settingsPhase2: document.getElementById("settingsPhase2"),
+  settingsPhase3: document.getElementById("settingsPhase3"),
+  btnAccCreate: document.getElementById("btnAccCreate"),
+  btnAccModify: document.getElementById("btnAccModify"),
+  btnAccLogin: document.getElementById("btnAccLogin"),
+  accUsername: document.getElementById("accUsername"),
+  accPassword: document.getElementById("accPassword"),
+  accPassword2: document.getElementById("accPassword2"),
+  btnAccBack: document.getElementById("btnAccBack"),
+  btnAccSubmit: document.getElementById("btnAccSubmit"),
+  loggedUserLabel: document.getElementById("loggedUserLabel"),
+  setAnnoEsercizio: document.getElementById("setAnnoEsercizio"),
+  setPrezzo1: document.getElementById("setPrezzo1"),
+  setPrezzo2: document.getElementById("setPrezzo2"),
+  setPrezzo3: document.getElementById("setPrezzo3"),
+  btnSetSave: document.getElementById("btnSetSave"),
+  btnSetReload: document.getElementById("btnSetReload"),
+  btnAddSocieta: document.getElementById("btnAddSocieta"),
+  btnDeleteAccount: document.getElementById("btnDeleteAccount"),
+  btnLogout: document.getElementById("btnLogout"),
+
+
+  patientModal: document.getElementById("patientModal"),
+  patName: document.getElementById("patName"),
+  patSoc: document.getElementById("patSoc"),
+  patStart: document.getElementById("patStart"),
+  patEnd: document.getElementById("patEnd"),
+  levelPills: document.getElementById("levelPills"),
+  dayChips: document.getElementById("dayChips"),
+  patCancel: document.getElementById("patCancel"),
+  patSave: document.getElementById("patSave"),
+
+  timeModal: document.getElementById("timeModal"),
+  timeModalTitle: document.getElementById("timeModalTitle"),
+  timeInput: document.getElementById("timeInput"),
+  durInput: document.getElementById("durInput"),
+  timeCancel: document.getElementById("timeCancel"),
+  timeOk: document.getElementById("timeOk"),
+};
+
+
+const DAYS = [
+  { key:"lun", label:"Lu" },
+  { key:"mar", label:"Ma" },
+  { key:"mer", label:"Me" },
+  { key:"gio", label:"Gi" },
+  { key:"ven", label:"Ve" },
+  { key:"sab", label:"Sa" },
+];
+
+const state = {
+  view: "home",
+  settings: {
+    prezzo_livello_1: "",
+    prezzo_livello_2: "",
+    prezzo_livello_3: "",
+    anno_riferimento: String(new Date().getFullYear()),
+    timezone: "Europe/Rome",
+  },
+  patients: [],
+  newPatient: null,
+  editingDay: null,
+};
+
+function setLed(el, on) {
+  if (!el) return;
+  el.classList.toggle("on", !!on);
+}
+
+function setErrorLed(on) {
+  setLed(UI.ledErr, on);
+}
+
+function toast(msg) {
+  const text = String(msg || "").trim();
+  if (!text) return;
+
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    document.body.appendChild(el);
   }
-
-  function apiHintIfUnknownAction(err) {
-    const msg = String(err && err.message ? err.message : err);
-    if (msg.toLowerCase().includes("unknown action")) {
-      toast("API non aggiornata: ridistribuisci Code.gs (Web App) e riprova");
-      return true;
-    }
-    return false;
-  }
+  el.textContent = text;
+  el.classList.add("show");
+  clearTimeout(window.__toastT);
+  window.__toastT = setTimeout(() => el.classList.remove("show"), 2200);
+}
 
 
-  function safeJsonParse(str, fallback) {
-    try { return JSON.parse(str); } catch { return fallback; }
-  }
+function saveSettings() {
+  const apiUrl = (UI.apiUrlInput.value || "").trim();
+  const year = (UI.yearInput.value || "").trim();
+  const tz = (UI.tzInput.value || "").trim();
+  const p1 = (UI.p1Input.value || "").trim();
+  const p2 = (UI.p2Input.value || "").trim();
+  const p3 = (UI.p3Input.value || "").trim();
 
-  // Date helpers (robust with ISO/timezone): always interpret as LOCAL calendar date (iOS-safe)
-  function dateOnlyLocal(value) {
-    if (value == null || value === "") return null;
+  if (apiUrl) setApiBaseUrl(apiUrl);
 
-    if (value instanceof Date) {
-      if (isNaN(value)) return null;
-      return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-    }
-
-    const s = String(value).trim();
-    if (!s) return null;
-
-    // YYYY-MM-DD (date-only)
-    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (m) {
-      const y = parseInt(m[1], 10);
-      const mo = parseInt(m[2], 10) - 1;
-      const d = parseInt(m[3], 10);
-      return new Date(y, mo, d);
-    }
-
-    // dd/mm/yyyy (common Sheet formatting)
-    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (m) {
-      const d = parseInt(m[1], 10);
-      const mo = parseInt(m[2], 10) - 1;
-      const y = parseInt(m[3], 10);
-      return new Date(y, mo, d);
-    }
-
-    // ISO / any parsable datetime -> convert to LOCAL date (fixes -1 day when server returns UTC date-times)
-    const dt = new Date(s);
-    if (!isNaN(dt)) {
-      return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-    }
-
-    // Fallback: extract YYYY-MM-DD prefix
-    m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) {
-      const y = parseInt(m[1], 10);
-      const mo = parseInt(m[2], 10) - 1;
-      const d = parseInt(m[3], 10);
-      return new Date(y, mo, d);
-    }
-
-    return null;
-  }
-
-  function ymdLocal(value) {
-    const d = dateOnlyLocal(value);
-    if (!d) return "";
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }
-
-  function getSession() {
-    return safeJsonParse(localStorage.getItem("AMF_SESSION") || "", null);
-  }
-  function setSession(user) {
-    localStorage.setItem("AMF_SESSION", JSON.stringify(user));
-  }
-  function clearSession() {
-    localStorage.removeItem("AMF_SESSION");
-  }
-
-  // Migrazione build: se cambia build e config.js ha un URL valido, aggiorna l"API_URL locale
-  // (evita che resti salvato un vecchio endpoint).
-  (function migrateApiUrlOnBuild() {
-    try {
-      const last = (localStorage.getItem("AMF_LAST_BUILD") || "").trim();
-      const cfg = (window.AMF_CONFIG && String(window.AMF_CONFIG.API_URL || "").trim()) || "";
-      const cfgOk = cfg && cfg.startsWith("http") && !cfg.includes("PASTE_YOUR_GAS_WEBAPP_URL_HERE");
-      if (cfgOk && last && last != BUILD) {
-        localStorage.setItem("AMF_API_URL", cfg);
-      }
-      // se non esiste ancora, imposta comunque il default
-      if (cfgOk && !(localStorage.getItem("AMF_API_URL") || "").trim()) {
-        localStorage.setItem("AMF_API_URL", cfg);
-      }
-      localStorage.setItem("AMF_LAST_BUILD", BUILD);
-    } catch (_) {}
-  })();
-
-  // --- API URL config (config.js + localStorage override)
-  function getApiUrl() {
-    const fromLs = (localStorage.getItem("AMF_API_URL") || "").trim();
-    if (fromLs) return fromLs;
-
-    const cfg = (window.AMF_CONFIG && String(window.AMF_CONFIG.API_URL || "").trim()) || "";
-    if (!cfg) return "";
-    if (cfg.includes("PASTE_YOUR_GAS_WEBAPP_URL_HERE")) return "";
-    return cfg;
-  }
-
-  function setApiUrl(url) {
-    localStorage.setItem("AMF_API_URL", url.trim());
-  }
-
-
-  function getDefaultApiUrl() {
-    const cfg = (window.AMF_CONFIG && String(window.AMF_CONFIG.API_URL || "").trim()) || "";
-    if (!cfg) return "";
-    if (cfg.includes("PASTE_YOUR_GAS_WEBAPP_URL_HERE")) return "";
-    return cfg;
-  }
-
-  // Se la build cambia e nel pacchetto c'è un API_URL valido, aggiorna quello salvato in locale
-  (() => {
-    const def = getDefaultApiUrl();
-    const last = (localStorage.getItem("AMF_LAST_BUILD") || "").trim();
-    if (def && last !== BUILD) {
-      localStorage.setItem("AMF_API_URL", def);
-    }
-    if (last !== BUILD) {
-      localStorage.setItem("AMF_LAST_BUILD", BUILD);
-    }
-  })();
-
-  // Modal API
-  const modalApi = $("#modalApi");
-  const apiUrlInput = $("#apiUrlInput");
-  const btnApiCancel = $("#btnApiCancel");
-  const btnApiSave = $("#btnApiSave");
-
-  let apiModalResolve = null;
-
-  function openApiModal() {
-    if (!modalApi) return Promise.resolve(false);
-    modalApi.classList.add("show");
-    modalApi.setAttribute("aria-hidden", "false");
-    apiUrlInput.value = getApiUrl() || "";
-    apiUrlInput.focus();
-    return new Promise((resolve) => { apiModalResolve = resolve; });
-  }
-
-  function closeApiModal(ok) {
-    if (!modalApi) return;
-    modalApi.classList.remove("show");
-    modalApi.setAttribute("aria-hidden", "true");
-    if (apiModalResolve) {
-      apiModalResolve(!!ok);
-      apiModalResolve = null;
-    }
-  }
-
-  btnApiCancel?.addEventListener("click", () => closeApiModal(false));
-  btnApiSave?.addEventListener("click", async () => {
-    const u = (apiUrlInput.value || "").trim();
-    if (!u || !u.startsWith("http")) {
-      toast("Inserisci un URL valido");
-      return;
-    }
-    setApiUrl(u);
-    try {
-      await api("ping", {});
-      toast("Collegamento OK");
-      closeApiModal(true);
-    } catch (e) {
-      toast("URL non valido o non raggiungibile");
-    }
-  });
-
-  async function ensureApiReady() {
-    if (getApiUrl()) return true;
-    const ok = await openApiModal();
-    return ok && !!getApiUrl();
-  }
-
-  function buildUrl(action, params) {
-    const base = getApiUrl();
-    const sp = new URLSearchParams();
-    sp.set("action", action);
-    Object.entries(params || {}).forEach(([k, v]) => {
-      if (v === undefined || v === null) return;
-      sp.set(k, String(v));
-    });
-    return base + (base.includes("?") ? "&" : "?") + sp.toString();
-  }
-
-  function apiJsonp(action, params) {
-    const cb = "AMF_JSONP_" + Math.random().toString(36).slice(2);
-    const url = buildUrl(action, Object.assign({}, params || {}, {
-      callback: cb,
-      _: Date.now()
-    }));
-
-    return new Promise((resolve, reject) => {
-      let done = false;
-      let script = null;
-
-      function cleanup() {
-        try { if (script && script.parentNode) script.parentNode.removeChild(script); } catch (_) {}
-        try { delete window[cb]; } catch (_) { window[cb] = undefined; }
-      }
-
-      const timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        cleanup();
-        reject(new Error("Failed to fetch"));
-      }, 12000);
-
-      window[cb] = (data) => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        cleanup();
-
-        if (!data || data.ok !== true) {
-          reject(new Error((data && data.error) ? String(data.error) : "Errore API"));
-          return;
-        }
-        resolve(data);
-      };
-
-      script = document.createElement("script");
-      script.src = url;
-      script.async = true;
-      script.onerror = () => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        cleanup();
-        reject(new Error("Failed to fetch"));
-      };
-      document.head.appendChild(script);
-    });
-  }
-
-  async function api(action, params) {
-    const base = getApiUrl();
-    if (!base) throw new Error("API_URL_MISSING");
-
-    // iOS PWA: JSONP evita blocchi CORS/redirect (fallback a fetch se serve)
-    try {
-      return await apiJsonp(action, params);
-    } catch (_) {
-      const url = buildUrl(action, Object.assign({}, params || {}, { _: Date.now() }));
-      const res = await fetch(url, { method: "GET", cache: "no-store" });
-      const data = await res.json().catch(() => null);
-      if (!data || data.ok !== true) {
-        throw new Error((data && data.error) ? String(data.error) : "Errore API");
-      }
-      return data;
-    }
-  }
-
-  
-  // ---- API cache (performance)
-  const __apiCache = new Map(); // key -> { t, data }
-
-  function __apiCacheKey(action, params) {
-    try { return action + "|" + JSON.stringify(params || {}); } catch { return action; }
-  }
-  function invalidateApiCache(prefix) {
-    const p = String(prefix || "");
-    for (const k of Array.from(__apiCache.keys())) {
-      if (!p || k.startsWith(p + "|") || k.startsWith(p)) __apiCache.delete(k);
-    }
-  }
-  async function apiCached(action, params, ttlMs) {
-    const key = __apiCacheKey(action, params);
-    const now = Date.now();
-    const hit = __apiCache.get(key);
-    if (hit && (now - hit.t) < (ttlMs || 8000)) return hit.data;
-    const data = await api(action, params);
-    __apiCache.set(key, { t: now, data });
-    return data;
-  }
-
-// --- Views / Routing
-  const views = {
-    home: $("#viewHome"),
-    auth: $("#viewAuth"),
-    create: $("#viewCreate"),
-    login: $("#viewLogin"),
-    modify: $("#viewModify"),
-    settings: $("#viewSettings"),
-    patients: $("#viewPatients"),
-    patientForm: $("#viewPatientForm"),
-    calendar: $("#viewCalendar")
+  const yNum = parseInt(year, 10);
+  const next = {
+    anno_riferimento: Number.isFinite(yNum) ? String(yNum) : (state.settings?.anno_riferimento || String(new Date().getFullYear())),
+    timezone: tz || (state.settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Rome"),
+    prezzo_livello_1: p1 || (state.settings?.prezzo_livello_1 || "0"),
+    prezzo_livello_2: p2 || (state.settings?.prezzo_livello_2 || "0"),
+    prezzo_livello_3: p3 || (state.settings?.prezzo_livello_3 || "0"),
   };
 
-  const btnTopRight = $("#btnTopRight");
-  const iconTopRight = $("#iconTopRight");
-  const btnTopPlus = $("#btnTopPlus");
-  const btnCalPrev = $("#btnCalPrev");
-  const btnCalToday = $("#btnCalToday");
-  const btnCalNext = $("#btnCalNext");
-  const btnCalMonth = $("#btnCalMonth");
+  // Override locale (no backend write). In alternativa possiamo aggiungere un endpoint GAS in seguito.
+  localStorage.setItem("fm_settings_override", JSON.stringify(next));
+  state.settings = { ...(state.settings || {}), ...next };
+  renderSettings();
+  toast("Impostazioni salvate");
+}
+function showView(name) {
+  state.view = name;
 
-  function setTopRight(mode) {
-    if (!btnTopRight || !iconTopRight) return;
-    iconTopRight.innerHTML = "";
-    if (mode === "home") {
-      btnTopRight.setAttribute("aria-label", "Home");
-      // home icon
-      iconTopRight.innerHTML = '<path d="M3 10.5 12 3l9 7.5"></path><path d="M5 10v11h14V10"></path><path d="M10 21v-6h4v6"></path>';
-    } else {
-      btnTopRight.setAttribute("aria-label", "Impostazioni");
-      // settings icon
-      iconTopRight.innerHTML = '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="M19.4 15a7.9 7.9 0 0 0 .1-1l2-1.5-2-3.5-2.4 1a8.6 8.6 0 0 0-1.7-1L15 5H9L8.6 7.9a8.6 8.6 0 0 0-1.7 1L4.5 8l-2 3.5L4.5 13a7.9 7.9 0 0 0 .1 1l-2 1.5 2 3.5 2.4-1a8.6 8.6 0 0 0 1.7 1L9 19h6l.4-2.9a8.6 8.6 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5Z"></path>';
-    }
+  UI.viewHome.style.display = name === "home" ? "" : "none";
+  UI.viewPazienti.style.display = name === "pazienti" ? "" : "none";
+  UI.viewCalendario.style.display = name === "calendario" ? "" : "none";
+  UI.viewStatistiche.style.display = name === "statistiche" ? "" : "none";
+  UI.viewImpostazioni.style.display = name === "impostazioni" ? "" : "none";
+
+  // Topbar: in Home niente Home, solo Impostazioni. Fuori dalla Home: Home disponibile, Impostazioni nascosta.
+  const onHome = name === "home";
+  if (UI.btnHome) UI.btnHome.style.display = onHome ? "none" : "";
+  if (UI.btnSettings) UI.btnSettings.style.display = onHome ? "" : "none";
+
+  if (name === "impostazioni") {
+    renderImpostazioni();
   }
-
-  let currentView = "home";
-
-  function showView(name) {
-    Object.entries(views).forEach(([k, el]) => {
-      if (!el) return;
-      el.classList.toggle("active", k === name);
-    });
-    currentView = name;
-
-    // Home: right is settings. Others: right is home.
-    if (name === "home") setTopRight("settings");
-    else setTopRight("home");
-
-    setTopPlusVisible(name === "patients");
-    setCalendarControlsVisible(name === "calendar");
-  }
-
-  btnTopRight?.addEventListener("click", () => {
-    if (currentView === "home") {
-      openSettingsFlow();
-    } else {
-      showView("home");
-    }
-  });
-
-  function setTopPlusVisible(isVisible) {
-    if (!btnTopPlus) return;
-    btnTopPlus.hidden = !isVisible;
-  }
-
-
-  function setCalendarControlsVisible(isVisible) {
-    const list = [btnCalPrev, btnCalToday, btnCalNext, btnCalMonth];
-    list.forEach((b) => { if (b) b.hidden = !isVisible; });
-  }
-
-
-  btnTopPlus?.addEventListener("click", () => {
-    openPatientCreate();
-  });
-
-
-  // --- Home routes placeholders
-  const routes = {
-    
-    pazienti: () => openPatientsFlow(),
-    calendario: () => openCalendarFlow(),
-    statistiche: () => toast("Statistiche (da implementare)")
-  };
-  document.querySelectorAll("[data-route]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-        // UI: evidenzia selezione
-        timePickList.querySelectorAll(".pill-btn.selected").forEach((el) => el.classList.remove("selected")); 
-        btn.classList.add("selected");
-      const r = btn.getAttribute("data-route");
-      (routes[r] || (() => {}))();
-    });
-  });
-
-
-  // --- Calendario
-  const calDateTitle = $("#calDateTitle");
-  const calDaysCol = $("#calDaysCol");
-  const calHoursRow = $("#calHoursRow");
-  const calBody = $("#calBody");
-
-  const CAL_DAYS = [
-    { key: 1, label: "LU" },
-    { key: 2, label: "MA" },
-    { key: 3, label: "ME" },
-    { key: 4, label: "GI" },
-    { key: 5, label: "VE" },
-    { key: 6, label: "SA" }
-  ];
-
-  let calSelectedDate = new Date();
-  let calHours = [];
-  let calBuilt = false;
-  let calSlotPatients = new Map(); // key "dayKey|HH:MM" -> {count, ids:[]}
-
-const DAY_LABEL_TO_KEY = { LU: 1, MA: 2, ME: 3, GI: 4, VE: 5, SA: 6 };
-
-function normTime(t) {
-  if (!t) return "";
-  const s = String(t).trim();
-  const m = s.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return s;
-  const hh = String(parseInt(m[1], 10)).padStart(2, "0");
-  const mm = m[2];
-  return `${hh}:${mm}`;
 }
 
-function initials(name) {
-  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "•";
-  const a = parts[0][0] || "";
-  const b = parts.length > 1 ? (parts[parts.length - 1][0] || "") : "";
-  return (a + b).toUpperCase();
+function modal(el, on) {
+  el.classList.toggle("on", !!on);
 }
 
+function safeJsonParse(s, fallback) {
+  try { return JSON.parse(s); } catch(_) { return fallback; }
+}
 
-function parseGiorniMap(raw) {
-  if (raw == null) return {};
-  if (typeof raw === "object") {
-    try { return Object.assign({}, raw); } catch { return {}; }
+function getSession() {
+  const raw = localStorage.getItem("SESSION");
+  return raw ? safeJsonParse(raw, null) : null;
+}
+function setSession(session) {
+  localStorage.setItem("SESSION", JSON.stringify(session));
+}
+
+async function apiFetch(action, payload={}, method="POST") {
+  const baseUrl = getApiBaseUrl();
+  if (!baseUrl) {
+    throw new Error("Imposta prima l'URL del Google Apps Script (Impostazioni).");
   }
-  const s = String(raw).trim();
-  if (!s || s === "—") return {};
+  const url = new URL(baseUrl);
+  url.searchParams.set("action", action);
+  url.searchParams.set("apiKey", API_KEY);
+
+  const session = getSession();
+  if (session && session.userId) {
+    url.searchParams.set("userId", session.userId);
+  }
+
+  setLed(UI.ledNet, true);
+  setErrorLed(false);
+
   try {
-    const obj = JSON.parse(s);
-    return (obj && typeof obj === "object") ? obj : {};
-  } catch {
-    return {};
+    const opts = {
+      method,
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    };
+    if (method !== "GET") {
+      opts.body = JSON.stringify(payload || {});
+    }
+    const res = await fetch(url.toString(), opts);
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || data.ok !== true) {
+      throw new Error((data && data.error) ? data.error : "Errore API");
+    }
+    return data.data;
+  } finally {
+    setLed(UI.ledNet, false);
   }
 }
 
-function normalizeTimeList(value) {
-  if (value == null) return [];
-  if (Array.isArray(value)) return value.map(normTime).filter(Boolean);
-  if (typeof value === "object") {
-    const maybe = value.ora_inizio || value.time || value.ora || "";
-    const t = normTime(maybe);
-    return t ? [t] : [];
-  }
-  const s = String(value).trim();
-  if (!s || s === "—") return [];
-  const parts = s.split(/[,;\n]+/).map((x) => normTime(x)).filter(Boolean);
-  return parts.length ? parts : (normTime(s) ? [normTime(s)] : []);
-}
 
-
-
-// --- Società cache (id -> {nome, tag})
-let societaCache = null;
-let societaMapById = new Map();
-
-function buildSocietaMap_(arr) {
-  societaMapById = new Map();
-  (arr || []).forEach((s) => {
-    if (!s) return;
-    const id = String(s.id || "").trim();
-    if (!id) return;
-    const nome = String(s.nome || "").trim();
-    const tagRaw = (s.tag !== undefined && s.tag !== null) ? s.tag : 0;
-    const tag = Math.max(0, Math.min(5, parseInt(tagRaw, 10) || 0));
-    societaMapById.set(id, { id, nome, tag });
-  });
-}
-
-async function loadSocietaCache(force = false) {
-  const user = getSession();
-  if (!user || !user.id) return [];
-  if (societaCache && !force) return societaCache;
+async function hasActiveAccounts() {
   try {
-    const data = await apiCached("listSocieta", { userId: user.id }, 15000);
-    const arr = Array.isArray(data && data.societa) ? data.societa : [];
-    societaCache = arr;
-    buildSocietaMap_(arr);
-    return arr;
-  } catch {
-    societaCache = [];
-    buildSocietaMap_([]);
-    return [];
-  }
-}
-
-function getSocietaById(id) {
-  const key = String(id || "").trim();
-  if (!key) return null;
-  return societaMapById.get(key) || null;
-}
-
-function getSocNameById(id) {
-  const s = getSocietaById(id);
-  return s && s.nome ? s.nome : "";
-}
-
-function getSocTagIndexById(id) {
-  const s = getSocietaById(id);
-  return s && s.tag !== undefined && s.tag !== null ? (Number(s.tag) || 0) : 0;
-}
-
-
-function clearCalendarCells() {
-  if (!calBody) return;
-  if (calSlotPatients && calSlotPatients.clear) calSlotPatients.clear();
-  calBody.querySelectorAll(".cal-cell").forEach((c) => {
-    c.classList.remove("filled");
-    c.innerHTML = "";
-    c.removeAttribute("title");
-  });
-}
-
-function fillCalendarFromPatients(patients) {
-  if (!calBody) return;
-
-  // Compute the real date for each weekday cell (Mon-Sat) in the week of calSelectedDate
-
-  function mondayOfWeek(dateObj) {
-    const d = new Date(dateObj);
-    d.setHours(0, 0, 0, 0);
-    const jsDay = d.getDay(); // 0=Sun..6=Sat
-    const diff = (jsDay === 0) ? -6 : (1 - jsDay); // move back to Monday
-    d.setDate(d.getDate() + diff);
-    return d;
-  }
-
-  const weekMon = mondayOfWeek(calSelectedDate);
-
-  function dateForDayKey(dayKey) {
-    const d = new Date(weekMon);
-    d.setDate(d.getDate() + (parseInt(dayKey, 10) - 1));
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-
-  function inRange(cellDate, startStr, endStr) {
-    if (!cellDate) return false;
-    const s = dateOnlyLocal(startStr);
-    const e = dateOnlyLocal(endStr);
-    const t = cellDate.getTime();
-    if (s && t < s.getTime()) return false;
-    if (e && t > e.getTime()) return false;
+    const res = await apiFetch("hasAccounts", {});
+    return !!(res && res.hasActive);
+  } catch (e) {
+    // If API is unreachable, fallback to existing behavior
     return true;
   }
-
-  const slots = new Map(); // key -> {count, names:[], ids:[], tags:[]}
-
-  (patients || []).forEach((p) => {
-    if (!p || p.isDeleted) return;
-
-    const raw = p.giorni_settimana || p.giorni || "";
-    if (!raw) return;
-
-    const map = parseGiorniMap(raw);
-    if (!map || typeof map !== "object") return;
-
-    Object.keys(map).forEach((k) => {
-      const dayLabel = String(k || "").trim().toUpperCase();
-      const dayKey = DAY_LABEL_TO_KEY[dayLabel];
-      if (!dayKey) return;
-
-      // Date-range filter (patient should only appear within its active period)
-      const cellDate = dateForDayKey(dayKey);
-      if (!inRange(cellDate, p.data_inizio, p.data_fine)) return;
-
-      const times = normalizeTimeList(map[k]);
-      if (!times.length) return;
-
-      times.forEach((t) => {
-        const slotKey = `${dayKey}|${t}`;
-        const prev = slots.get(slotKey) || { count: 0, names: [], ids: [], tags: [] };
-        prev.count += 1;
-        prev.names.push(p.nome_cognome || "Paziente");
-        prev.ids.push(p.id);
-        // Tag colore società (da foglio societa)
-        prev.tags.push(getSocTagIndexById(p.societa_id || ""));
-        slots.set(slotKey, prev);
-      });
-    });
-  });
-
-  calSlotPatients = slots;
-
-  slots.forEach((info, slotKey) => {
-    const [dayKey, time] = slotKey.split("|");
-    const cell = calBody.querySelector(`.cal-cell[data-day-key="${dayKey}"][data-time="${time}"]`);
-    if (!cell) return;
-
-    cell.classList.add("filled");
-    if (info.count === 1) {
-      const tagIdx = Array.isArray(info.tags) && info.tags.length ? info.tags[0] : 0;
-      const lab = initials(info.names[0]);
-      cell.innerHTML = `<span class="cal-socdot t${tagIdx + 1}" aria-hidden="true"></span><span class="cal-cell-text">${escapeHtml(lab)}</span>`;
-    } else {
-      cell.innerHTML = `<span class="cal-cell-text">${escapeHtml(String(info.count))}</span>`;
-    }
-    cell.title = info.names.slice(0, 8).join("\n") + (info.names.length > 8 ? "\n…" : "");
-  });
 }
 
 
-async function ensurePatientsForCalendar() {
-  const user = getSession();
-  if (!user || !user.id) return [];
-  if (!patientsCache) {
-    try { await loadPatients(); } catch { /* ignore */ }
+function showSettingsPhase(n) {
+  if (!UI.settingsPhase1 || !UI.settingsPhase2 || !UI.settingsPhase3) return;
+  UI.settingsPhase1.classList.toggle("hidden", n !== 1);
+  UI.settingsPhase2.classList.toggle("hidden", n !== 2);
+  UI.settingsPhase3.classList.toggle("hidden", n !== 3);
+}
+
+let accountMode = null; // "create" | "modify" | "login"
+
+async function renderImpostazioni() {
+  // Always reflect current session
+  if (state.user) {
+    enterSettingsPhase3();
+    return;
   }
-  return Array.isArray(patientsCache) ? patientsCache : [];
+
+  // Default: show the action menu (login/modify). If there are NO active accounts,
+  // automatically start the create-account flow.
+  showSettingsPhase(1);
+
+  const hasActive = await hasActiveAccounts();
+  if (!hasActive) {
+    openAccountForm("create");
+  }
+} else {
+    showSettingsPhase(1);
+  }
+}
+
+function openAccountForm(mode) {
+  accountMode = mode;
+  if (!UI.accUsername) return;
+
+  UI.accUsername.value = "";
+  UI.accPassword.value = "";
+  UI.accPassword2.value = "";
+
+  // defaults
+  UI.accPassword.type = "password";
+  UI.accPassword2.type = "password";
+
+  // mode-specific labels
+  if (mode === "create") {
+    UI.accPassword.placeholder = "Password";
+    UI.accPassword2.placeholder = "Ripeti password";
+    UI.accPassword2.classList.remove("hidden");
+    UI.btnAccSubmit.textContent = "crea account";
+  } else if (mode === "modify") {
+    UI.accPassword.placeholder = "Password attuale";
+    UI.accPassword2.placeholder = "Nuova password";
+    UI.accPassword2.classList.remove("hidden");
+    UI.btnAccSubmit.textContent = "modifica account";
+  } else {
+    UI.accPassword.placeholder = "Password";
+    UI.accPassword2.classList.add("hidden");
+    UI.btnAccSubmit.textContent = "accedi";
+  }
+
+  showSettingsPhase(2);
+  setTimeout(() => UI.accUsername?.focus(), 50);
+}
+
+function updateLoggedUserLabel() {
+  if (UI.loggedUserLabel) UI.loggedUserLabel.textContent = state.user?.email || "—";
+}
+
+function renderSettingsPhase3Fields() {
+  if (!UI.setAnnoEsercizio) return;
+  UI.setAnnoEsercizio.value = state.settings.anno_riferimento || "";
+  UI.setPrezzo1.value = state.settings.prezzo_livello_1 || "";
+  UI.setPrezzo2.value = state.settings.prezzo_livello_2 || "";
+  UI.setPrezzo3.value = state.settings.prezzo_livello_3 || "";
+}
+
+function renderSettings() {
+  // Backward-compatible: refresh UI with current state
+  updateLoggedUserLabel();
+  renderSettingsPhase3Fields();
 }
 
 
-  function openCalendarFlow() {
-    ensureCalendarBuilt();
-    showView("calendar");
-    updateCalendarUI();
-  }
-
-  function ensureCalendarBuilt() {
-    if (calBuilt) return;
-    if (!calDaysCol || !calHoursRow || !calBody) return;
-
-    // Days column (fixed)
-    calDaysCol.innerHTML = "";
-
-    // Empty corner cell (1x1) to align with hours header; pushes days down by 1 row
-    const spacer = document.createElement("div");
-    spacer.className = "cal-day cal-day-spacer";
-    spacer.setAttribute("aria-hidden", "true");
-    calDaysCol.appendChild(spacer);
-    CAL_DAYS.forEach((d) => {
-      const el = document.createElement("div");
-      el.className = "cal-day";
-      el.textContent = d.label;
-      el.dataset.dayKey = String(d.key);
-      calDaysCol.appendChild(el);
-    });
-
-    // Hours (scrollable) - 30 min slots 06:00 -> 21:30 (coerente con selettore terapia)
-    calHours = [];
-    for (let h = 6; h <= 21; h++) {
-      for (let m = 0; m < 60; m += 30) {
-        const hh = String(h).padStart(2, "0");
-        const mm = String(m).padStart(2, "0");
-        calHours.push(`${hh}:${mm}`);
-      }
-    }
-
-    calHoursRow.innerHTML = "";
-    calHours.forEach((t) => {
-      const el = document.createElement("div");
-      el.className = "cal-hour";
-      el.textContent = t;
-      calHoursRow.appendChild(el);
-    });
-
-    // Body grid
-    calBody.innerHTML = "";
-    CAL_DAYS.forEach((d) => {
-      const row = document.createElement("div");
-      row.className = "cal-row";
-      row.dataset.dayKey = String(d.key);
-
-      calHours.forEach((t) => {
-        const cell = document.createElement("div");
-        cell.className = "cal-cell";
-        cell.dataset.dayKey = String(d.key);
-        cell.dataset.time = t;
-        cell.addEventListener("click", async () => {
-          if (!cell.classList.contains("filled")) return;
-          const slotKey = `${cell.dataset.dayKey}|${cell.dataset.time}`;
-          const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
-          const ids = info && Array.isArray(info.ids) ? info.ids.filter((x) => x != null) : [];
-          if (ids.length !== 1) {
-            toast(ids.length > 1 ? "Più pazienti in questo slot" : "Paziente non disponibile");
-            return;
-          }
-          const pid = ids[0];
-          const patients = await ensurePatientsForCalendar();
-          const p = (patients || []).find((x) => String(x.id) === String(pid));
-          if (!p) { toast("Paziente non trovato"); return; }
-          openPatientExisting(p);
-        });
-        row.appendChild(cell);
-      });
-
-      calBody.appendChild(row);
-    });
-
-    // Topbar calendar controls
-    btnCalPrev?.addEventListener("click", () => { shiftCalendarDay(-1); });
-    btnCalNext?.addEventListener("click", () => { shiftCalendarDay(1); });
-    btnCalToday?.addEventListener("click", () => { calSelectedDate = new Date(); updateCalendarUI(); });
-    btnCalMonth?.addEventListener("click", () => toast("Vista mese (da implementare)"));
-
-    calBuilt = true;
-  }
-
-  function shiftCalendarDay(delta) {
-    const d = new Date(calSelectedDate);
-    d.setDate(d.getDate() + delta);
-    calSelectedDate = d;
-    updateCalendarUI();
-  }
-
-  function formatItDate(dateObj) {
-    const fmt = new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", year: "numeric" });
-    let s = fmt.format(dateObj);
-    // Capitalizza mese (Febbraio, Marzo, ...)
-    return s.replace(/(\d+ )([a-zàèéìòù]+)( \d+)/i, (m, a, b, c) => `${a}${b.charAt(0).toUpperCase()}${b.slice(1)}${c}`);
-  }
-
-  async function updateCalendarUI() {
-  if (!calDateTitle || !calDaysCol) return;
-
-  calDateTitle.textContent = formatItDate(calSelectedDate);
-
-  // Active weekday (Mon-Sat only)
-  const jsDay = calSelectedDate.getDay(); // 0=Sun ... 6=Sat
-  const key = jsDay === 0 ? 7 : jsDay; // 7=Sun (not present)
-  calDaysCol.querySelectorAll(".cal-day").forEach((el) => {
-    el.classList.toggle("active", el.dataset.dayKey === String(key));
-  });
-
-  // Fill therapies from patients schedule
-  clearCalendarCells();
-  await loadSocietaCache();
-  const patients = await ensurePatientsForCalendar();
-  fillCalendarFromPatients(patients);
+function enterSettingsPhase3() {
+  updateLoggedUserLabel();
+  renderSettingsPhase3Fields();
+  showSettingsPhase(3);
 }
 
+async function handleAccountSubmit() {
+  const username = String(UI.accUsername.value || "").trim();
+  const p1 = String(UI.accPassword.value || "");
+  const p2 = String(UI.accPassword2.value || "");
 
-  // Build label
-  const buildLabel = $("#buildLabel");
-  if (buildLabel) buildLabel.textContent = DISPLAY;
+  if (!username) return toast("Inserisci il nome utente.");
+  if (!p1) return toast("Inserisci la password.");
 
-  // --- Auth buttons
-  $("#btnGoCreate")?.addEventListener("click", () => showView("create"));
-  $("#btnGoModify")?.addEventListener("click", () => openModify());
-  $("#btnGoLogin")?.addEventListener("click", () => openLogin());
-
-  $("#btnCreateBack")?.addEventListener("click", () => showView("auth"));
-  $("#btnLoginBack")?.addEventListener("click", () => showView("auth"));
-  $("#btnModBack")?.addEventListener("click", () => showView("auth"));
-
-  // --- Auth redirect
-  let postLoginTarget = "settings";
-
-  // --- Users cache
-  let usersCache = null;
-  async function fetchUsers() {
-    const data = await apiCached("listUsers", {}, 15000);
-    usersCache = Array.isArray(data.users) ? data.users : [];
-    return usersCache;
+  if (accountMode === "create") {
+    if (!p2) return toast("Ripeti la password.");
+    if (p1 !== p2) return toast("Le password non coincidono.");
   }
 
-  function fillUserSelect(selectEl, users) {
-    if (!selectEl) return;
-    selectEl.innerHTML = "";
-    (users || []).forEach(u => {
-      const opt = document.createElement("option");
-      opt.value = u.nome || "";
-      opt.textContent = u.nome || "";
-      selectEl.appendChild(opt);
-    });
+  if (accountMode === "modify") {
+    if (!p2) return toast("Inserisci la nuova password.");
+    if (p1 === p2) return toast("La nuova password deve essere diversa.");
   }
 
-  async function openLogin() {
-    const ok = await ensureApiReady();
-    if (!ok) return;
-    const users = await fetchUsers().catch(() => []);
-    if (!users.length) {
-      toast("Nessun utente: crea account");
-      showView("create");
-      return;
-    }
-    fillUserSelect($("#loginNome"), users);
-    showView("login");
-  }
+  try {
+    setLed(UI.ledDbWrite, true);
 
-  async function openModify() {
-    const ok = await ensureApiReady();
-    if (!ok) return;
-    const users = await fetchUsers().catch(() => []);
-    if (!users.length) {
-      toast("Nessun utente: crea account");
-      showView("create");
-      return;
-    }
-    fillUserSelect($("#modNome"), users);
-    showView("modify");
-  }
-
-  // --- Create account
-  $("#formCreate")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const nome = ($("#createNome")?.value || "").trim();
-    const p1 = ($("#createPass")?.value || "");
-    const p2 = ($("#createPass2")?.value || "");
-    if (!nome) { toast("Inserisci il nome"); return; }
-    if (!p1) { toast("Inserisci la password"); return; }
-    if (p1 !== p2) { toast("Le password non coincidono"); return; }
-
-    const ok = await ensureApiReady();
-    if (!ok) return;
-
-    try {
-      const data = await api("createUser", { nome, password: p1 });
-      setSession(data.user);
-      toast("Account creato");
-      await goAfterLogin();
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
-    }
-  });
-
-  // --- Login submit
-  $("#formLogin")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const nome = ($("#loginNome")?.value || "").trim();
-    const pass = ($("#loginPass")?.value || "");
-    if (!nome) { toast("Seleziona un nome"); return; }
-    if (!pass) { toast("Inserisci la password"); return; }
-
-    const ok = await ensureApiReady();
-    if (!ok) return;
-
-    try {
-      const data = await api("login", { nome, password: pass });
-      setSession(data.user);
-      toast("Accesso OK");
-      await goAfterLogin();
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
-    }
-  });
-
-  // --- Modify submit
-  $("#formModify")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const nome = ($("#modNome")?.value || "").trim();
-    const oldP = ($("#modOld")?.value || "");
-    const newP = ($("#modNew")?.value || "");
-    const newP2 = ($("#modNew2")?.value || "");
-    if (!nome) { toast("Seleziona un nome"); return; }
-    if (!oldP || !newP) { toast("Compila tutti i campi"); return; }
-    if (newP !== newP2) { toast("Le password non coincidono"); return; }
-
-    const ok = await ensureApiReady();
-    if (!ok) return;
-
-    try {
-      await api("updatePassword", { nome, oldPassword: oldP, newPassword: newP });
-      toast("Password aggiornata");
-      showView("auth");
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
-    }
-  });
-
-  // --- Settings view logic
-  const pillUser = $("#pillUser");
-  const pillYear = $("#pillYear");
-
-  function setPills(user, year) {
-    if (pillUser) pillUser.textContent = user?.nome || "—";
-    if (pillYear) pillYear.textContent = year ? String(year) : "—";
-  }
-
-  function getSettingsPayloadFromUI() {
-    return {
-      anno_esercizio: ($("#setAnno")?.value || "").trim(),
-      tariffa_livello_1: ($("#setL1")?.value || "").trim(),
-      tariffa_livello_2: ($("#setL2")?.value || "").trim(),
-      tariffa_livello_3: ($("#setL3")?.value || "").trim()
-    };
-  }
-
-  function applySettingsToUI(settings) {
-    const s = settings || {};
-    if ($("#setAnno")) $("#setAnno").value = s.anno_esercizio ?? "";
-    if ($("#setL1")) $("#setL1").value = s.tariffa_livello_1 ?? "";
-    if ($("#setL2")) $("#setL2").value = s.tariffa_livello_2 ?? "";
-    if ($("#setL3")) $("#setL3").value = s.tariffa_livello_3 ?? "";
-
-    const year = s.anno_esercizio || "";
-    setPills(getSession(), year);
-  }
-
-  async function loadSettings() {
-    const user = getSession();
-    if (!user) return;
-    const data = await api("getSettings", { userId: user.id });
-    applySettingsToUI(data.settings || {});
-  }
-
-  async function saveSettings() {
-    const user = getSession();
-    if (!user) return;
-    const payload = getSettingsPayloadFromUI();
-    const data = await api("saveSettings", { userId: user.id, payload: JSON.stringify(payload) });
-    applySettingsToUI(data.settings || {});
-  }
-
-  async function openSettingsAfterLogin() {
-    showView("settings");
-    try {
-      await loadSettings();
-    } catch (e) {
-      setPills(getSession(), "");
-      toast("Impostazioni non disponibili");
-    }
-  }
-
-  async function openPatientsAfterLogin() {
-    showView("patients");
-    try {
-      await loadSocietaCache();
-      await loadPatients();
-    } catch (e) {
-      toast("Pazienti non disponibili");
-    }
-  }
-
-  async function goAfterLogin() {
-    if (postLoginTarget === "patients") {
-      await openPatientsAfterLogin();
-    } else {
-      await openSettingsAfterLogin();
-    }
-  }
-
-  async function openPatientsFlow() {
-    postLoginTarget = "patients";
-    const ok = await ensureApiReady();
-    if (!ok) return;
-
-    let users = [];
-    try { users = await fetchUsers(); } catch { users = []; }
-
-    const session = getSession();
-
-    if (!users.length) {
-      showView("create");
-      toast("Crea il primo account");
+    if (accountMode === "create") {
+      await apiFetch("createAccount", { username, password: p1 });
+      const res = await apiFetch("login", { username, password: p1 });
+      setSession(res.user);
+      state.user = { id: res.user.id, email: res.user.email };
+      await refreshAll();
+      enterSettingsPhase3();
+      toast("Account creato e accesso effettuato.");
       return;
     }
 
-    if (session && session.id) {
-      await openPatientsAfterLogin();
-    } else {
-      showView("auth");
-    }
-  }
-
-
-
-  async function openSettingsFlow() {
-    postLoginTarget = "settings";
-    const ok = await ensureApiReady();
-    if (!ok) return;
-
-    let users = [];
-    try { users = await fetchUsers(); } catch { users = []; }
-
-    const session = getSession();
-
-    // se nessun utente -> forza crea account
-    if (!users.length) {
-      showView("create");
-      toast("Crea il primo account");
+    if (accountMode === "login") {
+      const res = await apiFetch("login", { username, password: p1 });
+      setSession(res.user);
+      state.user = { id: res.user.id, email: res.user.email };
+      await refreshAll();
+      enterSettingsPhase3();
+      toast("Accesso effettuato.");
       return;
     }
 
-    // se già loggato -> settings, altrimenti auth
-    if (session && session.id) {
-      await goAfterLogin();
-    } else {
-      showView("auth");
-    }
+    // modify
+    await apiFetch("changePassword", { username, password_old: p1, password_new: p2 });
+    const res = await apiFetch("login", { username, password: p2 });
+    setSession(res.user);
+    state.user = { id: res.user.id, email: res.user.email };
+    await refreshAll();
+    enterSettingsPhase3();
+    toast("Password aggiornata.");
+  } catch (err) {
+    setErrorLed(true);
+    toast(err?.message || "Errore account.");
+  } finally {
+    setLed(UI.ledDbWrite, false);
   }
+}
 
-  // --- Pazienti (UI + API)
-  const patientsListEl = $("#patientsList");
-  const btnSortDate = $("#patSortDate");
-  const btnSortSoc = $("#patSortSoc");
+function logoutAccount() {
+  localStorage.removeItem("SESSION");
+  state.user = null;
+  updateLoggedUserLabel();
+  showSettingsPhase(1);
+}
 
-  let patientsCache = [];
-  let patientsSortMode = "date"; // date|soc
-  let currentPatient = null;
-  let patientEditEnabled = true; // per create
+async function saveSettingsRemote() {
+  if (!state.user) return toast("Accedi prima di salvare.");
 
-  function fmtIsoDate(iso) {
-    return ymdLocal(iso);
+  const anno = String(UI.setAnnoEsercizio.value || "").trim();
+  const p1 = String(UI.setPrezzo1.value || "").trim();
+  const p2 = String(UI.setPrezzo2.value || "").trim();
+  const p3 = String(UI.setPrezzo3.value || "").trim();
+
+  if (!anno) return toast("Inserisci l'anno di esercizio.");
+
+  const settings = {
+    ...state.settings,
+    anno_riferimento: anno,
+    prezzo_livello_1: p1,
+    prezzo_livello_2: p2,
+    prezzo_livello_3: p3,
+  };
+
+  try {
+    setLed(UI.ledDbWrite, true);
+    await apiFetch("saveSettings", { settings });
+    state.settings = settings;
+    toast("Impostazioni salvate.");
+  } catch (err) {
+    setErrorLed(true);
+    toast(err?.message || "Errore salvataggio impostazioni.");
+  } finally {
+    setLed(UI.ledDbWrite, false);
   }
+}
 
-  function setPatientsSort(mode) {
-    patientsSortMode = mode;
-    btnSortDate?.classList.toggle("active", mode === "date");
-    btnSortSoc?.classList.toggle("active", mode === "soc");
-    renderPatients();
+async function reloadSettingsRemote() {
+  try {
+    await refreshAll();
+    renderSettingsPhase3Fields();
+    toast("Impostazioni ricaricate.");
+  } catch (err) {
+    setErrorLed(true);
+    toast(err?.message || "Errore ricarica impostazioni.");
   }
+}
 
-  btnSortDate?.addEventListener("click", () => setPatientsSort("date"));
-  btnSortSoc?.addEventListener("click", () => setPatientsSort("soc"));
+async function addSocietaPrompt() {
+  if (!state.user) return toast("Accedi prima.");
 
-  async function loadPatients() {
-    const user = getSession();
-    if (!user) return;
-    try {
-      const data = await apiCached("listPatients", { userId: user.id }, 8000);
-      patientsCache = Array.isArray(data.pazienti) ? data.pazienti : [];
-      renderPatients();
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      throw err;
-    }
+  const nome = prompt("Nome società");
+  const clean = String(nome || "").trim();
+  if (!clean) return;
+
+  try {
+    setLed(UI.ledDbWrite, true);
+    await apiFetch("addSocieta", { nome: clean });
+    toast("Società aggiunta.");
+  } catch (err) {
+    setErrorLed(true);
+    toast(err?.message || "Errore aggiunta società.");
+  } finally {
+    setLed(UI.ledDbWrite, false);
   }
+}
 
-  function renderPatients() {
-    if (!patientsListEl) return;
-    const arr = (patientsCache || []).slice();
+async function deleteAccountFlow() {
+  if (!state.user) return toast("Nessun account attivo.");
 
-    if (patientsSortMode === "soc") {
-      arr.sort((a,b) =>
-        String(getSocNameById(a.societa_id||"")||"").localeCompare(String(getSocNameById(b.societa_id||"")||""), "it", { sensitivity: "base" }) ||
-        String(a.nome_cognome||"").localeCompare(String(b.nome_cognome||""), "it", { sensitivity: "base" })
+  const ok = confirm("Vuoi cancellare definitivamente questo account?");
+  if (!ok) return;
+
+  const pwd = prompt("Inserisci la password per confermare");
+  if (!pwd) return;
+
+  try {
+    setLed(UI.ledDbWrite, true);
+    await apiFetch("deleteAccount", { userId: state.user.id, password: String(pwd) });
+    toast("Account eliminato.");
+    logoutAccount();
+  } catch (err) {
+    setErrorLed(true);
+    toast(err?.message || "Errore cancellazione account.");
+  } finally {
+    setLed(UI.ledDbWrite, false);
+  }
+}
+
+function renderPatients() {
+  UI.patientsHint.textContent = state.settings.anno_riferimento
+    ? `Anno: ${state.settings.anno_riferimento}`
+    : "";
+  UI.patientsList.innerHTML = "";
+  if (!state.patients.length) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.textContent = "Nessun paziente.";
+    UI.patientsList.appendChild(empty);
+    return;
+  }
+  for (const p of state.patients) {
+    const el = document.createElement("div");
+    el.className = "item";
+    const left = document.createElement("div");
+    left.innerHTML = `<div class="item-title">${escapeHtml(p.nome_cognome || "")}</div>
+      <div class="item-sub">${escapeHtml(p.societa || "")}${p.livello ? " · livello " + p.livello : ""}</div>`;
+    const right = document.createElement("div");
+    const btn = document.createElement("button");
+    btn.className = "btn secondary";
+    btn.type = "button";
+    btn.textContent = "Dettagli";
+    btn.onclick = () => {
+      alert(
+        `Paziente: ${p.nome_cognome || ""}\nSocietà: ${p.societa || ""}\nLivello: ${p.livello || ""}`
       );
-    } else {
-      arr.sort((a,b) => String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
-    }
-
-    // render veloce: DocumentFragment + delegation
-    patientsListEl.replaceChildren();
-    patientsListEl.__renderedPatients = arr;
-
-    if (!arr.length) {
-      const empty = document.createElement("div");
-      empty.className = "patient-row";
-      empty.dataset.idx = "-1";
-      empty.innerHTML = '<div class="patient-info"><div class="patient-name">Nessun paziente</div><div class="patient-sub">Premi + per inserire</div></div><div class="patient-badge">+</div>';
-      patientsListEl.appendChild(empty);
-      return;
-    }
-
-    const frag = document.createDocumentFragment();
-    for (let i = 0; i < arr.length; i++) {
-      const p = arr[i];
-      const row = document.createElement("div");
-      row.className = "patient-row";
-      row.dataset.idx = String(i);
-
-      const name = p.nome_cognome || p.nome || "—";
-      const soc = getSocNameById(p.societa_id || "") || "—";
-      const dt = fmtIsoDate(p.createdAt || p.created_at || "");
-
-      row.innerHTML = `
-        <div class="patient-info">
-          <div class="patient-name">${escapeHtml(name)}</div>
-          <div class="patient-sub">${escapeHtml(soc)}${dt ? " • " + escapeHtml(dt) : ""}</div>
-        </div>
-        <div class="patient-badge">${escapeHtml(String(p.livello || ""))}</div>
-      `;
-      frag.appendChild(row);
-    }
-    patientsListEl.appendChild(frag);
-  }
-
-  // click delegation (una sola listener)
-  if (patientsListEl && !patientsListEl.__delegatedClick) {
-    patientsListEl.__delegatedClick = true;
-    patientsListEl.addEventListener("click", (e) => {
-      const row = e.target && e.target.closest ? e.target.closest(".patient-row") : null;
-      if (!row || !patientsListEl.contains(row)) return;
-      const idx = parseInt(row.dataset.idx || "-1", 10);
-      if (idx === -1) { openPatientCreate(); return; }
-      const arr = patientsListEl.__renderedPatients || [];
-      const p = arr[idx];
-      if (p) openPatientExisting(p);
-    }, { passive: true });
-  }
-
-  function escapeHtml(s) {
-    return String(s || "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
-
-  function setPatientFormEnabled(enabled) {
-    patientEditEnabled = !!enabled;
-    const ids = ["patName","patStart","patEnd"];
-    ids.forEach(id => {
-      const el = $("#" + id);
-      if (el) el.disabled = !patientEditEnabled;
-    });
-    $("#btnPickSoc")?.toggleAttribute("disabled", !patientEditEnabled);
-    document.querySelectorAll(".circle-btn").forEach(b => b.toggleAttribute("disabled", !patientEditEnabled));
-    document.querySelectorAll(".day-btn").forEach(b => b.toggleAttribute("disabled", !patientEditEnabled));
-    $("#btnPatSave")?.toggleAttribute("disabled", !patientEditEnabled);
-    if (!patientEditEnabled) $("#btnPatSave")?.classList.add("pill-gray");
-    else $("#btnPatSave")?.classList.remove("pill-gray");
-  }
-
-  // ---- Società picker (modal)
-  const modalPickSoc = $("#modalPickSoc");
-  const socPickList = $("#socPickList");
-  const btnPickSocClose = $("#btnPickSocClose");
-
-  function openPickSocModal() {
-    if (!modalPickSoc) return;
-    modalPickSoc.classList.add("show");
-    modalPickSoc.setAttribute("aria-hidden", "false");
-  }
-  function closePickSocModal() {
-    if (!modalPickSoc) return;
-    modalPickSoc.classList.remove("show");
-    modalPickSoc.setAttribute("aria-hidden", "true");
-  }
-  btnPickSocClose?.addEventListener("click", closePickSocModal);
-  modalPickSoc?.addEventListener("click", (e) => { if (e.target === modalPickSoc) closePickSocModal(); });
-
-  async function loadSocietaForPick() {
-    await loadSocietaCache();
-    const arr = Array.isArray(societaCache) ? societaCache : [];
-    return arr;
-  }
-
-  async function pickSocieta() {
-    if (!patientEditEnabled) return;
-    const ok = await ensureApiReady();
-    if (!ok) return;
-    const arr = await loadSocietaForPick().catch(() => []);
-    if (!socPickList) return;
-    socPickList.innerHTML = "";
-
-    if (!arr.length) {
-      const btn = document.createElement("button");
-      btn.className = "pill-btn pill-gray";
-      btn.type = "button";
-      btn.textContent = "Nessuna società (aggiungila da impostazioni)";
-      socPickList.appendChild(btn);
-    } else {
-      arr.forEach((s) => {
-        const btn = document.createElement("button");
-        btn.className = "pill-btn";
-        btn.type = "button";
-        btn.textContent = s.nome || s;
-        btn.addEventListener("click", () => {
-        // UI: evidenzia selezione
-        timePickList.querySelectorAll(".pill-btn.selected").forEach((el) => el.classList.remove("selected")); 
-        btn.classList.add("selected");
-          $("#patSoc").value = s.nome || s;
-          $("#patSocId").value = (s && s.id) ? String(s.id) : "";
-          closePickSocModal();
-        });
-        socPickList.appendChild(btn);
-      });
-    }
-    openPickSocModal();
-  }
-  $("#btnPickSoc")?.addEventListener("click", pickSocieta);
-
-  // ---- Time picker modal
-  const modalPickTime = $("#modalPickTime");
-  const timePickList = $("#timePickList");
-  const btnPickTimeClose = $("#btnPickTimeClose");
-  let activeDayForTime = null;
-
-  function openPickTimeModal() {
-    if (!modalPickTime) return;
-    modalPickTime.classList.add("show");
-    modalPickTime.setAttribute("aria-hidden", "false");
-  }
-  function closePickTimeModal() {
-    if (!modalPickTime) return;
-    modalPickTime.classList.remove("show");
-    modalPickTime.setAttribute("aria-hidden", "true");
-  }
-  btnPickTimeClose?.addEventListener("click", closePickTimeModal);
-  modalPickTime?.addEventListener("click", (e) => { if (e.target === modalPickTime) closePickTimeModal(); });
-
-  function buildTimes() {
-    const times = ["—"];
-    for (let h=6; h<=21; h++) {
-      times.push(String(h).padStart(2,"0")+":00");
-      times.push(String(h).padStart(2,"0")+":30");
-    }
-    return times;
-  }
-
-  function openTimePickerForDay(day) {
-    if (!patientEditEnabled) return;
-    activeDayForTime = day;
-    if (!timePickList) return;
-    timePickList.innerHTML = "";
-    const currentSel = (currentPatient && currentPatient.giorni_map && currentPatient.giorni_map[day]) ? normTime(currentPatient.giorni_map[day]) : "—";
-    buildTimes().forEach((t) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      let cls = "pill-btn" + (t === "—" ? " pill-gray" : "");
-      if (t === currentSel) cls += " selected";
-      btn.className = cls;
-      btn.textContent = t;
-      btn.addEventListener("click", () => {
-        // UI: evidenzia selezione
-        timePickList.querySelectorAll(".pill-btn.selected").forEach((el) => el.classList.remove("selected")); 
-        btn.classList.add("selected");
-        if (!currentPatient) currentPatient = {};
-        if (!currentPatient.giorni_map) currentPatient.giorni_map = {};
-        if (t === "—") {
-          delete currentPatient.giorni_map[day];
-        } else {
-          currentPatient.giorni_map[day] = t;
-        }
-        applyDayUI();
-        closePickTimeModal();
-      });
-      timePickList.appendChild(btn);
-    });
-    openPickTimeModal();
-  }
-
-  function applyDayUI() {
-    const map = (currentPatient && currentPatient.giorni_map) ? currentPatient.giorni_map : {};
-    document.querySelectorAll(".day-btn").forEach((btn) => {
-      const d = btn.getAttribute("data-day");
-      const t = map && map[d] ? map[d] : "—";
-      btn.classList.toggle("active", t !== "—");
-      const lab = $("#t_" + d);
-      if (lab) lab.textContent = t;
-    });
-  }
-
-  document.querySelectorAll(".day-btn").forEach((btn) => {
-    let lpTimer = null;
-    let lpFired = false;
-
-    const clearLP = () => {
-      if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
     };
+    right.appendChild(btn);
+    el.appendChild(left);
+    el.appendChild(right);
+    UI.patientsList.appendChild(el);
+  }
+}
 
-    btn.addEventListener("pointerdown", () => {
-      if (!patientEditEnabled) return;
-      lpFired = false;
-      clearLP();
-      lpTimer = setTimeout(async () => {
-        lpFired = true;
-        const d = btn.getAttribute("data-day");
-        if (!d) return;
-        if (!currentPatient) currentPatient = {};
-        if (!currentPatient.giorni_map) currentPatient.giorni_map = {};
-        if (!currentPatient.giorni_map[d]) return;
+function escapeHtml(s) {
+  return String(s || "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
 
-        delete currentPatient.giorni_map[d];
-        applyDayUI();
+function resetNewPatient() {
+  state.newPatient = {
+    nome_cognome: "",
+    societa: "",
+    livello: 1,
+    data_inizio: "",
+    data_fine: "",
+    giorni: {}, // dayKey -> { ora_inizio, durata_min }
+  };
+  state.editingDay = null;
 
-        // Persist immediately for existing patients
-        try {
-          const user = getSession();
-          if (!user) return;
+  UI.patName.value = "";
+  UI.patSoc.value = "";
+  UI.patStart.value = "";
+  UI.patEnd.value = "";
+  setLevel(1);
+  renderDayChips();
+}
 
-          const nome_cognome = ($("#patName")?.value || currentPatient.nome_cognome || "").trim();
-          const societa = ($("#patSoc")?.value || currentPatient.societa || "").trim();
-          const data_inizio = ($("#patStart")?.value || currentPatient.data_inizio || "").trim();
-          const data_fine = ($("#patEnd")?.value || currentPatient.data_fine || "").trim();
-          const liv = level || (currentPatient && currentPatient.livello) || "";
+function setLevel(level) {
+  state.newPatient.livello = Number(level);
+  [...UI.levelPills.querySelectorAll(".pill")].forEach(p => {
+    p.classList.toggle("on", Number(p.dataset.level) === Number(level));
+  });
+}
 
-          if (!currentPatient.id) return; // nothing to persist yet
-          if (!nome_cognome || !societa || !liv) return;
+function renderDayChips() {
+  [...UI.dayChips.querySelectorAll(".daychip")].forEach(ch => {
+    const k = ch.dataset.day;
+    ch.classList.toggle("on", !!state.newPatient.giorni[k]);
+  });
+}
 
-          const payload = {
-            nome_cognome,
-            societa_id,
-      societa_nome,
-            livello: liv,
-            data_inizio,
-            data_fine,
-            giorni_settimana: JSON.stringify(currentPatient.giorni_map || {}),
-            utente_id: user.id
-          };
+function openTimeModal(dayKey) {
+  state.editingDay = dayKey;
+  const day = DAYS.find(d => d.key === dayKey);
+  const cur = state.newPatient.giorni[dayKey] || {};
+  UI.timeModalTitle.textContent = `Orario ${day?.label || dayKey}`;
+  UI.timeInput.value = cur.ora_inizio || "14:00";
+  UI.durInput.value = cur.durata_min || "45";
+  modal(UI.timeModal, true);
+}
 
-          const ok = await ensureApiReady();
-          if (!ok) return;
+async function savePatientBundle() {
+  const s = state.newPatient;
+  if (!s.nome_cognome.trim()) throw new Error("Inserisci nome e cognome.");
+  if (!s.data_inizio) throw new Error("Inserisci data inizio.");
+  if (!s.data_fine) throw new Error("Inserisci data fine.");
+  const days = Object.keys(s.giorni);
+  if (!days.length) throw new Error("Seleziona almeno un giorno e imposta l'orario.");
 
-          await api("updatePatient", { userId: user.id, id: currentPatient.id, payload: JSON.stringify(payload) });
-          try { await loadPatients(); } catch {}
-          toast("Giorno rimosso");
-        } catch {
-          toast("Errore rimozione");
-        }
-      }, 500);
-    });
+  const year = String(state.settings.anno_riferimento || new Date().getFullYear());
+  const prices = {
+    1: Number(state.settings.prezzo_livello_1 || 0),
+    2: Number(state.settings.prezzo_livello_2 || 0),
+    3: Number(state.settings.prezzo_livello_3 || 0),
+  };
+  const prezzo_unitario = prices[s.livello] || 0;
 
-    btn.addEventListener("pointerup", clearLP);
-    btn.addEventListener("pointercancel", clearLP);
-    btn.addEventListener("pointerleave", clearLP);
+  const payload = {
+    patient: {
+      nome_cognome: s.nome_cognome.trim(),
+      societa: s.societa.trim(),
+      livello: Number(s.livello),
+      data_inizio: s.data_inizio,
+      data_fine: s.data_fine,
+      giorni_settimana: JSON.stringify(days),
+      note: "",
+      anno: year,
+    },
+    plan: {
+      societa: s.societa.trim(),
+      livello: Number(s.livello),
+      prezzo_unitario,
+      data_inizio: s.data_inizio,
+      data_fine: s.data_fine,
+      giorni_settimana: JSON.stringify(days),
+      anno: year,
+      stato: "attivo",
+      note: "",
+    },
+    hours: days.map(dk => ({
+      giorno: dk,
+      ora_inizio: s.giorni[dk].ora_inizio,
+      durata_min: Number(s.giorni[dk].durata_min || 0),
+    }))
+  };
 
-    btn.addEventListener("click", (e) => {
-      if (lpFired) {
+  setLed(UI.ledDbWrite, true);
+  const out = await apiFetch("savePatientBundle", payload);
+  setLed(UI.ledDbWrite, false);
+  return out;
+}
+
+async function refreshAll() {
+  renderImpostazioni();
+
+  // settings
+  try {
+    setLed(UI.ledDbRead, true);
+    const settings = await apiFetch("getSettings", {}, "GET");
+    if (settings) {
+      state.settings = {
+        prezzo_livello_1: settings.prezzo_livello_1 ?? state.settings.prezzo_livello_1,
+        prezzo_livello_2: settings.prezzo_livello_2 ?? state.settings.prezzo_livello_2,
+        prezzo_livello_3: settings.prezzo_livello_3 ?? state.settings.prezzo_livello_3,
+        anno_riferimento: settings.anno_riferimento ?? state.settings.anno_riferimento,
+        timezone: settings.timezone ?? state.settings.timezone,
+      };
+    }
+  } catch (_) {
+    // ignore
+  } finally {
+    setLed(UI.ledDbRead, false);
+  }
+
+  // Override locale (no backend write)
+  try {
+    const ov = JSON.parse(localStorage.getItem("fm_settings_override") || "null");
+    if (ov && typeof ov === "object") {
+      state.settings = { ...(state.settings || {}), ...ov };
+    }
+  } catch (e) {}
+
+  if (UI.homeYearPill) UI.homeYearPill.textContent = String(state.settings.anno_riferimento || String(new Date().getFullYear()));
+
+  UI.apiUrlInput.value = getApiBaseUrl() || "";
+  UI.yearInput.value = state.settings.anno_riferimento || String(new Date().getFullYear());
+  UI.tzInput.value = state.settings.timezone || "Europe/Rome";
+  UI.p1Input.value = state.settings.prezzo_livello_1 ?? "";
+  UI.p2Input.value = state.settings.prezzo_livello_2 ?? "";
+  UI.p3Input.value = state.settings.prezzo_livello_3 ?? "";
+  UI.userHint.textContent = getSession()?.email ? ("Account: " + getSession().email) : "Nessun account selezionato.";
+
+  // patients
+  try {
+    setLed(UI.ledDbRead, true);
+    const year = String(state.settings.anno_riferimento || new Date().getFullYear());
+    const data = await apiFetch("listPatients", { anno: year });
+    state.patients = Array.isArray(data) ? data : [];
+  } catch (e) {
+    state.patients = [];
+    UI.patientsHint.textContent = e.message;
+  } finally {
+    setLed(UI.ledDbRead, false);
+  }
+  renderPatients();
+}
+
+function bind() {
+  if (UI.btnHome) UI.btnHome.onclick = () => showView("home");
+  if (UI.btnSettings) UI.btnSettings.onclick = () => showView("impostazioni");
+
+  if (UI.homeYearPill) {
+    UI.homeYearPill.onclick = () => showView("impostazioni");
+    UI.homeYearPill.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        e.stopPropagation();
-        lpFired = false;
-        return;
+        showView("impostazioni");
       }
-      const d = btn.getAttribute("data-day");
-      if (d) openTimePickerForDay(d);
-    });
-  });
-// ---- Level selection
-  let level = "";
-  function setLevel(l) {
-    level = l;
-    ["1","2","3"].forEach(n => {
-      $("#btnL"+n)?.classList.toggle("active", "L"+n === l);
-    });
-  }
-  $("#btnL1")?.addEventListener("click", () => patientEditEnabled && setLevel("L1"));
-  $("#btnL2")?.addEventListener("click", () => patientEditEnabled && setLevel("L2"));
-  $("#btnL3")?.addEventListener("click", () => patientEditEnabled && setLevel("L3"));
-
-  // ---- Open forms
-  function openPatientCreate() {
-    const session = getSession();
-    if (!session || !session.id) {
-      openPatientsFlow();
-      return;
-    }
-    currentPatient = { id: null, giorni_map: {} };
-    level = "";
-    $("#patName").value = "";
-    $("#patSoc").value = "";
-    $("#patSocId").value = "";
-    $("#patStart").value = "";
-    $("#patEnd").value = "";
-    setLevel("");
-    applyDayUI();
-    setPatientFormEnabled(true);
-    showView("patientForm");
-  }
-
-  function openPatientExisting(p) {
-    const session = getSession();
-    if (!session || !session.id) {
-      openPatientsFlow();
-      return;
-    }
-    currentPatient = Object.assign({}, p || {});
-    // parse giorni_settimana JSON map (se presente)
-    const raw = currentPatient.giorni_settimana || currentPatient.giorni || null;
-    const map = parseGiorniMap(raw);
-    currentPatient.giorni_map = map;
-    level = String(currentPatient.livello || "");
-    $("#patName").value = currentPatient.nome_cognome || "";
-    $("#patSocId").value = currentPatient.societa_id ? String(currentPatient.societa_id) : "";
-    $("#patSoc").value = String(currentPatient.societa_nome || currentPatient.societa || getSocNameById($("#patSocId").value) || "").trim();
-    $("#patStart").value = fmtIsoDate(currentPatient.data_inizio || "");
-    $("#patEnd").value = fmtIsoDate(currentPatient.data_fine || "");
-    setLevel(level);
-    applyDayUI();
-    setPatientFormEnabled(false); // view-only finché non premi modifica
-    showView("patientForm");
-  }
-
-  $("#btnPatCalendar")?.addEventListener("click", () => openCalendarFlow());
-  $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
-
-  $("#formPatient")?.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!patientEditEnabled) return;
-
-    const user = getSession();
-    if (!user) { toast("Devi accedere"); return; }
-
-    const nome_cognome = ($("#patName")?.value || "").trim();
-    const societa = ($("#patSoc")?.value || "").trim();
-    const data_inizio = ($("#patStart")?.value || "").trim();
-    const data_fine = ($("#patEnd")?.value || "").trim();
-
-    if (!nome_cognome) { toast("Inserisci il nome"); return; }
-    if (!societa_id) { toast("Seleziona la società"); return; }
-    if (!level) { toast("Seleziona il livello"); return; }
-
-    const payload = {
-      nome_cognome,
-      societa,
-      livello: level,
-      data_inizio,
-      data_fine,
-      giorni_settimana: JSON.stringify((currentPatient && currentPatient.giorni_map) ? currentPatient.giorni_map : {}),
-      utente_id: user.id
-    };
-
-    const ok = await ensureApiReady();
-    if (!ok) return;
-
-    try {
-      if (currentPatient && currentPatient.id) {
-        await api("updatePatient", { userId: user.id, id: currentPatient.id, payload: JSON.stringify(payload) });
-      } else {
-        await api("createPatient", { userId: user.id, payload: JSON.stringify(payload) });
-      }
-      toast("Salvato");
-      await openPatientsAfterLogin();
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
-    }
-  });
-
-
-
-  // Settings buttons
-  $("#btnSave")?.addEventListener("click", async () => {
-    try {
-      await saveSettings();
-      toast("Dati salvati");
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
-    }
-  });
-
-  $("#btnLoad")?.addEventListener("click", async () => {
-    try {
-      await loadSettings();
-      toast("Dati caricati");
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
-    }
-  });
-
-  // Modal Societa
-  const modalSoc = $("#modalSoc");
-  const socNomeInput = $("#socNomeInput");
-  const socTagDots = $("#socTagDots");
-  const btnSocClose = $("#btnSocClose");
-  const btnSocCancel = $("#btnSocCancel");
-  const btnSocDelete = $("#btnSocDelete");
-  const btnSocSave = $("#btnSocSave");
-  const socDeletePanel = $("#socDeletePanel");
-  const socDeleteList = $("#socDeleteList");
-
-  let selectedSocTag = 0;
-
-  function getSocTagMap() {
-    return safeJsonParse(localStorage.getItem("AMF_SOC_TAGS") || "", {}) || {};
-  }
-  function setSocTagForName(nome, tag) {
-    const key = String(nome || "").trim();
-    if (!key) return;
-    const map = getSocTagMap();
-    map[key] = Number(tag) || 0;
-    localStorage.setItem("AMF_SOC_TAGS", JSON.stringify(map));
-  }
-  function deleteSocTagForName(nome) {
-    const key = String(nome || "").trim();
-    if (!key) return;
-    const map = getSocTagMap();
-    delete map[key];
-    localStorage.setItem("AMF_SOC_TAGS", JSON.stringify(map));
-  }
-
-  function setSelectedSocTag(tag) {
-    selectedSocTag = Math.max(0, Math.min(5, Number(tag) || 0));
-    if (!socTagDots) return;
-    socTagDots.querySelectorAll(".tag-dot").forEach((b) => {
-      b.classList.toggle("selected", Number(b.dataset.tag) === selectedSocTag);
     });
   }
 
-  // click delegation per i 6 pallini
-  if (socTagDots && !socTagDots.__delegated) {
-    socTagDots.__delegated = true;
-    socTagDots.addEventListener("click", (e) => {
-      const btn = e.target && e.target.closest ? e.target.closest(".tag-dot") : null;
-      if (!btn || !socTagDots.contains(btn)) return;
-      setSelectedSocTag(btn.dataset.tag);
-    }, { passive: true });
-  }
+  if (UI.tilePazienti) UI.tilePazienti.onclick = () => showView("pazienti");
+  if (UI.tileCalendario) UI.tileCalendario.onclick = () => showView("calendario");
+  if (UI.tileStatistiche) UI.tileStatistiche.onclick = () => showView("statistiche");
 
-  function openSocModal() {
-    if (!modalSoc) return;
-    socNomeInput.value = "";
-    setSelectedSocTag(0);
-    if (socDeletePanel) socDeletePanel.hidden = true;
-    if (socDeleteList) socDeleteList.replaceChildren();
-    modalSoc.classList.add("show");
-    modalSoc.setAttribute("aria-hidden", "false");
-    socNomeInput.focus();
-  }
-  function closeSocModal() {
-    if (!modalSoc) return;
-    modalSoc.classList.remove("show");
-    modalSoc.setAttribute("aria-hidden", "true");
-  }
+  if (UI.btnNewPatient) UI.btnNewPatient.onclick = () => {
+    resetNewPatient();
+    modal(UI.patientModal, true);
+  };
 
-  async function apiTry(actions, params) {
-    const list = Array.isArray(actions) ? actions : [actions];
-    let lastErr = null;
-    for (const a of list) {
-      try {
-        return await api(a, params);
-      } catch (err) {
-        lastErr = err;
-        const msg = String(err && err.message ? err.message : err).toLowerCase();
-        if (msg.includes("unknown action")) continue;
-        throw err;
-      }
-    }
-    throw lastErr || new Error("Errore API");
-  }
+  if (UI.patCancel) UI.patCancel.onclick = () => modal(UI.patientModal, false);
 
-  async function renderSocietaDeleteList() {
-    const user = getSession();
-    if (!user) { toast("Accesso richiesto"); return; }
-    const ok = await ensureApiReady();
-    if (!ok) return;
-
-    let data = null;
-    try {
-      data = await apiCached("listSocieta", { userId: user.id }, 15000);
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
-      return;
-    }
-    const arr = Array.isArray(data && data.societa) ? data.societa : [];
-
-    if (!socDeleteList) return;
-    socDeleteList.replaceChildren();
-
-    if (!arr.length) {
-      const d = document.createElement("div");
-      d.className = "modal-text";
-      d.textContent = "Nessuna società registrata";
-      socDeleteList.appendChild(d);
-      return;
-    }
-
-    const frag = document.createDocumentFragment();
-    for (const s of arr) {
-      const nome = (s && s.nome) ? s.nome : String(s || "");
-      const id = (s && s.id) ? String(s.id) : "";
-      const row = document.createElement("div");
-      row.className = "soc-del-row";
-      row.dataset.nome = nome;
-      row.dataset.id = id;
-      row.innerHTML = '<div class="soc-del-name">' + escapeHtml(nome) + '</div>';
-
-      const btn = document.createElement("button");
-      btn.className = "soc-del-btn";
-      btn.type = "button";
-      btn.setAttribute("aria-label", "Elimina " + nome);
-      btn.dataset.nome = nome;
-      btn.dataset.id = id;
-
-      row.appendChild(btn);
-      frag.appendChild(row);
-
-      // se il backend non restituisce il tag, lo manteniamo localmente
-      if (s && (s.tag !== undefined && s.tag !== null)) {
-        setSocTagForName(nome, s.tag);
-      } else if (tagMap[nome] !== undefined) {
-        // no-op
-      }
-    }
-    socDeleteList.appendChild(frag);
-  }
-
-  // delegation: elimina societa
-  if (socDeleteList && !socDeleteList.__delegated) {
-    socDeleteList.__delegated = true;
-    socDeleteList.addEventListener("click", async (e) => {
-      const btn = e.target && e.target.closest ? e.target.closest(".soc-del-btn") : null;
-      if (!btn || !socDeleteList.contains(btn)) return;
-
-      const nome = String(btn.dataset.nome || "").trim();
-      const id = String(btn.dataset.id || "").trim();
-      if (!nome && !id) return;
-
-      const sure = confirm(`Eliminare la società "${(nome || id)}"?`);
-      if (!sure) return;
-
-      const user = getSession();
-      if (!user) { toast("Accesso richiesto"); return; }
-
-      try {
-        await apiTry(
-          ["deleteSocieta", "delSocieta", "removeSocieta", "deleteSociety"],
-          { userId: user.id, id: id || undefined, nome: nome || undefined }
-        );
-        invalidateApiCache("listSocieta");
-        toast("Società eliminata");
-        await renderSocietaDeleteList();
-      } catch (err) {
-        if (apiHintIfUnknownAction(err)) return;
-        toast(String(err && err.message ? err.message : "Errore"));
-      }
-    }, { passive: false });
-  }
-
-  btnSocClose?.addEventListener("click", closeSocModal);
-  btnSocCancel?.addEventListener("click", closeSocModal);
-
-  btnSocSave?.addEventListener("click", async () => {
-    const nome = (socNomeInput.value || "").trim();
-    if (!nome) { toast("Inserisci un nome"); return; }
-    const user = getSession();
-    if (!user) { toast("Accesso richiesto"); return; }
-    try {
-      await api("addSocieta", { userId: user.id, nome, tag: selectedSocTag });
-      invalidateApiCache("listSocieta");
-      toast("Società aggiunta");
-      closeSocModal();
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
-    }
+  UI.levelPills.addEventListener("click", (e) => {
+    const pill = e.target.closest(".pill");
+    if (!pill) return;
+    setLevel(pill.dataset.level);
   });
 
-  btnSocDelete?.addEventListener("click", async () => {
-    if (!socDeletePanel) return;
-    const willOpen = !!socDeletePanel.hidden;
-    socDeletePanel.hidden = !willOpen;
-    if (willOpen) await renderSocietaDeleteList();
+  UI.dayChips.addEventListener("click", (e) => {
+    const chip = e.target.closest(".daychip");
+    if (!chip) return;
+    const dayKey = chip.dataset.day;
+    openTimeModal(dayKey);
   });
 
-  $("#btnAddSoc")?.addEventListener("click", openSocModal);
+  UI.timeCancel.onclick = () => modal(UI.timeModal, false);
+  UI.timeOk.onclick = () => {
+    const dayKey = state.editingDay;
+    if (!dayKey) return;
 
-  $("#btnWipe")?.addEventListener("click", async () => {
-    const user = getSession();
-    if (!user) { toast("Accesso richiesto"); return; }
-    const sure = confirm("Cancellare account e tutti i dati nel database?");
-    if (!sure) return;
-    try {
-      await api("wipeAll", { userId: user.id });
-      clearSession();
-      toast("Dati cancellati");
-      showView("home");
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
+    const t = UI.timeInput.value || "09:00";
+    const d = Math.max(5, Math.min(240, parseInt(UI.durInput.value || "30", 10)));
+    state.dayTimes[dayKey] = { ora_inizio: t, durata_min: d };
+
+    renderDayChips();
+    modal(UI.timeModal, false);
+  };
+
+  UI.patSave.onclick = savePatient;
+
+  // Impostazioni (phases)
+  UI.btnAccCreate && (UI.btnAccCreate.onclick = () => openAccountForm("create"));
+  UI.btnAccModify && (UI.btnAccModify.onclick = () => openAccountForm("modify"));
+  UI.btnAccLogin && (UI.btnAccLogin.onclick = () => openAccountForm("login"));
+  UI.btnAccBack && (UI.btnAccBack.onclick = () => showSettingsPhase(1));
+  UI.btnAccSubmit && (UI.btnAccSubmit.onclick = handleAccountSubmit);
+
+  UI.btnSetSave && (UI.btnSetSave.onclick = saveSettingsRemote);
+  UI.btnSetReload && (UI.btnSetReload.onclick = reloadSettingsRemote);
+  UI.btnAddSocieta && (UI.btnAddSocieta.onclick = addSocietaPrompt);
+  UI.btnDeleteAccount && (UI.btnDeleteAccount.onclick = deleteAccountFlow);
+  UI.btnLogout && (UI.btnLogout.onclick = logoutAccount);
+
+}
+
+async function setupServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register("./service-worker.js?v=" + BUILD, { scope: "./" });
+    if (reg.waiting) {
+      reg.waiting.postMessage({ type: "SKIP_WAITING" });
     }
-  });
+    reg.addEventListener("updatefound", () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener("statechange", () => {
+        if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+          newWorker.postMessage({ type: "SKIP_WAITING" });
+        }
+      });
+    });
+  } catch (_) {}
+}
 
-  $("#btnLogout")?.addEventListener("click", () => {
-    clearSession();
-    toast("Uscito");
-    showView("home");
-  });
-
-  // --- Boot
-  // Default view: home
+(async function init() {
+  bind();
   showView("home");
+  toast("");
+  renderImpostazioni();
+  await setupServiceWorker();
 
-  // PWA (iOS): registra Service Worker
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js").catch(() => {});
-    });
+  try {
+    await refreshAll();
+  } catch (e) {
+    // ok
   }
 })();
