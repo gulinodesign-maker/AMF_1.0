@@ -1,4 +1,4 @@
-/* AMF_1.015 */
+/* AMF_1.019 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -274,9 +274,9 @@ body{
 }
 .pill-btn:active{ transform: scale(.99); }
 
-.pill-blue{ background: rgba(42,116,184,.20); background-color: rgba(42,116,184,.20); }
-.pill-green{ background: rgba(68,171,109,.20); background-color: rgba(68,171,109,.20); }
-.pill-gray{ background: rgba(140,140,140,.20); background-color: rgba(140,140,140,.20); }
+.pill-blue{ background: rgba(42,116,184,.80); background-color: rgba(42,116,184,.80); color:#fff; }
+.pill-green{ background: rgba(68,171,109,.80); background-color: rgba(68,171,109,.80); color:#fff; }
+.pill-gray{ background: rgba(70,80,95,.80); background-color: rgba(70,80,95,.80); color:#fff; }
 
 .form{
   width: 100%;
@@ -841,6 +841,8 @@ select.field{ appearance: none; }
   font-weight: 800;
   letter-spacing: .2px;
   margin: 6px 0 16px;
+  width: 100%;
+  text-align: center;
 }
 
 .calendar-nav{
@@ -885,7 +887,6 @@ select.field{ appearance: none; }
   font-weight: 800;
   letter-spacing: .4px;
   color: var(--primary);
-  opacity: .80;
 }
 
 .cal-day-spacer{
@@ -939,13 +940,58 @@ select.field{ appearance: none; }
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,.08);
   background: transparent;
+  position: relative;
 }
 .cal-cell.filled{
-  background: var(--white80);
   display:flex;
   align-items:center;
   justify-content:center;
-  font-weight: 800;
-  color: var(--primary);
-  opacity: .80;
+  font-weight: 900;
+  color: var(--text);
+  position: relative;
+  cursor: pointer;
 }
+
+
+/* --- Calendario: colori per giorno (gradient app) + opacità richieste --- */
+.cal-day[data-day-key="1"]{ background: rgba(230,230,230,.70); color: rgba(27,31,35,.92); }
+.cal-day[data-day-key="2"]{ background: rgba(0,0,0,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
+.cal-day[data-day-key="3"]{ background: rgba(42,116,184,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
+.cal-day[data-day-key="4"]{ background: rgba(105,185,243,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
+.cal-day[data-day-key="5"]{ background: rgba(166,217,255,.70); color: rgba(27,31,35,.92); }
+.cal-day[data-day-key="6"]{ background: rgba(150,150,150,.70); color: rgba(27,31,35,.92); }
+
+.cal-row[data-day-key="1"] .cal-cell{ background: rgba(230,230,230,.50); }
+.cal-row[data-day-key="2"] .cal-cell{ background: rgba(0,0,0,.50); border-color: rgba(255,255,255,.14); }
+.cal-row[data-day-key="3"] .cal-cell{ background: rgba(42,116,184,.50); border-color: rgba(255,255,255,.14); }
+.cal-row[data-day-key="4"] .cal-cell{ background: rgba(105,185,243,.50); border-color: rgba(255,255,255,.14); }
+.cal-row[data-day-key="5"] .cal-cell{ background: rgba(166,217,255,.50); }
+.cal-row[data-day-key="6"] .cal-cell{ background: rgba(150,150,150,.50); }
+
+.cal-row[data-day-key="2"] .cal-cell.filled,
+.cal-row[data-day-key="3"] .cal-cell.filled,
+.cal-row[data-day-key="4"] .cal-cell.filled{ color: rgba(255,255,255,.92); }
+.cal-row[data-day-key="1"] .cal-cell.filled,
+.cal-row[data-day-key="5"] .cal-cell.filled,
+.cal-row[data-day-key="6"] .cal-cell.filled{ color: rgba(27,31,35,.92); }
+
+.cal-cell-text{ position: relative; z-index: 1; font-size: 14px; letter-spacing: .4px; }
+
+/* pallino tag società (stessi colori dei tag-dot) */
+.cal-socdot{
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  z-index: 2;
+  border: 0;
+}
+.cal-socdot.t1{ background:#2a74b8; }
+.cal-socdot.t2{ background:#69b9f3; }
+.cal-socdot.t3{ background:#c57b2a; }
+.cal-socdot.t4{ background:#2a9d6f; }
+.cal-socdot.t5{ background:#8b5cf6; }
+.cal-socdot.t6{ background:#d94a4a; }
+

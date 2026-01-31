@@ -1,7 +1,7 @@
-/* AMF_1.018 */
+/* AMF_1.019 */
 (() => {
-  const BUILD = "AMF_1.018";
-  const DISPLAY = "1.018";
+  const BUILD = "AMF_1.019";
+  const DISPLAY = "1.019";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -28,6 +28,63 @@
 
   function safeJsonParse(str, fallback) {
     try { return JSON.parse(str); } catch { return fallback; }
+  }
+
+  // Date helpers (robust with ISO/timezone): always interpret as LOCAL calendar date (iOS-safe)
+  function dateOnlyLocal(value) {
+    if (value == null || value === "") return null;
+
+    if (value instanceof Date) {
+      if (isNaN(value)) return null;
+      return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    }
+
+    const s = String(value).trim();
+    if (!s) return null;
+
+    // YYYY-MM-DD (date-only)
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      const y = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const d = parseInt(m[3], 10);
+      return new Date(y, mo, d);
+    }
+
+    // dd/mm/yyyy (common Sheet formatting)
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) {
+      const d = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const y = parseInt(m[3], 10);
+      return new Date(y, mo, d);
+    }
+
+    // ISO / any parsable datetime -> convert to LOCAL date (fixes -1 day when server returns UTC date-times)
+    const dt = new Date(s);
+    if (!isNaN(dt)) {
+      return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    }
+
+    // Fallback: extract YYYY-MM-DD prefix
+    m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      const y = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const d = parseInt(m[3], 10);
+      return new Date(y, mo, d);
+    }
+
+    return null;
+  }
+
+  function ymdLocal(value) {
+    const d = dateOnlyLocal(value);
+    if (!d) return "";
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }
 
   function getSession() {
@@ -380,12 +437,24 @@ function initials(name) {
   return (a + b).toUpperCase();
 }
 
+
+function getSocTagIndexByName(socName) {
+  const name = String(socName || "").trim();
+  if (!name) return 0;
+  const map = safeJsonParse(localStorage.getItem("AMF_SOC_TAGS") || "", {});
+  const raw = map && Object.prototype.hasOwnProperty.call(map, name) ? map[name] : 0;
+  const n = parseInt(raw, 10);
+  if (isNaN(n)) return 0;
+  return Math.max(0, Math.min(5, n));
+}
+
+
 function clearCalendarCells() {
   if (!calBody) return;
   if (calSlotPatients && calSlotPatients.clear) calSlotPatients.clear();
   calBody.querySelectorAll(".cal-cell").forEach((c) => {
     c.classList.remove("filled");
-    c.textContent = "";
+    c.innerHTML = "";
     c.removeAttribute("title");
   });
 }
@@ -394,17 +463,6 @@ function fillCalendarFromPatients(patients) {
   if (!calBody) return;
 
   // Compute the real date for each weekday cell (Mon-Sat) in the week of calSelectedDate
-  function parseDateOnly(s) {
-    if (!s) return null;
-    const m = String(s).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return null;
-    const y = parseInt(m[1], 10);
-    const mo = parseInt(m[2], 10) - 1;
-    const d = parseInt(m[3], 10);
-    const dt = new Date(y, mo, d);
-    dt.setHours(0, 0, 0, 0);
-    return dt;
-  }
 
   function mondayOfWeek(dateObj) {
     const d = new Date(dateObj);
@@ -426,15 +484,15 @@ function fillCalendarFromPatients(patients) {
 
   function inRange(cellDate, startStr, endStr) {
     if (!cellDate) return false;
-    const s = parseDateOnly(startStr);
-    const e = parseDateOnly(endStr);
+    const s = dateOnlyLocal(startStr);
+    const e = dateOnlyLocal(endStr);
     const t = cellDate.getTime();
     if (s && t < s.getTime()) return false;
     if (e && t > e.getTime()) return false;
     return true;
   }
 
-  const slots = new Map(); // key -> {count, names:[], ids:[]}
+  const slots = new Map(); // key -> {count, names:[], ids:[], tags:[]}
 
   (patients || []).forEach((p) => {
     if (!p || p.isDeleted) return;
@@ -459,10 +517,12 @@ function fillCalendarFromPatients(patients) {
       if (!t) return;
 
       const slotKey = `${dayKey}|${t}`;
-      const prev = slots.get(slotKey) || { count: 0, names: [], ids: [] };
+      const prev = slots.get(slotKey) || { count: 0, names: [], ids: [], tags: [] };
       prev.count += 1;
       prev.names.push(p.nome_cognome || "Paziente");
       prev.ids.push(p.id);
+      // Tag color for society (from popup Società)
+      prev.tags.push(getSocTagIndexByName(p.societa || ""));
       slots.set(slotKey, prev);
     });
   });
@@ -476,9 +536,11 @@ function fillCalendarFromPatients(patients) {
 
     cell.classList.add("filled");
     if (info.count === 1) {
-      cell.textContent = initials(info.names[0]);
+      const tagIdx = Array.isArray(info.tags) && info.tags.length ? info.tags[0] : 0;
+      const lab = initials(info.names[0]);
+      cell.innerHTML = `<span class="cal-socdot t${tagIdx + 1}" aria-hidden="true"></span><span class="cal-cell-text">${escapeHtml(lab)}</span>`;
     } else {
-      cell.textContent = String(info.count);
+      cell.innerHTML = `<span class="cal-cell-text">${escapeHtml(String(info.count))}</span>`;
     }
     cell.title = info.names.slice(0, 8).join("\n") + (info.names.length > 8 ? "\n…" : "");
   });
@@ -878,10 +940,7 @@ async function ensurePatientsForCalendar() {
   let patientEditEnabled = true; // per create
 
   function fmtIsoDate(iso) {
-    if (!iso) return "";
-    const s = String(iso);
-    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
-    return m ? m[1] : s.slice(0, 10);
+    return ymdLocal(iso);
   }
 
   function setPatientsSort(mode) {
