@@ -926,80 +926,127 @@ select.field{ appearance: none; }
   align-items:center;
   justify-content:flex-end;
 }
+
 .calendar-grid{
-  display:flex;
-  gap: var(--cal-gap);
-  align-items:flex-start;
+  width: 100%;
 }
-.cal-days{
-  width: 66px;
-  display:flex;
-  flex-direction: column;
-  gap: var(--cal-gap);
-  flex: 0 0 auto;
-  padding-top: 0;
+
+.cal-scroll{
+  width: 100%;
+  overflow: auto; /* verticale (ore) + orizzontale (giorni) */
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  overscroll-behavior: contain;
 }
+
+/* Tabella mensile invertita: X = giorni del mese, Y = fasce orarie */
+.cal-table{
+  --cal-hours-w: 78px;
+  --cal-day-w: clamp(44px, 10vw, 78px);
+  --cal-slot-h: 60px;
+  --cal-head-h: 54px;
+
+  display: grid;
+  grid-template-columns: var(--cal-hours-w) repeat(var(--cal-days-count, 31), var(--cal-day-w));
+  grid-template-rows: var(--cal-head-h) repeat(var(--cal-rows-count, 28), var(--cal-slot-h));
+  gap: var(--cal-gap);
+  min-width: max-content;
+}
+
+/* Angolo in alto a sinistra (sticky) */
+.cal-corner{
+  grid-column: 1;
+  grid-row: 1;
+  height: var(--cal-head-h);
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: var(--white80);
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 30;
+}
+
+/* Riga giorni (header) */
+.cal-days-row{
+  grid-column: 2 / span var(--cal-days-count, 31);
+  grid-row: 1;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--cal-day-w);
+  gap: var(--cal-gap);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
 .cal-day{
-  height: var(--cal-cell-h);
+  height: var(--cal-head-h);
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,.08);
   background: var(--white80);
   display:flex;
+  flex-direction: column;
   align-items:center;
   justify-content:center;
-  font-weight: 800;
-  letter-spacing: .4px;
+  font-weight: 900;
+  letter-spacing: .3px;
   color: var(--primary);
+  line-height: 1.05;
+  user-select: none;
 }
-
-.cal-day-spacer{
-  background: transparent;
-  border: 1px solid rgba(0,0,0,.08);
-  pointer-events: none;
+.cal-day .cal-day-wd{
+  font-size: 11px;
+  font-weight: 900;
+  opacity: .95;
+}
+.cal-day .cal-day-num{
+  font-size: 14px;
+  font-weight: 900;
 }
 
 .cal-day.active{
-  border-color: rgba(42,116,184,.35);
+  border-color: rgba(42,116,184,.45);
 }
-.cal-scroll{
-  flex: 1 1 auto;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 6px;
-}
-.cal-hours{
-  display:grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 86px;
+
+/* Colonna ore (sticky) */
+.cal-hours-col{
+  grid-column: 1;
+  grid-row: 2 / span var(--cal-rows-count, 28);
+  display: flex;
+  flex-direction: column;
   gap: var(--cal-gap);
-  margin-bottom: var(--cal-gap);
+  position: sticky;
+  left: 0;
+  z-index: 25;
 }
+
 .cal-hour{
-  height: var(--cal-cell-h);
+  height: var(--cal-slot-h);
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,.08);
   background: var(--white80);
   display:flex;
   align-items:center;
   justify-content:center;
-  font-weight: 800;
+  font-weight: 900;
   color: var(--text);
   opacity: .80;
+  user-select: none;
 }
+
+/* Griglia slot: (righe=ore, colonne=giorni) */
 .cal-body{
-  display:flex;
-  flex-direction: column;
+  grid-column: 2 / span var(--cal-days-count, 31);
+  grid-row: 2 / span var(--cal-rows-count, 28);
+  display: grid;
+  grid-template-columns: repeat(var(--cal-days-count, 31), var(--cal-day-w));
+  grid-auto-rows: var(--cal-slot-h);
   gap: var(--cal-gap);
 }
-.cal-row{
-  display:grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 86px;
-  gap: var(--cal-gap);
-}
+
 .cal-cell{
-  height: var(--cal-cell-h);
+  height: var(--cal-slot-h);
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,.08);
   background: transparent;
@@ -1015,14 +1062,28 @@ select.field{ appearance: none; }
   cursor: pointer;
 }
 
+/* Migliora leggibilità su schermi piccoli */
+@media (max-width: 420px){
+  .cal-table{
+    --cal-hours-w: 70px;
+    --cal-day-w: 46px;
+    --cal-slot-h: 54px;
+    --cal-head-h: 50px;
+  }
+  .cal-day .cal-day-wd{ font-size: 10px; }
+  .cal-day .cal-day-num{ font-size: 13px; }
+  .cal-hour{ font-size: 12px; }
+}
 
 /* --- Calendario: colori per giorno (pwa_gradient) + opacità richieste --- */
-.cal-day[data-day-key="1"]{ background: rgba(43,43,43,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="2"]{ background: rgba(50,68,77,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="3"]{ background: rgba(56,93,111,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="4"]{ background: rgba(63,117,146,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="5"]{ background: rgba(69,142,180,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="6"]{ background: rgba(76,167,214,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
+.cal-day[data-weekday="1"]{ background: rgba(43,43,43,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); } /* LU */
+.cal-day[data-weekday="2"]{ background: rgba(50,68,77,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); } /* MA */
+.cal-day[data-weekday="3"]{ background: rgba(56,93,111,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); } /* ME */
+.cal-day[data-weekday="4"]{ background: rgba(63,117,146,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); } /* GI */
+.cal-day[data-weekday="5"]{ background: rgba(69,142,180,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); } /* VE */
+.cal-day[data-weekday="6"]{ background: rgba(76,167,214,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); } /* SA */
+.cal-day[data-weekday="7"]{ background: rgba(38,38,38,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); } /* DO */
+
 
 .cal-row[data-day-key="1"] .cal-cell{ background: rgba(43,43,43,.20); border-color: rgba(255,255,255,.14); }
 .cal-row[data-day-key="2"] .cal-cell{ background: rgba(50,68,77,.20); border-color: rgba(255,255,255,.14); }
