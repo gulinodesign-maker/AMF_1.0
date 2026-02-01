@@ -891,14 +891,15 @@ select.field{ appearance: none; }
 /* FIX AMF_1.015: home icons vertical position */
 .home-layout{padding-top:12px}
 
-/* --- Calendario (ore scroll, giorni fissi) --- */
+/* --- Calendario (mensile a griglia: colonne=giorni, righe=ore) --- */
 :root{
-  --cal-cell-h: 75px;
   --cal-gap: var(--cal-gap);
+  --cal-cell-h: 56px;
+  --cal-time-w: 66px;
+  --cal-day-w: 46px;
 }
-.calendar-wrap{
-  padding: 18px 18px 22px;
-}
+
+.calendar-wrap{ padding: 18px 18px 22px; }
 .calendar-date{
   font-size: 26px;
   font-weight: 800;
@@ -915,94 +916,101 @@ select.field{ appearance: none; }
   gap: 8px;
   margin: -8px 0 16px;
 }
-.calendar-nav-center{
-  display:flex;
-  gap: 8px;
-  align-items:center;
-  justify-content:center;
-}
-.calendar-nav-right{
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-}
-.calendar-grid{
-  display:flex;
-  gap: var(--cal-gap);
-  align-items:flex-start;
-}
-.cal-days{
-  width: 66px;
-  display:flex;
-  flex-direction: column;
-  gap: var(--cal-gap);
-  flex: 0 0 auto;
-  padding-top: 0;
-}
-.cal-day{
-  height: var(--cal-cell-h);
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,.08);
-  background: var(--white80);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight: 800;
-  letter-spacing: .4px;
-  color: var(--primary);
-}
+.calendar-nav-center{ display:flex; gap: 8px; align-items:center; justify-content:center; }
+.calendar-nav-right{ display:flex; align-items:center; justify-content:flex-end; }
 
-.cal-day-spacer{
-  background: transparent;
-  border: 1px solid rgba(0,0,0,.08);
-  pointer-events: none;
-}
+.calendar-grid{ display:block; }
 
-.cal-day.active{
-  border-color: rgba(42,116,184,.35);
-}
 .cal-scroll{
-  flex: 1 1 auto;
-  overflow-x: auto;
-  overflow-y: hidden;
+  width: 100%;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 6px;
 }
-.cal-hours{
-  display:grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 86px;
+
+/* Header sticky */
+.cal-head{
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: var(--cal-time-w) 1fr;
   gap: var(--cal-gap);
-  margin-bottom: var(--cal-gap);
+  align-items: start;
+  padding-bottom: var(--cal-gap);
+  background: transparent;
 }
-.cal-hour{
-  height: var(--cal-cell-h);
+.cal-corner{
+  width: var(--cal-time-w);
+  height: 40px;
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,.08);
-  background: var(--white80);
+  background: rgba(255,255,255,.80);
+}
+
+.cal-hours{
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--cal-day-w);
+  gap: var(--cal-gap);
+}
+
+.cal-dayhead{
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: rgba(255,255,255,.80);
   display:flex;
+  flex-direction: column;
   align-items:center;
   justify-content:center;
+  line-height: 1.05;
   font-weight: 800;
   color: var(--text);
   opacity: .80;
 }
-.cal-body{
-  display:flex;
+.cal-dayhead-wd{ font-size: 11px; opacity: .70; }
+.cal-dayhead-num{ font-size: 14px; }
+.cal-dayhead.active{ border-color: rgba(42,116,184,.35); }
+
+.cal-main{
+  display: grid;
+  grid-template-columns: var(--cal-time-w) 1fr;
+  gap: var(--cal-gap);
+  align-items: start;
+}
+
+.cal-times{
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  display: flex;
   flex-direction: column;
   gap: var(--cal-gap);
+  background: transparent;
 }
-.cal-row{
-  display:grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 86px;
-  gap: var(--cal-gap);
+
+.cal-time{
+  height: var(--cal-cell-h);
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: rgba(255,255,255,.80);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight: 800;
+  color: var(--primary);
+  opacity: .80;
 }
+
+.cal-body{ display:flex; flex-direction: column; gap: var(--cal-gap); }
+.cal-row{ display:grid; grid-auto-flow: column; grid-auto-columns: var(--cal-day-w); gap: var(--cal-gap); }
+
 .cal-cell{
   height: var(--cal-cell-h);
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,.08);
-  background: transparent;
+  background: rgba(0,0,0,.04);
   position: relative;
 }
 .cal-cell.filled{
@@ -1011,33 +1019,19 @@ select.field{ appearance: none; }
   justify-content:center;
   font-weight: 900;
   color: var(--text);
-  position: relative;
   cursor: pointer;
+  background: rgba(0,0,0,.12);
 }
 
+/* Densità: landscape più compatto e sfrutta tutta la larghezza */
+@media (orientation: landscape){
+  :root{ --cal-day-w: 42px; --cal-cell-h: 52px; }
+}
 
-/* --- Calendario: colori per giorno (pwa_gradient) + opacità richieste --- */
-.cal-day[data-day-key="1"]{ background: rgba(43,43,43,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="2"]{ background: rgba(50,68,77,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="3"]{ background: rgba(56,93,111,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="4"]{ background: rgba(63,117,146,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="5"]{ background: rgba(69,142,180,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-.cal-day[data-day-key="6"]{ background: rgba(76,167,214,.70); color: rgba(255,255,255,.92); border-color: rgba(255,255,255,.18); }
-
-.cal-row[data-day-key="1"] .cal-cell{ background: rgba(43,43,43,.20); border-color: rgba(255,255,255,.14); }
-.cal-row[data-day-key="2"] .cal-cell{ background: rgba(50,68,77,.20); border-color: rgba(255,255,255,.14); }
-.cal-row[data-day-key="3"] .cal-cell{ background: rgba(56,93,111,.20); border-color: rgba(255,255,255,.14); }
-.cal-row[data-day-key="4"] .cal-cell{ background: rgba(63,117,146,.20); border-color: rgba(255,255,255,.14); }
-.cal-row[data-day-key="5"] .cal-cell{ background: rgba(69,142,180,.20); border-color: rgba(255,255,255,.14); }
-.cal-row[data-day-key="6"] .cal-cell{ background: rgba(76,167,214,.20); border-color: rgba(255,255,255,.14); }
-
-/* Celle vuote: opacità 20% (solo sfondo) — celle con terapia più visibili */
-.cal-row[data-day-key="1"] .cal-cell.filled{ background: rgba(43,43,43,.50); }
-.cal-row[data-day-key="2"] .cal-cell.filled{ background: rgba(50,68,77,.50); }
-.cal-row[data-day-key="3"] .cal-cell.filled{ background: rgba(56,93,111,.50); }
-.cal-row[data-day-key="4"] .cal-cell.filled{ background: rgba(63,117,146,.50); }
-.cal-row[data-day-key="5"] .cal-cell.filled{ background: rgba(69,142,180,.50); }
-.cal-row[data-day-key="6"] .cal-cell.filled{ background: rgba(76,167,214,.50); }
+/* Schermi piccoli: lascia comunque leggibile, con scroll orizzontale per i giorni */
+@media (max-width: 420px){
+  :root{ --cal-day-w: 42px; }
+}
 
 /* Iniziali pazienti: sempre nere in tutte le celle */
 .cal-row .cal-cell.filled,
