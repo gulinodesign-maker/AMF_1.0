@@ -1,7 +1,7 @@
-/* AMF_1.029 */
+/* AMF_1.030 */
 (() => {
-  const BUILD = "AMF_1.029";
-  const DISPLAY = "1.029";
+  const BUILD = "AMF_1.030";
+  const DISPLAY = "1.030";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -859,6 +859,51 @@ function normalizeTimeList(value) {
 let societaCache = null;
 let societaMapById = new Map();
 
+// Assegnazione colori società (progressiva, stabile su iOS):
+// - 6 colori in sequenza: Rosso, Arancione, Giallo, Verde, Azzurro, Indaco
+// - Ogni nuova società riceve il colore successivo; oltre 6 riparte (mod 6)
+// - Persistenza locale per mantenere coerenza tra viste e sessioni
+const SOC_COLOR_SEQ = [
+  "#E53935", // Rosso
+  "#FB8C00", // Arancione
+  "#FDD835", // Giallo
+  "#43A047", // Verde
+  "#1E88E5", // Azzurro
+  "#3949AB"  // Indaco
+];
+
+function getSocColorMapById_() {
+  return safeJsonParse(localStorage.getItem("AMF_SOC_COLOR_BY_ID") || "", {}) || {};
+}
+function setSocColorMapById_(map) {
+  try { localStorage.setItem("AMF_SOC_COLOR_BY_ID", JSON.stringify(map || {})); } catch (_) {}
+}
+function getSocColorNext_() {
+  const n = parseInt(localStorage.getItem("AMF_SOC_COLOR_NEXT") || "0", 10);
+  return isFinite(n) && n >= 0 ? n : 0;
+}
+function setSocColorNext_(n) {
+  try { localStorage.setItem("AMF_SOC_COLOR_NEXT", String(Math.max(0, n | 0))); } catch (_) {}
+}
+
+function assignSocColorIndex0to5_(socId) {
+  const id = String(socId || "").trim();
+  if (!id) return 0;
+
+  const map = getSocColorMapById_();
+  if (map[id] !== undefined && map[id] !== null) {
+    const v = Number(map[id]);
+    return isFinite(v) ? ((v % 6) + 6) % 6 : 0;
+  }
+
+  const next = getSocColorNext_();
+  const idx = ((next % 6) + 6) % 6;
+  map[id] = idx;
+  setSocColorMapById_(map);
+  setSocColorNext_(next + 1);
+  return idx;
+}
+
 function buildSocietaMap_(arr) {
   societaMapById = new Map();
   (arr || []).forEach((s) => {
@@ -866,8 +911,8 @@ function buildSocietaMap_(arr) {
     const id = String(s.id || "").trim();
     if (!id) return;
     const nome = String(s.nome || "").trim();
-    const tagRaw = (s.tag !== undefined && s.tag !== null) ? s.tag : 0;
-    const tag = Math.max(0, Math.min(5, parseInt(tagRaw, 10) || 0));
+    // Colore assegnato in modo progressivo e coerente (0..5)
+    const tag = assignSocColorIndex0to5_(id);
     const l1 = (s.l1 ?? s.L1 ?? s.livello1 ?? s.liv1 ?? s.tariffa_livello_1 ?? "");
     const l2 = (s.l2 ?? s.L2 ?? s.livello2 ?? s.liv2 ?? s.tariffa_livello_2 ?? "");
     const l3 = (s.l3 ?? s.L3 ?? s.livello3 ?? s.liv3 ?? s.tariffa_livello_3 ?? "");
@@ -1635,13 +1680,14 @@ function formatItMonth(dateObj) {
     return ymdLocal(iso);
   }
 
+  // Palette società (0..5): Rosso, Arancione, Giallo, Verde, Azzurro, Indaco
   const SOC_TAG_COLORS = {
-    1: "#3a3a3a",
-    2: "#6b6b6b",
-    3: "#bdbdbd",
-    4: "#b7dcff",
-    5: "#4fa3e3",
-    6: "#1f5fa8"
+    0: "#E53935",
+    1: "#FB8C00",
+    2: "#FDD835",
+    3: "#43A047",
+    4: "#1E88E5",
+    5: "#3949AB"
   };
 
   function hexToRgba(hex, alpha) {

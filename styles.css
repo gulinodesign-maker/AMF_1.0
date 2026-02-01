@@ -1,4 +1,4 @@
-/* AMF_1.029 */
+/* AMF_1.030 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -461,12 +461,12 @@ select.field{ appearance: none; }
   border-bottom: 2px solid #ffffff;
   transform: rotate(45deg);
 }
-.tag-dot.t1{ background:#3a3a3a; }
-.tag-dot.t2{ background:#6b6b6b; }
-.tag-dot.t3{ background:#bdbdbd; }
-.tag-dot.t4{ background:#b7dcff; }
-.tag-dot.t5{ background:#4fa3e3; }
-.tag-dot.t6{ background:#1f5fa8; }
+.tag-dot.t1{ background:#E53935; }
+.tag-dot.t2{ background:#FB8C00; }
+.tag-dot.t3{ background:#FDD835; }
+.tag-dot.t4{ background:#43A047; }
+.tag-dot.t5{ background:#1E88E5; }
+.tag-dot.t6{ background:#3949AB; }
 
 /* 3 tasti in riga nel modal società */
 .row3{
@@ -1072,12 +1072,12 @@ select.field{ appearance: none; }
   transform: translate(-50%, -50%);
 }
 
-.cal-dot[data-tag="1"]{ background: rgba(76,167,214,.85); }
-.cal-dot[data-tag="2"]{ background: rgba(69,142,180,.85); }
-.cal-dot[data-tag="3"]{ background: rgba(63,117,146,.85); }
-.cal-dot[data-tag="4"]{ background: rgba(56,93,111,.85); }
-.cal-dot[data-tag="5"]{ background: rgba(50,68,77,.85); }
-.cal-dot[data-tag="6"]{ background: rgba(43,43,43,.85); }
+.cal-dot[data-tag="0"]{ background: rgba(229,57,53,.85); }
+.cal-dot[data-tag="1"]{ background: rgba(251,140,0,.85); }
+.cal-dot[data-tag="2"]{ background: rgba(253,216,53,.85); }
+.cal-dot[data-tag="3"]{ background: rgba(67,160,71,.85); }
+.cal-dot[data-tag="4"]{ background: rgba(30,136,229,.85); }
+.cal-dot[data-tag="5"]{ background: rgba(57,73,171,.85); }
 
 .cal-badge{
   position:absolute;
