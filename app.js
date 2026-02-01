@@ -637,17 +637,14 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
   const calHoursRow = $("#calHoursRow");
   const calBody = $("#calBody");
   const calScroll = $("#calScroll");
-  const calTable = $("#calTable");
-  const calCorner = $("#calCorner");
 
-  const CAL_WEEKDAYS = [
+  const CAL_DAYS = [
     { key: 1, label: "LU" },
     { key: 2, label: "MA" },
     { key: 3, label: "ME" },
     { key: 4, label: "GI" },
     { key: 5, label: "VE" },
-    { key: 6, label: "SA" },
-    { key: 7, label: "DO" }
+    { key: 6, label: "SA" }
   ];
 
   let calSelectedDate = new Date();
@@ -666,11 +663,11 @@ function __normDayLabel(v) {
 
 const DAY_LABEL_TO_KEY = {
   // Abbreviazioni
-  LU: 1, MA: 2, ME: 3, GI: 4, VE: 5, SA: 6, DO: 7,
+  LU: 1, MA: 2, ME: 3, GI: 4, VE: 5, SA: 6,
   // 3-letter
-  LUN: 1, MAR: 2, MER: 3, GIO: 4, VEN: 5, SAB: 6, DOM: 7,
+  LUN: 1, MAR: 2, MER: 3, GIO: 4, VEN: 5, SAB: 6,
   // Full (no accents)
-  LUNEDI: 1, MARTEDI: 2, MERCOLEDI: 3, GIOVEDI: 4, VENERDI: 5, SABATO: 6, DOMENICA: 7
+  LUNEDI: 1, MARTEDI: 2, MERCOLEDI: 3, GIOVEDI: 4, VENERDI: 5, SABATO: 6
 };
 
 function normTime(t) {
@@ -897,114 +894,16 @@ function clearCalendarCells() {
 function fillCalendarFromPatients(patients) {
   if (!calBody) return;
 
-  const y = calSelectedDate.getFullYear();
-  const m = calSelectedDate.getMonth();
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  // Compute the real date for each weekday cell (Mon-Sat) in the week of calSelectedDate
 
-  function dateForDayOfMonth(day) {
-    const d = new Date(y, m, day);
+  const weekMon = mondayOfWeek(calSelectedDate);
+
+  function dateForDayKey(dayKey) {
+    const d = new Date(weekMon);
+    d.setDate(d.getDate() + (parseInt(dayKey, 10) - 1));
     d.setHours(0, 0, 0, 0);
     return d;
   }
-
-  function weekdayLabelForDay(day) {
-    const d = new Date(y, m, day);
-    const js = d.getDay(); // 0=Sun..6=Sat
-    const weekdayKey = js === 0 ? 7 : js;
-    return (CAL_WEEKDAYS.find(x => x.key === weekdayKey)?.label) || "";
-  }
-
-  function inRange(cellDate, startStr, endStr) {
-    const s = dateOnlyLocal(startStr);
-    const e = dateOnlyLocal(endStr);
-    if (!s && !e) return true;
-    if (!cellDate) return true;
-
-    const d = new Date(cellDate);
-    d.setHours(0, 0, 0, 0);
-
-    if (s && d.getTime() < s.getTime()) return false;
-    if (e && d.getTime() > e.getTime()) return false;
-    return true;
-  }
-
-  const slots = new Map();
-
-  const dayWeekLabels = new Array(daysInMonth + 1);
-  for (let day = 1; day <= daysInMonth; day++) dayWeekLabels[day] = weekdayLabelForDay(day);
-
-  (patients || []).forEach((p) => {
-    if (!p || p.isDeleted) return;
-
-    const raw = p.giorni_settimana || p.giorni || "";
-    if (!raw) return;
-
-    const map = parseGiorniMap(raw);
-    if (!map || typeof map !== "object") return;
-
-    const normMap = {};
-    Object.keys(map).forEach((k) => {
-      const nk = __normDayLabel(k);
-      if (!nk) return;
-      normMap[nk] = map[k];
-    });
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const cellDate = dateForDayOfMonth(day);
-      if (!inRange(cellDate, p.data_inizio, p.data_fine)) continue;
-
-      const wdLabel = dayWeekLabels[day];
-      if (!wdLabel) continue;
-
-      const hitKey = __normDayLabel(wdLabel);
-      if (!normMap[hitKey]) continue;
-
-      const times = normalizeTimeList(normMap[hitKey]);
-      if (!times.length) continue;
-
-      times.forEach((t) => {
-        const slotKey = `${day}|${t}`;
-        const prev = slots.get(slotKey) || { count: 0, names: [], ids: [], tags: [] };
-        prev.count += 1;
-        prev.names.push(p.nome_cognome || "Paziente");
-        prev.ids.push(p.id);
-        prev.tags.push(getSocTagIndexById(p.societa_id || ""));
-        slots.set(slotKey, prev);
-      });
-    }
-  });
-
-  calSlotPatients = slots;
-
-  calBody.querySelectorAll(".cal-cell").forEach((cell) => {
-    const slotKey = `${cell.dataset.dayKey}|${cell.dataset.time}`;
-    const info = slots.get(slotKey);
-    if (!info) return;
-
-    cell.classList.add("filled");
-    cell.innerHTML = "";
-
-    const countEl = document.createElement("div");
-    countEl.className = "cal-count";
-    countEl.textContent = String(info.count || 0);
-    cell.appendChild(countEl);
-
-    const dotsWrap = document.createElement("div");
-    dotsWrap.className = "cal-dots";
-    const tags = Array.isArray(info.tags) ? info.tags.filter((x) => Number.isFinite(x)) : [];
-    const uniq = Array.from(new Set(tags)).slice(0, 4);
-    uniq.forEach((ti) => {
-      const dot = document.createElement("span");
-      dot.className = "cal-dot";
-      dot.dataset.tag = String(ti);
-      dotsWrap.appendChild(dot);
-    });
-    cell.appendChild(dotsWrap);
-
-    const names = Array.isArray(info.names) ? info.names : [];
-    cell.title = names.slice(0, 8).join(", ") + (names.length > 8 ? "…" : "");
-  });
-}
 
   function inRange(cellDate, startStr, endStr) {
     // Date-based inclusive range (per-cell). Prevents spillover into the same week beyond end date.
@@ -1183,17 +1082,17 @@ async function ensurePatientsForCalendar() {
   function focusCalendarNow() {
     if (!calScroll) return;
     const now = new Date();
+    // Allinea la data mostrata a quella selezionata (gestione domenica già fatta in openCalendarFlow)
     const ref = new Date(calSelectedDate || now);
-    const y = ref.getFullYear();
-    const m = ref.getMonth();
+    let jsDay = ref.getDay(); // 0=Sun..6=Sat
+    if (jsDay === 0) jsDay = 1; // fallback (non dovrebbe accadere)
+    const dayKey = jsDay; // 1=Mon..6=Sat
 
-    const isSameMonth = (now.getFullYear() === y && now.getMonth() === m);
-    const dayKey = isSameMonth ? String(now.getDate()) : String(ref.getDate());
-
+    // Trova lo slot orario più vicino (30 minuti) nel range 06:00-21:30
     const mins = now.getHours() * 60 + now.getMinutes();
     const nearest = Math.round(mins / 30) * 30;
-    const minSlot = 7 * 60 + 30;
-    const maxSlot = 21 * 60;
+    const minSlot = 6 * 60;
+    const maxSlot = 21 * 60 + 30;
     const clamped = Math.max(minSlot, Math.min(maxSlot, nearest));
     const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
     const mm = String(clamped % 60).padStart(2, "0");
@@ -1202,8 +1101,11 @@ async function ensurePatientsForCalendar() {
     const cell = document.querySelector(`.cal-cell[data-day-key="${dayKey}"][data-time="${timeStr}"]`);
     if (!cell) return;
 
-    try { cell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" }); } catch (_) {}
-  } catch (_) {}
+    // Scorri orizzontalmente per rendere visibile la cella più vicina ad oggi/ora
+    try {
+      cell.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      return;
+    } catch (_) {}
 
     try {
       const cellRect = cell.getBoundingClientRect();
@@ -1216,96 +1118,88 @@ async function ensurePatientsForCalendar() {
   }
 
   function ensureCalendarBuilt() {
-    if (!calTable || !calDaysCol || !calHoursRow || !calBody || !calCorner) return;
+    if (calBuilt) return;
+    if (!calDaysCol || !calHoursRow || !calBody) return;
 
-    const y = calSelectedDate.getFullYear();
-    const m = calSelectedDate.getMonth();
-    const buildKey = `${y}-${m}`;
-    if (calBuilt && calBuilt === buildKey) return;
+    // Days column (fixed)
+    calDaysCol.innerHTML = "";
 
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    // Empty corner cell (1x1) to align with hours header; pushes days down by 1 row
+    const spacer = document.createElement("div");
+    spacer.className = "cal-day cal-day-spacer";
+    spacer.setAttribute("aria-hidden", "true");
+    calDaysCol.appendChild(spacer);
+    CAL_DAYS.forEach((d) => {
+      const el = document.createElement("div");
+      el.className = "cal-day";
+      el.textContent = d.label;
+      el.dataset.dayKey = String(d.key);
+      calDaysCol.appendChild(el);
+    });
 
-    // Hours (07:30 -> 21:00, step 30m)
+    // Hours (scrollable) - 30 min slots 06:00 -> 21:30 (coerente con selettore terapia)
     calHours = [];
-    for (let hh = 7; hh <= 21; hh++) {
-      for (let mm = 0; mm < 60; mm += 30) {
-        if (hh === 7 && mm < 30) continue;
-        if (hh === 21 && mm > 0) continue;
-        calHours.push(`${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
+    for (let h = 6; h <= 21; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        const hh = String(h).padStart(2, "0");
+        const mm = String(m).padStart(2, "0");
+        calHours.push(`${hh}:${mm}`);
       }
     }
 
-    // CSS vars
-    calTable.style.setProperty("--cal-days-count", String(daysInMonth));
-    calTable.style.setProperty("--cal-rows-count", String(calHours.length));
-
-    // Corner
-    calCorner.innerHTML = "";
-
-    // Header (days)
     calHoursRow.innerHTML = "";
-    for (let day = 1; day <= daysInMonth; day++) {
-      const d = new Date(y, m, day);
-      const js = d.getDay(); // 0=Sun..6=Sat
-      const weekdayKey = js === 0 ? 7 : js;
-      const wd = (CAL_WEEKDAYS.find(x => x.key === weekdayKey)?.label) || "";
-      const el = document.createElement("div");
-      el.className = "cal-day";
-      el.dataset.dayKey = String(day);
-      el.dataset.weekday = String(weekdayKey);
-      el.innerHTML = `<div class="cal-day-wd">${wd}</div><div class="cal-day-num">${day}</div>`;
-      el.addEventListener("click", () => {
-        calSelectedDate = new Date(y, m, day);
-        updateCalendarUI().catch(() => {});
-        try { focusCalendarNow(); } catch (_) {}
-      });
-      calHoursRow.appendChild(el);
-    }
-
-    // Hours column
-    calDaysCol.innerHTML = "";
     calHours.forEach((t) => {
       const el = document.createElement("div");
       el.className = "cal-hour";
       el.textContent = t;
-      calDaysCol.appendChild(el);
+      calHoursRow.appendChild(el);
     });
 
     // Body grid
     calBody.innerHTML = "";
-    for (let r = 0; r < calHours.length; r++) {
-      const t = calHours[r];
-      for (let day = 1; day <= daysInMonth; day++) {
+    CAL_DAYS.forEach((d) => {
+      const row = document.createElement("div");
+      row.className = "cal-row";
+      row.dataset.dayKey = String(d.key);
+
+      calHours.forEach((t) => {
         const cell = document.createElement("div");
         cell.className = "cal-cell";
-        cell.dataset.dayKey = String(day);
+        cell.dataset.dayKey = String(d.key);
         cell.dataset.time = t;
         cell.addEventListener("click", async () => {
           const slotKey = `${cell.dataset.dayKey}|${cell.dataset.time}`;
           const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
           const ids = info && Array.isArray(info.ids) ? info.ids.filter((x) => x != null) : [];
           if (ids.length === 0) return;
-          try { await openPatientsModalFromIds(ids, info, cell.dataset.time); } catch (_) {}
+          if (ids.length !== 1) {
+            toast("Più pazienti in questo slot");
+            return;
+          }
+          const pid = ids[0];
+          const patients = await ensurePatientsForCalendar();
+          const p = (patients || []).find((x) => String(x.id) === String(pid));
+          if (!p) { toast("Paziente non trovato"); return; }
+          openPatientExisting(p);
         });
-        calBody.appendChild(cell);
-      }
-    }
+        row.appendChild(cell);
+      });
 
-    // Topbar controls (month)
-    btnCalPrev?.addEventListener("click", () => { shiftCalendarMonth(-1); });
-    btnCalNext?.addEventListener("click", () => { shiftCalendarMonth(1); });
-    btnCalToday?.addEventListener("click", () => { calSelectedDate = new Date(); updateCalendarUI().catch(() => {}); });
+      calBody.appendChild(row);
+    });
 
-    calBuilt = buildKey;
+    // Topbar calendar controls
+    btnCalPrev?.addEventListener("click", () => { shiftCalendarDay(-1); });
+    btnCalNext?.addEventListener("click", () => { shiftCalendarDay(1); });
+    btnCalToday?.addEventListener("click", () => { calSelectedDate = new Date(); updateCalendarUI(); });
+    calBuilt = true;
   }
 
-function shiftCalendarMonth(delta) {
+  function shiftCalendarDay(delta) {
     const d = new Date(calSelectedDate);
-    d.setDate(1);
-    d.setMonth(d.getMonth() + delta);
+    d.setDate(d.getDate() + (delta * 7));
     calSelectedDate = d;
-    updateCalendarUI().catch(() => {});
-    try { focusCalendarNow(); } catch (_) {}
+    updateCalendarUI();
   }
 
   function formatItMonth(dateObj) {
@@ -1331,29 +1225,22 @@ function shiftCalendarMonth(delta) {
   }
 
   async function updateCalendarUI() {
-  if (!calDateTitle || !calHoursRow) return;
+  if (!calDateTitle || !calDaysCol) return;
 
-  const y = calSelectedDate.getFullYear();
-  const m = calSelectedDate.getMonth();
-  const monthStart = new Date(y, m, 1);
+  const weekMon = mondayOfWeek(calSelectedDate);
+  calDateTitle.textContent = formatItMonth(weekMon);
 
-  ensureCalendarBuilt();
-
-  const fmt = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" });
-  let s = fmt.format(monthStart);
-  s = s.replace(/(^|\s)([a-zàèéìòù]+)/i, (mm, a, b) => `${a}${b.charAt(0).toUpperCase()}${b.slice(1)}`);
-  calDateTitle.textContent = s;
-
-  const activeDay = String(calSelectedDate.getDate());
-  calHoursRow.querySelectorAll(".cal-day").forEach((el) => {
-    el.classList.toggle("active", el.dataset.dayKey === activeDay);
+  // Update day labels with day-of-month numbers for the current week
+  calDaysCol.querySelectorAll(".cal-day").forEach((el) => {
+    if (el.classList.contains("cal-day-spacer")) return;
+    const dk = parseInt(el.dataset.dayKey || "0", 10);
+    if (!dk) return;
+    const d = new Date(weekMon);
+    d.setDate(d.getDate() + (dk - 1));
+    const dd = d.getDate();
+    const base = (CAL_DAYS.find(x => x.key === dk)?.label) || el.textContent.trim().slice(0,2);
+    el.textContent = `${base} ${dd}`;
   });
-
-  clearCalendarCells();
-  await loadSocietaCache();
-  const patients = await ensurePatientsForCalendar();
-  fillCalendarFromPatients(patients);
-});
 
   // Active weekday (Mon-Sat only)
   const jsDay = calSelectedDate.getDay(); // 0=Sun ... 6=Sat
