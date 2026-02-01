@@ -1,4 +1,4 @@
-/* AMF_1.025 */
+/* AMF_1.027 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -885,21 +885,21 @@ select.field{ appearance: none; }
 }
 
 
-/* FIX AMF_1.015: date inputs alignment */
+/* FIX AMF_1.027: date inputs alignment */
 .date-row,.period-row,.row-dates{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:nowrap}
 .date-row input,.period-row input,.row-dates input{flex:1 1 0;min-width:0}
-/* FIX AMF_1.015: home icons vertical position */
+/* FIX AMF_1.027: home icons vertical position */
 .home-layout{padding-top:12px}
 
-/* --- Calendario (mensile a griglia: colonne=giorni, righe=ore) --- */
+/* --- Calendario (ore scroll, giorni fissi) --- */
 :root{
-  --cal-gap: var(--cal-gap);
-  --cal-cell-h: 56px;
-  --cal-time-w: 66px;
-  --cal-day-w: 46px;
+  --cal-cell-h: 75px;
+  --cal-cell-w: 66px;
+  --cal-gap: 2px;
 }
-
-.calendar-wrap{ padding: 18px 18px 22px; }
+.calendar-wrap{
+  padding: 18px 18px 22px;
+}
 .calendar-date{
   font-size: 26px;
   font-weight: 800;
@@ -916,177 +916,161 @@ select.field{ appearance: none; }
   gap: 8px;
   margin: -8px 0 16px;
 }
-.calendar-nav-center{ display:flex; gap: 8px; align-items:center; justify-content:center; }
-.calendar-nav-right{ display:flex; align-items:center; justify-content:flex-end; }
-
-.calendar-grid{ display:block; }
-
-.cal-scroll{
-  width: 100%;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 6px;
-}
-
-/* Header sticky */
-.cal-head{
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: grid;
-  grid-template-columns: var(--cal-time-w) 1fr;
-  gap: var(--cal-gap);
-  align-items: start;
-  padding-bottom: var(--cal-gap);
-  background: transparent;
-}
-.cal-corner{
-  width: var(--cal-time-w);
-  height: 40px;
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,.08);
-  background: rgba(255,255,255,.80);
-}
-
-.cal-hours{
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: var(--cal-day-w);
-  gap: var(--cal-gap);
-}
-
-.cal-dayhead{
-  height: 40px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,.08);
-  background: rgba(255,255,255,.80);
+.calendar-nav-center{
   display:flex;
-  flex-direction: column;
+  gap: 8px;
   align-items:center;
   justify-content:center;
-  line-height: 1.05;
-  font-weight: 800;
-  color: var(--text);
-  opacity: .80;
 }
-.cal-dayhead-wd{ font-size: 11px; opacity: .70; }
-.cal-dayhead-num{ font-size: 14px; }
-.cal-dayhead.active{ border-color: rgba(42,116,184,.35); }
-
-.cal-main{
-  display: grid;
-  grid-template-columns: var(--cal-time-w) 1fr;
-  gap: var(--cal-gap);
-  align-items: start;
+.calendar-nav-right{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+}
+.calendar-grid{
+  display:grid;
+  grid-template-columns: 78px 1fr;
+  grid-template-rows: var(--cal-cell-h) 1fr;
+  gap: 0;
+  align-items: stretch;
 }
 
-.cal-times{
-  position: sticky;
-  left: 0;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  gap: var(--cal-gap);
+/* 1x1 empty cell (top-left) */
+.cal-corner{
+  grid-column: 1;
+  grid-row: 1;
+  width: 78px;
+  height: var(--cal-cell-h);
   background: transparent;
 }
 
-.cal-time{
+/* Top row: days 1..31 (horizontal scroll) */
+.cal-days-scroll{
+  grid-column: 2;
+  grid-row: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.cal-days{
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--cal-cell-w);
+  gap: 2px;
+  padding: 2px;
+}
+
+/* First column: hours 07:30..21:00 (vertical scroll only) */
+.cal-hours-scroll{
+  grid-column: 1;
+  grid-row: 2;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.cal-hours{
+  display: grid;
+  grid-auto-flow: row;
+  grid-auto-rows: var(--cal-cell-h);
+  gap: 2px;
+  padding: 2px;
+}
+
+/* Body: scroll both axes, synced with header/left column */
+.cal-body-scroll{
+  grid-column: 2;
+  grid-row: 2;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.cal-body{
+  display:grid;
+  grid-template-columns: repeat(31, var(--cal-cell-w));
+  grid-auto-rows: var(--cal-cell-h);
+  gap: 2px;
+  padding: 2px;
+}
+
+.cal-day,
+.cal-hour{
   height: var(--cal-cell-h);
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,.08);
-  background: rgba(255,255,255,.80);
+  background: var(--white80);
   display:flex;
   align-items:center;
   justify-content:center;
   font-weight: 800;
-  color: var(--primary);
+  letter-spacing: .2px;
   opacity: .80;
+  color: var(--text);
 }
 
-.cal-body{ display:flex; flex-direction: column; gap: var(--cal-gap); }
-.cal-row{ display:grid; grid-auto-flow: column; grid-auto-columns: var(--cal-day-w); gap: var(--cal-gap); }
+.cal-day{
+  color: var(--primary);
+}
+.cal-day.active{
+  border-color: rgba(42,116,184,.35);
+}
+
+.cal-day.disabled,
+.cal-hour.disabled{
+  opacity: .35;
+}
 
 .cal-cell{
   height: var(--cal-cell-h);
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,.08);
-  background: rgba(0,0,0,.04);
+  background: transparent;
   position: relative;
 }
+
+.cal-cell.disabled{
+  opacity: .30;
+  pointer-events: none;
+}
+
 .cal-cell.filled{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight: 900;
-  color: var(--text);
   cursor: pointer;
-  background: rgba(0,0,0,.12);
 }
 
-/* Densità: landscape più compatto e sfrutta tutta la larghezza */
-@media (orientation: landscape){
-  :root{ --cal-day-w: 42px; --cal-cell-h: 52px; }
-}
-
-/* Schermi piccoli: lascia comunque leggibile, con scroll orizzontale per i giorni */
-@media (max-width: 420px){
-  :root{ --cal-day-w: 42px; }
-}
-
-/* Iniziali pazienti: sempre nere in tutte le celle */
-.cal-row .cal-cell.filled,
-.cal-row .cal-cell.filled .cal-cell-text{ color: #000 !important; }
-
-.cal-cell-text{ position: relative; z-index: 1; font-size: 14px; letter-spacing: .4px; }
-
-/* pallino tag società (stessi colori dei tag-dot) */
-.cal-socdot{
-  position: absolute;
-  left: 10px;
-  top: 10px;
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  z-index: 2;
-  border: 0;
-}
-.cal-socdot.t1{ background:#3a3a3a; }
-.cal-socdot.t2{ background:#6b6b6b; }
-.cal-socdot.t3{ background:#bdbdbd; }
-.cal-socdot.t4{ background:#b7dcff; }
-.cal-socdot.t5{ background:#4fa3e3; }
-.cal-socdot.t6{ background:#1f5fa8; }
-
-/* Multiple dots in the same slot (overlaps) */
-.cal-socdots{
-  position: absolute;
-  left: 10px;
-  top: 10px;
-  display: flex;
-  gap: 4px;
-  z-index: 2;
-}
-.cal-socdots .cal-socdot{
-  position: static;
-  left: auto;
-  top: auto;
+/* Slot marker (soc tag) */
+.cal-dot{
   width: 10px;
   height: 10px;
+  border-radius: 999px;
+  background: rgba(42,116,184,.85);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
-.cal-socdot-more{
+
+.cal-dot[data-tag="1"]{ background: rgba(76,167,214,.85); }
+.cal-dot[data-tag="2"]{ background: rgba(69,142,180,.85); }
+.cal-dot[data-tag="3"]{ background: rgba(63,117,146,.85); }
+.cal-dot[data-tag="4"]{ background: rgba(56,93,111,.85); }
+.cal-dot[data-tag="5"]{ background: rgba(50,68,77,.85); }
+.cal-dot[data-tag="6"]{ background: rgba(43,43,43,.85); }
+
+.cal-badge{
+  position:absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.80);
+  border: 1px solid rgba(0,0,0,.10);
   display:flex;
   align-items:center;
   justify-content:center;
-  width: 18px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.80);
-  color: #000;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 900;
+  color: var(--text);
 }
-
-
 
 /* --- Statistiche --- */
 .page{

@@ -81,7 +81,7 @@
       </section>
         </div>
         <div class="home-footer" aria-label="Build">
-          <div class="build" id="buildLabel">1.027</div>
+          <div class="build" id="buildLabel">1.026</div>
         </div>
       </div>
     </section>
@@ -286,16 +286,25 @@
 
         <div class="calendar-date" id="calDateTitle">—</div>
 
-        <div class="calendar-grid" aria-label="Griglia calendario">
-          <div class="cal-scroll" id="calScroll" aria-label="Calendario (scorri)">
-            <div class="cal-head" aria-label="Intestazione giorni">
-              <div class="cal-corner" aria-hidden="true"></div>
-              <div class="cal-hours" id="calHoursRow" aria-label="Giorni"></div>
-            </div>
-            <div class="cal-main" aria-label="Griglia">
-              <div class="cal-times" id="calDaysCol" aria-label="Ore"></div>
-              <div class="cal-body" id="calBody" aria-label="Slot"></div>
-            </div>
+                <div class="calendar-grid" aria-label="Griglia calendario">
+          <div class="cal-corner" id="calCorner" aria-hidden="true"></div>
+
+          <div class="cal-days-scroll" id="calDaysScroll" aria-label="Giorni (scorri)">
+            <div class="cal-days" id="calDaysCol" aria-label="Giorni del mese"></div>
+          </div>
+
+          <div class="cal-hours-scroll" id="calHoursScroll" aria-label="Ore (scorri verticale)">
+            <div class="cal-hours" id="calHoursRow" aria-label="Ore"></div>
+          </div>
+
+          <div class="cal-body-scroll" id="calScroll" aria-label="Calendario (scorri)">
+            <div class="cal-body" id="calBody" aria-label="Slot"></div>
+          </div>
+        </div>
+
+          <div class="cal-scroll" id="calScroll" aria-label="Ore (scorri)">
+            <div class="cal-hours" id="calHoursRow" aria-label="Ore"></div>
+            <div class="cal-body" id="calBody" aria-label="Slot"></div>
           </div>
         </div>
       </div>
