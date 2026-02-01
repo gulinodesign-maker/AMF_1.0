@@ -1,7 +1,7 @@
-/* AMF_1.017 */
+/* AMF_1.018 */
 (() => {
-  const BUILD = "AMF_1.017";
-  const DISPLAY = "1.017";
+  const BUILD = "AMF_1.018";
+  const DISPLAY = "1.018";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -328,7 +328,8 @@
     settings: $("#viewSettings"),
     patients: $("#viewPatients"),
     patientForm: $("#viewPatientForm"),
-    calendar: $("#viewCalendar")
+    calendar: $("#viewCalendar"),
+    stats: $("#viewStats")
   };
 
   const btnTopRight = $("#btnTopRight");
@@ -410,9 +411,216 @@
     
     pazienti: () => openPatientsFlow(),
     calendario: () => openCalendarFlow(),
-    statistiche: () => toast("Statistiche (da implementare)")
+    statistiche: () => openStatsFlow()
   };
-  document.querySelectorAll("[data-route]").forEach((btn) => {
+  
+
+  // --- Statistiche
+  const statsSocTabs = $("#statsSocTabs");
+  const statsLevelDots = $("#statsLevelDots");
+  const statsMonthlyList = $("#statsMonthlyList");
+
+  let statsSelectedSoc = "ALL"; // "ALL" = Tutte
+  let statsSelectedLevel = "T"; // L1/L2/L3/T
+
+  const MONTHS_IT = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+
+  function coerceNumber_(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v === "number" && isFinite(v)) return v;
+    const s = String(v).trim();
+    if (!s) return null;
+    const cleaned = s.replace(/\./g, "").replace(",", ".").replace(/[^\d.\-]/g, "");
+    const n = parseFloat(cleaned);
+    return isFinite(n) ? n : null;
+  }
+
+  function pickAmountFromRecord_(rec) {
+    if (!rec) return 0;
+    const keys = ["importo","amount","totale","fatturato","fatturato_euro","valore","prezzo","revenue","incasso","pagato"];
+    for (const k of keys) {
+      if (rec[k] !== undefined && rec[k] !== null) {
+        const n = coerceNumber_(rec[k]);
+        if (n !== null) return n;
+      }
+    }
+    return 0;
+  }
+
+  function pickDateFromRecord_(rec) {
+    if (!rec) return null;
+    const keys = ["data","date","data_prestazione","dataVisita","giorno","createdAt","created_at","updatedAt","updated_at"];
+    for (const k of keys) {
+      const v = rec[k];
+      if (!v) continue;
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return null;
+  }
+
+  function normalizeLevel_(v) {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim().toUpperCase();
+    if (!s) return null;
+    if (s === "T" || s === "TOT" || s === "TOTALE" || s === "TOTAL") return "T";
+    if (s === "L1" || s === "1") return "L1";
+    if (s === "L2" || s === "2") return "L2";
+    if (s === "L3" || s === "3") return "L3";
+    return null;
+  }
+
+  function getRecordLevel_(rec) {
+    const direct = normalizeLevel_(rec.livello ?? rec.level ?? rec.liv ?? rec.livello_id ?? rec.lvl);
+    if (direct && direct !== "T") return direct;
+    // Fallback: usa tag della società (1..3 -> L1..L3)
+    const sid = String(rec.societa_id || rec.societaId || rec.soc || "").trim();
+    const s = sid ? getSocietaById(sid) : null;
+    const t = s ? parseInt(s.tag, 10) : 0;
+    if (t === 1) return "L1";
+    if (t === 2) return "L2";
+    if (t === 3) return "L3";
+    return null;
+  }
+
+  function formatEuro_(n) {
+    const v = (typeof n === "number" && isFinite(n)) ? n : 0;
+    return v.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  }
+
+  function renderStatsSocTabs_(societaArr) {
+    if (!statsSocTabs) return;
+    statsSocTabs.innerHTML = "";
+
+    const mkBtn = (id, label) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "seg-tab";
+      b.setAttribute("role", "tab");
+      b.setAttribute("data-soc", id);
+      b.textContent = label;
+      if (statsSelectedSoc === id) b.classList.add("selected");
+      b.addEventListener("click", () => {
+        statsSelectedSoc = id;
+        renderStatsSocTabs_(societaArr);
+        renderStatsMonthly_();
+      });
+      return b;
+    };
+
+    statsSocTabs.appendChild(mkBtn("ALL", "Tutte"));
+    (societaArr || []).forEach((s) => {
+      const sid = String(s.id || "").trim();
+      if (!sid) return;
+      const nome = String(s.nome || "").trim() || "Società";
+      statsSocTabs.appendChild(mkBtn(sid, nome));
+    });
+  }
+
+  function renderStatsLevelDots_() {
+    if (!statsLevelDots) return;
+    statsLevelDots.innerHTML = "";
+
+    const levels = ["L1","L2","L3","T"];
+    levels.forEach((lv) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "dot-filter";
+      b.setAttribute("data-lv", lv);
+      b.textContent = lv;
+      if (statsSelectedLevel === lv) b.classList.add("selected");
+      b.addEventListener("click", () => {
+        statsSelectedLevel = lv;
+        renderStatsLevelDots_();
+        renderStatsMonthly_();
+      });
+      statsLevelDots.appendChild(b);
+    });
+  }
+
+  function renderStatsMonthly_() {
+    if (!statsMonthlyList) return;
+
+    const year = (new Date()).getFullYear();
+    const monthly = new Array(12).fill(0);
+
+    const recs = Array.isArray(patientsCache) ? patientsCache : [];
+    for (const r of recs) {
+      const d = pickDateFromRecord_(r);
+      if (!d) continue;
+      if (d.getFullYear() !== year) continue;
+
+      // filtro società
+      const sid = String(r.societa_id || r.societaId || r.soc || "").trim();
+      if (statsSelectedSoc !== "ALL" && sid !== statsSelectedSoc) continue;
+
+      // filtro livello
+      if (statsSelectedLevel !== "T") {
+        const lv = getRecordLevel_(r);
+        if (lv !== statsSelectedLevel) continue;
+      }
+
+      const amount = pickAmountFromRecord_(r);
+      const m = d.getMonth(); // 0..11
+      monthly[m] += amount;
+    }
+
+    const max = Math.max(0, ...monthly);
+    statsMonthlyList.innerHTML = "";
+
+    monthly.forEach((val, i) => {
+      const row = document.createElement("div");
+      row.className = "month-card";
+
+      const top = document.createElement("div");
+      top.className = "month-row";
+
+      const name = document.createElement("div");
+      name.className = "month-name";
+      name.textContent = MONTHS_IT[i];
+
+      const amountEl = document.createElement("div");
+      amountEl.className = "month-amount";
+      amountEl.textContent = formatEuro_(val);
+
+      top.appendChild(name);
+      top.appendChild(amountEl);
+
+      const track = document.createElement("div");
+      track.className = "bar-track";
+
+      const fill = document.createElement("div");
+      fill.className = "bar-fill";
+      const pct = max > 0 ? Math.max(0, Math.min(100, (val / max) * 100)) : 0;
+      fill.style.width = pct.toFixed(2) + "%";
+
+      track.appendChild(fill);
+
+      row.appendChild(top);
+      row.appendChild(track);
+
+      statsMonthlyList.appendChild(row);
+    });
+  }
+
+  async function openStatsFlow() {
+    setCalendarControlsVisible(false);
+    btnTopPlus && (btnTopPlus.hidden = true);
+    const titleEl = $("#topbarTitle");
+    if (titleEl) titleEl.textContent = "Statistiche";
+
+    try { await loadSocietaCache(false); } catch (_) {}
+    try { await loadPatients({ render: false }); } catch (_) {}
+
+    const societaArr = Array.isArray(societaCache) ? societaCache : [];
+    renderStatsSocTabs_(societaArr);
+    renderStatsLevelDots_();
+    renderStatsMonthly_();
+
+    showView("stats");
+  }
+
+document.querySelectorAll("[data-route]").forEach((btn) => {
     btn.addEventListener("click", () => {
         // UI: evidenzia selezione
         timePickList.querySelectorAll(".pill-btn.selected").forEach((el) => el.classList.remove("selected")); 
