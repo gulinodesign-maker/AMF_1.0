@@ -1,7 +1,7 @@
-/* AMF_1.022 */
+/* AMF_1.023 */
 (() => {
-  const BUILD = "AMF_1.022";
-  const DISPLAY = "1.022";
+  const BUILD = "AMF_1.023";
+  const DISPLAY = "1.023";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1511,10 +1511,11 @@ async function ensurePatientsForCalendar() {
   const patientsListEl = $("#patientsList");
   const btnSortDate = $("#patSortDate");
   const btnSortSoc = $("#patSortSoc");
+  const btnSortToday = $("#patSortToday");
 
   let patientsCache = null;
   let patientsLoaded = false;
-  let patientsSortMode = "date"; // date|soc
+  let patientsSortMode = "date"; // date|soc|today
   let currentPatient = null;
   let patientEditEnabled = true; // per create
 
@@ -1541,15 +1542,111 @@ async function ensurePatientsForCalendar() {
     return ymdLocal(iso);
   }
 
+  const SOC_TAG_COLORS = {
+    1: "#3a3a3a",
+    2: "#6b6b6b",
+    3: "#bdbdbd",
+    4: "#b7dcff",
+    5: "#4fa3e3",
+    6: "#1f5fa8"
+  };
+
+  function hexToRgba(hex, alpha) {
+    const h = String(hex || "").trim();
+    const m = /^#?([0-9a-f]{6})$/i.exec(h);
+    if (!m) return "";
+    const n = parseInt(m[1], 16);
+    const r = (n >> 16) & 255;
+    const g = (n >> 8) & 255;
+    const b = n & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  const IT_MONTHS = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+
+  function fmtItDateLong(d) {
+    if (!d) return "";
+    const day = d.getDate();
+    const month = IT_MONTHS[d.getMonth()] || "";
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`;
+  }
+
+  function fmtTherapyPeriod(startStr, endStr) {
+    const s = dateOnlyLocal(startStr);
+    const e = dateOnlyLocal(endStr);
+    if (!s && !e) return "";
+    if (s && e) {
+      const d1 = s.getDate();
+      const d2 = e.getDate();
+      const m1 = IT_MONTHS[s.getMonth()] || "";
+      const m2 = IT_MONTHS[e.getMonth()] || "";
+      const y1 = s.getFullYear();
+      const y2 = e.getFullYear();
+
+      if (y1 === y2 && s.getMonth() === e.getMonth()) {
+        return `${d1}-${d2} ${m1} ${y1}`;
+      }
+      if (y1 === y2) {
+        return `${d1} ${m1} - ${d2} ${m2} ${y1}`;
+      }
+      return `${d1} ${m1} ${y1} - ${d2} ${m2} ${y2}`;
+    }
+    if (s) return `dal ${fmtItDateLong(s)}`;
+    return `fino al ${fmtItDateLong(e)}`;
+  }
+
+  function getTodayDayKey() {
+    // JS: 0=DOM,1=LUN,...6=SAB. App calendar uses 1..6 (LU..SA)
+    const d = new Date();
+    const jsDay = d.getDay();
+    if (jsDay === 0) return null;
+    if (jsDay >= 1 && jsDay <= 6) return jsDay;
+    return null;
+  }
+
+  function getPatientTodayTimes(p) {
+    if (!p || p.isDeleted) return [];
+    const dayKey = getTodayDayKey();
+    if (!dayKey) return [];
+
+    // active period check
+    const today = dateOnlyLocal(new Date());
+    if (!inRange(today, p.data_inizio, p.data_fine)) return [];
+
+    const raw = p.giorni_settimana || p.giorni || "";
+    if (!raw) return [];
+    const map = parseGiorniMap(raw);
+    if (!map || typeof map !== "object") return [];
+
+    const out = [];
+    Object.keys(map).forEach((k) => {
+      const dayLabel = __normDayLabel(k);
+      let kDay = DAY_LABEL_TO_KEY[dayLabel];
+      if (!kDay && /^\d+$/.test(dayLabel)) {
+        const n = parseInt(dayLabel, 10);
+        if (n >= 1 && n <= 6) kDay = n;
+      }
+      if (kDay !== dayKey) return;
+      const times = normalizeTimeList(map[k]);
+      times.forEach((t) => { if (t) out.push(t); });
+    });
+
+    out.sort();
+    return out;
+  }
+
   function setPatientsSort(mode) {
     patientsSortMode = mode;
     btnSortDate?.classList.toggle("active", mode === "date");
     btnSortSoc?.classList.toggle("active", mode === "soc");
+    btnSortToday?.classList.toggle("active", mode === "today");
     renderPatients();
   }
 
   btnSortDate?.addEventListener("click", () => setPatientsSort("date"));
   btnSortSoc?.addEventListener("click", () => setPatientsSort("soc"));
+  btnSortToday?.addEventListener("click", () => setPatientsSort("today"));
 
   async function loadPatients(opts = {}) {
     const { render = true } = (opts || {});
@@ -1568,9 +1665,25 @@ async function ensurePatientsForCalendar() {
 
   function renderPatients() {
     if (!patientsListEl) return;
-    const arr = (patientsCache || []).slice();
 
-    if (patientsSortMode === "soc") {
+    let arr = (patientsCache || []).slice();
+
+    if (patientsSortMode === "today") {
+      const filtered = [];
+      for (let i = 0; i < arr.length; i++) {
+        const p = arr[i];
+        const times = getPatientTodayTimes(p);
+        if (!times.length) continue;
+        // keep earliest time for sorting
+        p.__todayTime = times[0];
+        filtered.push(p);
+      }
+      filtered.sort((a, b) => String(a.__todayTime || "").localeCompare(String(b.__todayTime || "")) ||
+        String(getSocNameById(a.societa_id||"")||"").localeCompare(String(getSocNameById(b.societa_id||"")||""), "it", { sensitivity: "base" }) ||
+        String(a.nome_cognome||"").localeCompare(String(b.nome_cognome||""), "it", { sensitivity: "base" })
+      );
+      arr = filtered;
+    } else if (patientsSortMode === "soc") {
       arr.sort((a,b) =>
         String(getSocNameById(a.societa_id||"")||"").localeCompare(String(getSocNameById(b.societa_id||"")||""), "it", { sensitivity: "base" }) ||
         String(a.nome_cognome||"").localeCompare(String(b.nome_cognome||""), "it", { sensitivity: "base" })
@@ -1601,12 +1714,18 @@ async function ensurePatientsForCalendar() {
 
       const name = p.nome_cognome || p.nome || "—";
       const soc = getSocNameById(p.societa_id || "") || "—";
-      const dt = fmtIsoDate(p.createdAt || p.created_at || "");
+      const period = fmtTherapyPeriod(p.data_inizio || "", p.data_fine || "");
+
+      // Background color from società tag (20% opacity)
+      const tagIdx = getSocTagIndexById(p.societa_id || "");
+      const base = SOC_TAG_COLORS[tagIdx] || "";
+      const bg = base ? hexToRgba(base, 0.20) : "";
+      if (bg) row.style.backgroundColor = bg;
 
       row.innerHTML = `
         <div class="patient-info">
           <div class="patient-name">${escapeHtml(name)}</div>
-          <div class="patient-sub">${escapeHtml(soc)}${dt ? " • " + escapeHtml(dt) : ""}</div>
+          <div class="patient-sub">${escapeHtml(soc)}${period ? " • " + escapeHtml(period) : ""}</div>
         </div>
         <div class="patient-badge">${escapeHtml(String(p.livello || ""))}</div>
       `;
@@ -2294,7 +2413,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.022").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.023").catch(() => {});
     });
   }
 })();
