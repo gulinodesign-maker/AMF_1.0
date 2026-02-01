@@ -1,7 +1,7 @@
-/* AMF_1.032 */
+/* AMF_1.033 */
 (() => {
-  const BUILD = "AMF_1.032";
-  const DISPLAY = "1.032";
+  const BUILD = "AMF_1.033";
+  const DISPLAY = "1.033";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -87,6 +87,27 @@
 
     return null;
   }
+
+  function patientDisplayName(p) {
+    const fullRaw = String(p?.nome_cognome || p?.nome || "").trim();
+    if (!fullRaw) return "—";
+
+    // If stored as "Cognome, Nome"
+    if (fullRaw.includes(",")) {
+      const parts = fullRaw.split(",").map((x) => x.trim()).filter(Boolean);
+      if (parts.length >= 2) return `${parts[0]} ${parts.slice(1).join(" ")}`.trim();
+      return parts[0] || fullRaw;
+    }
+
+    // Default: assume last token is surname
+    const parts = fullRaw.split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) return fullRaw;
+    const cognome = parts[parts.length - 1];
+    const nome = parts.slice(0, -1).join(" ");
+    return `${cognome} ${nome}`.trim();
+  }
+
+
 
   function ymdLocal(value) {
     const d = dateOnlyLocal(value);
@@ -1417,7 +1438,7 @@ function fillCalendarFromPatients(patients) {
           const slotKey = `${dayNum}|${t}`;
           const prev = slots.get(slotKey) || { count: 0, names: [], ids: [], tags: [] };
           prev.count += 1;
-          prev.names.push(p.nome_cognome || "Paziente");
+          prev.names.push(patientDisplayName(p) || "Paziente");
           prev.ids.push(p.id);
           prev.tags.push(getSocTagIndexById(p.societa_id || ""));
           slots.set(slotKey, prev);
@@ -2224,6 +2245,16 @@ function formatItMonth(dateObj) {
     const ka = nameKey(a);
     const kb = nameKey(b);
     const c = String(ka.cognome||"").localeCompare(String(kb.cognome||""), "it", { sensitivity: "base" });
+
+  // FILTER_EXPIRED_ON_DATE_SORT: nasconde terapie scadute solo in ordinamento per scadenza
+  const today = dateOnlyLocal(new Date());
+  const todayTs = today ? today.getTime() : Date.now();
+  arr = arr.filter((p) => {
+    const t = endTs(p);
+    return t === Infinity || t >= todayTs;
+  });
+
+
     if (c) return c;
     const n = String(ka.nome||"").localeCompare(String(kb.nome||""), "it", { sensitivity: "base" });
     if (n) return n;
@@ -2252,7 +2283,7 @@ function formatItMonth(dateObj) {
       row.className = "patient-row";
       row.dataset.idx = String(i);
 
-      const name = p.nome_cognome || p.nome || "—";
+      const name = patientDisplayName(p) || "—";
       const soc = getSocNameById(p.societa_id || "") || "—";
       const period = fmtTherapyPeriod(p.data_inizio || "", p.data_fine || "");
 
