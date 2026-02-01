@@ -75,12 +75,7 @@ body{
   gap: 10px;
   flex-wrap: nowrap;
   flex: 0 0 auto;
-  white-space: nowrap;
-  overflow: hidden;
 }
-
-/* TOPBAR SAFETY: no wrap / no vertical stacking */
-.topbar{ overflow: hidden; }
 #btnTopPlus[hidden]{ display:none !important; }
 
 .logo{
@@ -1221,6 +1216,98 @@ select.field{ appearance: none; }
   justify-content: space-between;
   gap: 12px;
   width: 100%;
+}
+
+.month-left{
+  display:flex;
+  flex-direction: row;
+  align-items:center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.month-tab{
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 220px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.10);
+  color: rgba(255,255,255,.95);
+  font-weight: 900;
+  letter-spacing: .2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  opacity: .80;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: none;
+}
+
+.month-report-btn{
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(255,255,255,.80);
+  background-color: rgba(255,255,255,.80);
+  color: rgba(42,116,184,.92);
+  font-weight: 900;
+  letter-spacing: .2px;
+  cursor: pointer;
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  opacity: .80;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: none;
+  white-space: nowrap;
+}
+.month-report-btn svg{
+  width: 18px;
+  height: 18px;
+  stroke: var(--primary);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.month-report-btn span{ font-size: 14px; }
+
+.month-value{
+  flex: 0 0 auto;
+  font-size: clamp(16px, 4.8vw, 22px);
+  font-weight: 900;
+  color: rgba(42,116,184,.92);
+  white-space: nowrap;
+}
+
+.month-track{
+  margin-top: 10px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.07);
+  overflow: hidden;
+}
+.month-bar{
+  height: 100%;
+  border-radius: 999px;
+  background: rgba(42,116,184,.80);
+  background-color: rgba(42,116,184,.80);
+}
+
+@media (max-width: 420px){
+  .month-left{ gap: 8px; }
+  .month-tab{ height: 38px; padding: 0 10px; border-radius: 13px; }
+  .month-report-btn{ height: 38px; padding: 0 10px; border-radius: 13px; gap: 6px; }
+  .month-report-btn span{ font-size: 13px; }
+  .month-report-btn svg{ width: 16px; height: 16px; }
 }
 
 

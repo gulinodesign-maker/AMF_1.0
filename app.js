@@ -379,7 +379,6 @@
     setTopPlusVisible(name === "patients");
     setCalendarControlsVisible(name === "calendar");
     updateTopPatientsVisible();
-    updateTopReportVisible();
     updateTopbarTitle();
 
   }
@@ -409,17 +408,8 @@
     btnTopPatients.hidden = !isRO;
   }
 
-  function updateTopReportVisible() {
-    if (!btnTopReport) return;
-    btnTopReport.hidden = !(currentView === "stats");
-  }
-
   btnTopPatients?.addEventListener("click", () => {
     openPatientsFlow();
-  });
-
-  btnTopReport?.addEventListener("click", () => {
-    try { generateStatsReport(); } catch (err) { toast(String(err && err.message ? err.message : err)); }
   });
 
 
@@ -446,6 +436,37 @@
   let statsSelectedLevel = "T"; // L1/L2/L3/T
 
   const MONTHS_IT = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+
+
+function __hexToRgb_(hex) {
+  const h = String(hex || "").trim();
+  const m = /^#?([0-9a-f]{6})$/i.exec(h);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function __rgbToRgba_(rgb, a) {
+  if (!rgb) return "";
+  return `rgba(${rgb.r},${rgb.g},${rgb.b},${a})`;
+}
+function __lerp_(a, b, t) { return a + (b - a) * t; }
+
+// Colori tab mesi: sequenza "tipo gradiente" (tinta unita per ogni tab)
+function statsMonthColor_(idx, total) {
+  const n = Math.max(1, Number(total) || 12);
+  const t = n === 1 ? 0 : Math.min(1, Math.max(0, Number(idx) / (n - 1)));
+
+  const cs = getComputedStyle(document.documentElement);
+  const primary = __hexToRgb_(cs.getPropertyValue("--primary").trim() || "#2a74b8") || { r: 42, g: 116, b: 184 };
+  const accent  = __hexToRgb_(cs.getPropertyValue("--accent").trim()  || "#c57b2a") || { r: 197, g: 123, b: 42 };
+
+  const rgb = {
+    r: Math.round(__lerp_(primary.r, accent.r, t)),
+    g: Math.round(__lerp_(primary.g, accent.g, t)),
+    b: Math.round(__lerp_(primary.b, accent.b, t))
+  };
+  return __rgbToRgba_(rgb, 0.80);
+}
 
   function coerceNumber_(v) {
     if (v === null || v === undefined) return null;
@@ -630,7 +651,7 @@
       return { start, end };
     };
 
-    const calcMonthlyAmountForPatient = (p, monthIndex) => {
+        const calcMonthlySessionsForPatient = (p, monthIndex) => {
       if (!p || p.isDeleted) return 0;
 
       // filtro società
@@ -655,183 +676,9 @@
       const map = parseGiorniMap(raw);
       if (!map || typeof map !== "object") return 0;
 
+      // criterio importi: se non c'è tariffa, non considerare neanche gli accessi
       const rate = getRateForPatient(p);
       if (!rate) return 0;
-
-      let sessions = 0;
-      Object.keys(map).forEach((k) => {
-        const dayLabel = __normDayLabel(k);
-        let wk = DAY_LABEL_TO_KEY[dayLabel];
-        if (wk === undefined || wk === null) {
-          if (/^\d+$/.test(dayLabel)) {
-            const n = parseInt(dayLabel, 10);
-            if (n >= 0 && n <= 6) wk = n;
-          }
-        }
-        if (wk === undefined || wk === null) return;
-        const times = normalizeTimeList(map[k]);
-        const perWeek = times.length || 0;
-        if (!perWeek) return;
-        const occ = countWeekdayInRange(start, end, wk);
-        sessions += occ * perWeek;
-      });
-
-      return sessions * rate;
-    };
-
-    const recs = Array.isArray(patientsCache) ? patientsCache : [];
-    for (let mi = 0; mi < 12; mi++) {
-      let sum = 0;
-      for (const p of recs) sum += calcMonthlyAmountForPatient(p, mi);
-      monthly[mi] = sum;
-    }
-
-    const max = Math.max(0, ...monthly);
-    statsMonthlyList.innerHTML = "";
-
-    monthly.forEach((val, i) => {
-      const row = document.createElement("div");
-      row.className = "month-card";
-
-      const top = document.createElement("div");
-      top.className = "month-row";
-
-      const name = document.createElement("div");
-      name.className = "month-name";
-      name.textContent = MONTHS_IT[i];
-
-      const value = document.createElement("div");
-      value.className = "month-value";
-      value.textContent = formatEuro_(val);
-
-      top.appendChild(name);
-      top.appendChild(value);
-
-      const track = document.createElement("div");
-      track.className = "month-track";
-
-      const bar = document.createElement("div");
-      bar.className = "month-bar";
-      const pct = max > 0 ? Math.max(0, Math.min(1, val / max)) : 0;
-      bar.style.width = (pct * 100).toFixed(2) + "%";
-
-      track.appendChild(bar);
-
-      row.appendChild(top);
-      row.appendChild(track);
-
-      statsMonthlyList.appendChild(row);
-    });
-  }
-
-
-  function generateStatsReport() {
-    // report must match current stats filters (società/livello/anno)
-    const readExerciseYear = () => {
-      const y1 = ($("#setAnno")?.value || "").trim();
-      const y2 = ($("#pillYear")?.textContent || "").trim();
-      const cand = y1 || y2;
-      const n = parseInt(cand, 10);
-      return (isFinite(n) && n >= 2000 && n <= 2100) ? n : (new Date()).getFullYear();
-    };
-
-    const year = readExerciseYear();
-
-    const societaName = (() => {
-      if (statsSelectedSoc === "ALL") return "Tutte";
-      try {
-        const s = getSocietaById(String(statsSelectedSoc));
-        if (s && (s.nome || s.name)) return String(s.nome || s.name).trim();
-      } catch (_) {}
-      return String(statsSelectedSoc || "").trim() || "—";
-    })();
-
-    const operatorName = (() => {
-      const u = getSession();
-      const name = (u && typeof u.nome === "string") ? u.nome.trim() : "";
-      return name || "—";
-    })();
-
-    const monthAnnoLabel = String(year);
-
-    const normalizeCognomeNome = (p) => {
-      const c = String(p?.cognome || p?.last_name || p?.lastName || "").trim();
-      const n = String(p?.nome || p?.first_name || p?.firstName || "").trim();
-      if (c || n) return { cognome: c, nome: n };
-      const full = String(p?.nome_cognome || p?.nomeCognome || p?.nomecognome || "").trim();
-      if (!full) return { cognome: "", nome: "" };
-      const parts = full.split(/\s+/).filter(Boolean);
-      if (parts.length <= 1) return { cognome: "", nome: full };
-      return { cognome: parts[0], nome: parts.slice(1).join(" ") };
-    };
-
-    const countWeekdayInRange = (startDate, endDate, weekday) => {
-      if (!startDate || !endDate) return 0;
-      const s = new Date(startDate); s.setHours(0,0,0,0);
-      const e = new Date(endDate); e.setHours(0,0,0,0);
-      if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
-      if (s.getTime() > e.getTime()) return 0;
-
-      const wd = Number(weekday);
-      if (!isFinite(wd)) return 0;
-
-      const shift = (wd - s.getDay() + 7) % 7;
-      const first = new Date(s);
-      first.setDate(s.getDate() + shift);
-      if (first.getTime() > e.getTime()) return 0;
-
-      const days = Math.floor((e.getTime() - first.getTime()) / 86400000);
-      return 1 + Math.floor(days / 7);
-    };
-
-    const getPatientLevel = (p) => {
-      const v = String(p?.livello || p?.level || p?.lv || "").trim().toUpperCase();
-      if (!v) return "T";
-      if (["L1","L2","L3","T"].includes(v)) return v;
-      if (v === "1") return "L1";
-      if (v === "2") return "L2";
-      if (v === "3") return "L3";
-      return "T";
-    };
-
-    const getPatientRangeWithinYear = (p) => {
-      const yStart = new Date(year, 0, 1); yStart.setHours(0,0,0,0);
-      const yEnd = new Date(year, 11, 31); yEnd.setHours(0,0,0,0);
-
-      const s0 = dateOnlyLocal(p?.data_inizio || p?.inizio || p?.start || p?.startDate) || yStart;
-      const e0 = dateOnlyLocal(p?.data_fine || p?.fine || p?.end || p?.endDate) || yEnd;
-
-      const start = new Date(Math.max(yStart.getTime(), s0.getTime())); start.setHours(0,0,0,0);
-      const end = new Date(Math.min(yEnd.getTime(), e0.getTime())); end.setHours(0,0,0,0);
-      if (start.getTime() > end.getTime()) return null;
-
-      return { start, end };
-    };
-
-    const calcMonthlySessionsForPatient = (p, monthIndex) => {
-      if (!p || p.isDeleted) return 0;
-
-      // filtro società
-      const sid = String(p.societa_id || p.societaId || p.soc || "").trim();
-      if (statsSelectedSoc !== "ALL" && sid !== statsSelectedSoc) return 0;
-
-      // filtro livello
-      const lv = getPatientLevel(p);
-      if (statsSelectedLevel !== "T" && lv !== statsSelectedLevel) return 0;
-
-      const range = getPatientRangeWithinYear(p);
-      if (!range) return 0;
-
-      const monthStart = new Date(year, monthIndex, 1); monthStart.setHours(0,0,0,0);
-      const monthEnd = new Date(year, monthIndex + 1, 0); monthEnd.setHours(0,0,0,0);
-
-      const start = new Date(Math.max(range.start.getTime(), monthStart.getTime()));
-      const end = new Date(Math.min(range.end.getTime(), monthEnd.getTime()));
-      if (start.getTime() > end.getTime()) return 0;
-
-      const raw = p.giorni_settimana || p.giorni || "";
-      const map = parseGiorniMap(raw);
-      if (!map || typeof map !== "object") return 0;
 
       let sessions = 0;
       Object.keys(map).forEach((k) => {
@@ -854,119 +701,273 @@
       return sessions;
     };
 
+    const calcMonthlyAmountForPatient = (p, monthIndex) => {
+      const sessions = calcMonthlySessionsForPatient(p, monthIndex);
+      if (!sessions) return 0;
+      const rate = getRateForPatient(p);
+      return sessions * (rate || 0);
+    };
+
     const recs = Array.isArray(patientsCache) ? patientsCache : [];
-    const rows = [];
-    let grandTotal = 0;
-
-    for (const p of recs) {
-      let tot = 0;
-      for (let mi = 0; mi < 12; mi++) tot += calcMonthlySessionsForPatient(p, mi);
-      if (tot <= 0) continue;
-
-      const nn = normalizeCognomeNome(p);
-      const cognome = nn.cognome || "";
-      const nome = nn.nome || "";
-
-      rows.push({ cognome, nome, tot });
-      grandTotal += tot;
+    for (let mi = 0; mi < 12; mi++) {
+      let sum = 0;
+      for (const p of recs) sum += calcMonthlyAmountForPatient(p, mi);
+      monthly[mi] = sum;
     }
 
-    rows.sort((a,b) => (a.cognome.localeCompare(b.cognome,'it') || a.nome.localeCompare(b.nome,'it')));
+    const max = Math.max(0, ...monthly);
+    statsMonthlyList.innerHTML = "";
 
-    const logoSrc = (() => {
-      const img = document.querySelector(".topbar-left .logo");
-      const src = img ? img.getAttribute("src") : "";
-      try { return src ? (new URL(src, location.href)).href : ""; } catch (_) { return src || ""; }
-    })();
+    monthly.forEach((val, i) => {
+  const row = document.createElement("div");
+  row.className = "month-card";
 
-    const esc = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    const bodyRows = rows.map((r) => `
-      <tr>
-        <td class="cognome">${esc(r.cognome)}</td>
-        <td class="nome">${esc(r.nome)}</td>
-        <td class="tot">${esc(r.tot)}</td>
-      </tr>
-    `).join("");
+  const top = document.createElement("div");
+  top.className = "month-row";
+
+  const left = document.createElement("div");
+  left.className = "month-left";
+
+  const tab = document.createElement("button");
+  tab.type = "button";
+  tab.className = "month-tab";
+  tab.textContent = MONTHS_IT[i];
+  tab.style.background = statsMonthColor_(i, 12);
+
+  const reportBtn = document.createElement("button");
+  reportBtn.type = "button";
+  reportBtn.className = "month-report-btn";
+  reportBtn.setAttribute("aria-label", "Genera report accessi");
+  reportBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l3 3v17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"></path><path d="M15 2v4h4"></path><path d="M8 11h8"></path><path d="M8 15h8"></path><path d="M8 19h5"></path></svg><span>Report</span>';
+
+  reportBtn.addEventListener("click", () => {
+    try {
+      const yearLabel = year;
+      const societaLabel = (statsSelectedSoc === "ALL") ? "Tutte" : (getSocietaById(statsSelectedSoc)?.nome || "Società");
+      const operatorName = (() => {
+        const u = getSession();
+        return (u && typeof u.nome === "string" && u.nome.trim()) ? u.nome.trim() : "";
+      })();
+
+      const rows = [];
+      let total = 0;
+      const recs = Array.isArray(patientsCache) ? patientsCache : [];
+      for (const p of recs) {
+        const sessions = calcMonthlySessionsForPatient(p, i);
+        if (!sessions) continue;
+
+        const full = String(p?.nome_cognome || p?.nome || "").trim();
+        const parts = full.split(/\s+/).filter(Boolean);
+        const cognome = parts.length >= 2 ? parts[parts.length - 1] : (parts[0] || "");
+        const nome = parts.length >= 2 ? parts.slice(0, -1).join(" ") : "";
+
+        rows.push({ cognome, nome, accessi: sessions });
+        total += sessions;
+      }
+
+      rows.sort((a, b) =>
+        String(a.cognome || "").localeCompare(String(b.cognome || ""), "it", { sensitivity: "base" }) ||
+        String(a.nome || "").localeCompare(String(b.nome || ""), "it", { sensitivity: "base" })
+      );
+
+      openAccessReportPrint_(rows, total, { societaLabel, operatorName, monthIndex: i, year: yearLabel });
+    } catch (e) {
+      toast("Impossibile generare il report");
+    }
+  });
+
+  left.appendChild(tab);
+  left.appendChild(reportBtn);
+
+  const value = document.createElement("div");
+  value.className = "month-value";
+  value.textContent = formatEuro_(val);
+
+  top.appendChild(left);
+  top.appendChild(value);
+      const track = document.createElement("div");
+      track.className = "month-track";
+
+      const bar = document.createElement("div");
+      bar.className = "month-bar";
+      const pct = max > 0 ? Math.max(0, Math.min(1, val / max)) : 0;
+      bar.style.width = (pct * 100).toFixed(2) + "%";
+
+      track.appendChild(bar);
+
+      row.appendChild(top);
+      row.appendChild(track);
+
+      statsMonthlyList.appendChild(row);
+    });
+  }
+
+
+
+  function openAccessReportPrint_(rows, total, meta) {
+    const safe = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+    const mIdx = Number(meta?.monthIndex) || 0;
+    const y = Number(meta?.year) || (new Date()).getFullYear();
+    const monthName = MONTHS_IT[mIdx] || "";
+    const societaLabel = safe(meta?.societaLabel || "");
+    const operatorName = safe(meta?.operatorName || "");
+
+    const cs = getComputedStyle(document.documentElement);
+    const primary = cs.getPropertyValue("--primary").trim() || "#2a74b8";
+    const accent = cs.getPropertyValue("--accent").trim() || "#c57b2a";
+    const text = cs.getPropertyValue("--text").trim() || "#1b1f23";
+
+    const now = new Date();
+    const docTitle = `Report Accessi - ${monthName} ${y}`;
+
+    const bodyRows = (Array.isArray(rows) ? rows : []).map((r) => {
+      return `<tr>
+        <td class="c1">${safe(r.cognome || "")}</td>
+        <td class="c2">${safe(r.nome || "")}</td>
+        <td class="c3">${safe(String(r.accessi || 0))}</td>
+      </tr>`;
+    }).join("");
+
+    // righe vuote per dare "respiro" tipo modulo
+    const minRows = 18;
+    const emptyCount = Math.max(0, minRows - (Array.isArray(rows) ? rows.length : 0));
+    const emptyRows = new Array(emptyCount).fill(0).map(() => `<tr class="empty"><td class="c1">&nbsp;</td><td class="c2"></td><td class="c3"></td></tr>`).join("");
 
     const html = `<!doctype html>
 <html lang="it">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Report Accessi</title>
+<title>${safe(docTitle)}</title>
 <style>
-  :root { --ink:#111; }
-  body{ margin:0; padding:24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color:var(--ink); background:#fff; }
-  .sheet{ border:3px solid var(--ink); padding:18px 18px 16px; }
-  .header{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
-  .societa{ font-size:32px; font-weight:700; letter-spacing:.2px; }
-  .logo{ width:64px; height:64px; object-fit:cover; border:2px solid var(--ink); }
-  .hr{ height:3px; background:var(--ink); margin:14px 0 14px; }
-  .fields{ display:grid; grid-template-columns: 1fr 1fr; gap:18px; margin-bottom:18px; }
-  .field{ border:3px solid var(--ink); border-radius:10px; padding:10px 12px; font-size:18px; font-weight:600; }
-  .table-wrap{ margin-top:8px; }
-  table{ width:100%; border-collapse:collapse; table-layout:fixed; }
-  thead th{ text-align:left; font-size:18px; padding:10px 10px; border-bottom:3px solid var(--ink); }
-  thead th + th{ border-left:3px solid var(--ink); }
-  tbody td{ font-size:17px; padding:10px 10px; border-bottom:2px solid var(--ink); vertical-align:top; }
-  tbody td + td{ border-left:3px solid var(--ink); }
-  td.tot, th.tot{ text-align:right; width:26%; }
-  td.nome, th.nome{ width:32%; }
-  td.cognome, th.cognome{ width:42%; }
-  .footer{ display:flex; justify-content:space-between; align-items:center; margin-top:14px; font-size:20px; font-weight:700; }
-  .total{ font-size:28px; font-weight:800; }
+  :root{ --primary:${primary}; --accent:${accent}; --text:${text}; }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    padding: 18px;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    color: var(--text);
+    background:#ffffff;
+  }
+  .sheet{
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
+    border: 2px solid rgba(0,0,0,.85);
+    padding: 18px 18px 14px;
+  }
+  .title{
+    font-size: 30px;
+    font-weight: 900;
+    letter-spacing: .3px;
+    margin: 4px 0 10px;
+  }
+  .hr{
+    height: 2px;
+    background: rgba(0,0,0,.85);
+    margin: 8px 0 18px;
+  }
+  .top-grid{
+    display:flex;
+    gap: 18px;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .box{
+    flex: 1 1 0;
+    min-width: 0;
+    border: 2px solid rgba(0,0,0,.85);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .box span{ font-weight: 900; }
+  .box .val{ display:block; margin-top: 6px; font-size: 18px; font-weight: 900; color: var(--primary); }
+  table{
+    width:100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 14px;
+  }
+  thead th{
+    text-align:left;
+    padding: 10px 10px;
+    border-bottom: 2px solid rgba(0,0,0,.85);
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: .2px;
+  }
+  tbody td{
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(0,0,0,.55);
+    height: 28px;
+    vertical-align: middle;
+  }
+  .c1{ width: 38%; border-right: 2px solid rgba(0,0,0,.85); }
+  .c2{ width: 38%; border-right: 2px solid rgba(0,0,0,.85); }
+  .c3{ width: 24%; text-align: right; font-weight: 900; }
+  tfoot td{
+    padding: 12px 10px 6px;
+    font-size: 18px;
+    font-weight: 900;
+  }
+  .tot-label{ text-transform: uppercase; letter-spacing: .2px; }
+  .tot-val{ text-align: right; color: var(--primary); }
   @media print{
     body{ padding:0; }
-    .sheet{ border:none; padding:0; }
+    .sheet{ border:none; padding: 0; }
   }
 </style>
 </head>
 <body>
   <div class="sheet">
-    <div class="header">
-      <div class="societa">${esc(societaName)}</div>
-      ${logoSrc ? `<img class="logo" src="${esc(logoSrc)}" alt="Logo"/>` : ``}
-    </div>
+    <div class="title">${societaLabel || "Nome società"}</div>
     <div class="hr"></div>
 
-    <div class="fields">
-      <div class="field">Nome operatore: ${esc(operatorName)}</div>
-      <div class="field">Mese/Anno: ${esc(monthAnnoLabel)}</div>
+    <div class="top-grid">
+      <div class="box"><span>Nome operatore</span><div class="val">${operatorName || "&nbsp;"}</div></div>
+      <div class="box"><span>Mese / Anno</span><div class="val">${safe(monthName)} ${safe(String(y))}</div></div>
     </div>
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="cognome">Cognome</th>
-            <th class="nome">Nome</th>
-            <th class="tot">Totali accessi</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${bodyRows || ""}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="footer">
-      <div>Totale accessi</div>
-      <div class="total">${esc(grandTotal)}</div>
-    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="c1">COGNOME</th>
+          <th class="c2">NOME</th>
+          <th class="c3">TOTALI ACCESSI</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${bodyRows}
+        ${emptyRows}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="tot-label" colspan="2">TOTALE ACCESSI</td>
+          <td class="tot-val">${safe(String(total || 0))}</td>
+        </tr>
+      </tfoot>
+    </table>
   </div>
 
 <script>
-  // iOS: allow manual print/share; auto-print may be blocked
-  setTimeout(() => { try { window.focus(); } catch(e){} }, 50);
+  // auto print (iOS: apre stampa/condividi)
+  window.addEventListener('load', () => { setTimeout(() => { try{ window.print(); }catch(e){} }, 250); });
 </script>
 </body>
 </html>`;
 
-    const w = window.open("", "_blank");
-    if (!w) { toast("Popup bloccato: abilita pop-up per generare il report"); return; }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank");
+    if (!w) {
+      // fallback: same tab
+      window.location.href = url;
+    } else {
+      // cleanup later
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 60000);
+    }
   }
 async function openStatsFlow() {
     setCalendarControlsVisible(false);
@@ -2001,12 +2002,13 @@ function formatItMonth(dateObj) {
   // --- Pazienti (UI + API)
   const patientsListEl = $("#patientsList");
   const btnSortDate = $("#patSortDate");
+  const btnSortAZ = $("#patSortAZ");
   const btnSortSoc = $("#patSortSoc");
   const btnSortToday = $("#patSortToday");
 
   let patientsCache = null;
   let patientsLoaded = false;
-  let patientsSortMode = "date"; // date|soc|today
+  let patientsSortMode = "date"; // date|az|soc|today
   let currentPatient = null;
   let patientEditEnabled = true; // per create
 
@@ -2131,12 +2133,14 @@ function formatItMonth(dateObj) {
   function setPatientsSort(mode) {
     patientsSortMode = mode;
     btnSortDate?.classList.toggle("active", mode === "date");
+    btnSortAZ?.classList.toggle("active", mode === "az");
     btnSortSoc?.classList.toggle("active", mode === "soc");
     btnSortToday?.classList.toggle("active", mode === "today");
     renderPatients();
   }
 
   btnSortDate?.addEventListener("click", () => setPatientsSort("date"));
+  btnSortAZ?.addEventListener("click", () => setPatientsSort("az"));
   btnSortSoc?.addEventListener("click", () => setPatientsSort("soc"));
   btnSortToday?.addEventListener("click", () => setPatientsSort("today"));
 
@@ -2176,15 +2180,59 @@ function formatItMonth(dateObj) {
       );
       arr = filtered;
     } else if (patientsSortMode === "soc") {
-      arr.sort((a,b) =>
-        String(getSocNameById(a.societa_id||"")||"").localeCompare(String(getSocNameById(b.societa_id||"")||""), "it", { sensitivity: "base" }) ||
-        String(a.nome_cognome||"").localeCompare(String(b.nome_cognome||""), "it", { sensitivity: "base" })
-      );
-    } else {
-      arr.sort((a,b) => String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
-    }
-
-    // render veloce: DocumentFragment + delegation
+  arr.sort((a,b) =>
+    String(getSocNameById(a.societa_id||"")||"").localeCompare(String(getSocNameById(b.societa_id||"")||""), "it", { sensitivity: "base" }) ||
+    String(a.nome_cognome||"").localeCompare(String(b.nome_cognome||""), "it", { sensitivity: "base" })
+  );
+} else if (patientsSortMode === "az") {
+  const nameKey = (p) => {
+    const full = String(p?.nome_cognome || p?.nome || "").trim();
+    if (!full) return { cognome: "", nome: "", full: "" };
+    const parts = full.split(/\s+/).filter(Boolean);
+    if (!parts.length) return { cognome: "", nome: "", full: full };
+    const cognome = parts.length >= 2 ? parts[parts.length - 1] : parts[0];
+    const nome = parts.length >= 2 ? parts.slice(0, -1).join(" ") : "";
+    return { cognome, nome, full };
+  };
+  arr.sort((a, b) => {
+    const ka = nameKey(a);
+    const kb = nameKey(b);
+    const c = String(ka.cognome||"").localeCompare(String(kb.cognome||""), "it", { sensitivity: "base" });
+    if (c) return c;
+    const n = String(ka.nome||"").localeCompare(String(kb.nome||""), "it", { sensitivity: "base" });
+    if (n) return n;
+    return String(ka.full||"").localeCompare(String(kb.full||""), "it", { sensitivity: "base" });
+  });
+} else if (patientsSortMode === "date") {
+  const endTs = (p) => {
+    const d = dateOnlyLocal(p?.data_fine || p?.end || "");
+    return d ? d.getTime() : Infinity;
+  };
+  const nameKey = (p) => {
+    const full = String(p?.nome_cognome || p?.nome || "").trim();
+    if (!full) return { cognome: "", nome: "", full: "" };
+    const parts = full.split(/\s+/).filter(Boolean);
+    if (!parts.length) return { cognome: "", nome: "", full: full };
+    const cognome = parts.length >= 2 ? parts[parts.length - 1] : parts[0];
+    const nome = parts.length >= 2 ? parts.slice(0, -1).join(" ") : "";
+    return { cognome, nome, full };
+  };
+  arr.sort((a, b) => {
+    const ta = endTs(a);
+    const tb = endTs(b);
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    const ka = nameKey(a);
+    const kb = nameKey(b);
+    const c = String(ka.cognome||"").localeCompare(String(kb.cognome||""), "it", { sensitivity: "base" });
+    if (c) return c;
+    const n = String(ka.nome||"").localeCompare(String(kb.nome||""), "it", { sensitivity: "base" });
+    if (n) return n;
+    return String(ka.full||"").localeCompare(String(kb.full||""), "it", { sensitivity: "base" });
+  });
+} else {
+  // fallback: createdAt desc
+  arr.sort((a,b) => String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+}// render veloce: DocumentFragment + delegation
     patientsListEl.replaceChildren();
     patientsListEl.__renderedPatients = arr;
 
