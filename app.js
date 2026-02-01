@@ -1,7 +1,7 @@
-/* AMF_1.024 */
+/* AMF_1.025 */
 (() => {
-  const BUILD = "AMF_1.024";
-  const DISPLAY = "1.024";
+  const BUILD = "AMF_1.025";
+  const DISPLAY = "1.025";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1982,7 +1982,7 @@ async function ensurePatientsForCalendar() {
       if (t === currentSel) cls += " selected";
       btn.className = cls;
       btn.textContent = t;
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         // UI: evidenzia selezione
         timePickList.querySelectorAll(".pill-btn.selected").forEach((el) => el.classList.remove("selected")); 
         btn.classList.add("selected");
@@ -2525,7 +2525,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.024").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.025").catch(() => {});
     });
   }
 })();
