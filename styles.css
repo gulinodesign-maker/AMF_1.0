@@ -1,4 +1,4 @@
-/* AMF_1.025 */
+/* AMF_1.023 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -348,29 +348,6 @@ select.field{ appearance: none; }
   gap: 14px;
   margin: 10px 0 16px;
 }
-
-/* Pazienti: ordinamento (Data / Società / Oggi) sempre su una riga */
-.pill-row.pill-row-2{
-  display:flex;
-  flex-wrap:nowrap;
-  align-items:center;
-}
-.pill-row.pill-row-2 .pill-wide{
-  flex:1 1 0;
-  min-width:0;
-  white-space:nowrap;
-  padding-left:10px;
-  padding-right:10px;
-}
-
-/* Modal errore terapia */
-.modal.modal-error{
-  background: rgba(255,0,0,.20);
-}
-.modal-card.modal-card-error{
-  background: rgba(255,0,0,.20);
-}
-
 .pill-wide{
   height: 54px;
   border-radius: 16px;
@@ -1237,32 +1214,4 @@ select.field{ appearance: none; }
   border-radius: 999px;
   background: rgba(42,116,184,.80);
   background-color: rgba(42,116,184,.80);
-}
-
-
-/* --- FIX: pazienti filter buttons same row */
-.pazienti-filters, .patient-filters {
-  display:flex;
-  flex-wrap:nowrap;
-  gap:8px;
-}
-.pazienti-filters > *, .patient-filters > * {
-  flex:0 0 auto;
-}
-
-/* Error popup */
-#errorOverlap {
-  position:fixed;
-  inset:0;
-  background:rgba(255,0,0,0.2);
-  display:none;
-  align-items:center;
-  justify-content:center;
-  z-index:9999;
-}
-#errorOverlap .box{
-  background:#fff;
-  color:#c00;
-  padding:16px;
-  border-radius:8px;
 }
