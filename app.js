@@ -1,7 +1,7 @@
-/* AMF_1.016 */
+/* AMF_1.017 */
 (() => {
-  const BUILD = "AMF_1.016";
-  const DISPLAY = "1.016";
+  const BUILD = "AMF_1.017";
+  const DISPLAY = "1.017";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -102,6 +102,12 @@
   }
   function setSession(user) {
     localStorage.setItem("AMF_SESSION", JSON.stringify(user));
+    try {
+      const qm = (typeof queueMicrotask === "function") ? queueMicrotask : ((fn) => setTimeout(fn, 0));
+      qm(() => { try { warmupCoreData(); } catch (_) {} });
+    } catch (_) {
+      try { setTimeout(() => { try { warmupCoreData(); } catch (_) {} }, 0); } catch (_) {}
+    }
   }
   function clearSession() {
     localStorage.removeItem("AMF_SESSION");
@@ -812,22 +818,53 @@ function fillCalendarFromPatients(patients) {
 async function ensurePatientsForCalendar() {
   const user = getSession();
   if (!user || !user.id) return [];
-  if (!patientsCache) {
-    try { await loadPatients(); } catch { /* ignore */ }
+  if (!patientsLoaded) {
+    try { await loadPatients({ render: false }); } catch { /* ignore */ }
   }
   return Array.isArray(patientsCache) ? patientsCache : [];
 }
 
 
   async function openCalendarFlow() {
+    postLoginTarget = "calendar";
+    const ok = await ensureApiReady();
+    if (!ok) return;
+
+    let users = [];
+    try { users = await fetchUsers(); } catch { users = []; }
+
+    const session = getSession();
+
+    if (!users.length) {
+      showView("create");
+      toast("Crea il primo account");
+      return;
+    }
+
+    if (!session || !session.id) {
+      showView("auth");
+      return;
+    }
+
     ensureCalendarBuilt();
     const now = new Date();
     // Se è domenica (non presente), sposta a lunedì (più vicino e utilizzabile)
     if (now.getDay() === 0) now.setDate(now.getDate() + 1);
     calSelectedDate = now;
+
+    // Apertura pagina immediata
     showView("calendar");
-    await updateCalendarUI();
-    focusCalendarNow();
+
+    // Warmup dati in background (no blocchi UI)
+    try { warmupCoreData(); } catch (_) {}
+
+    // Aggiorna UI senza bloccare la navigazione
+    updateCalendarUI()
+      .then(() => { try { focusCalendarNow(); } catch (_) {} })
+      .catch(() => {});
+
+    // Focus rapido (anche prima del caricamento dati)
+    try { setTimeout(() => { try { focusCalendarNow(); } catch (_) {} }, 80); } catch (_) {}
   }
 
 
@@ -1012,6 +1049,10 @@ async function ensurePatientsForCalendar() {
   // Build label
   const buildLabel = $("#buildLabel");
   if (buildLabel) buildLabel.textContent = DISPLAY;
+
+  // Warmup (session persistita) per calendario istantaneo
+  try { warmupCoreData(); } catch (_) {}
+
 
   // --- Auth buttons
   $("#btnGoCreate")?.addEventListener("click", () => showView("create"));
@@ -1267,11 +1308,31 @@ async function ensurePatientsForCalendar() {
   const btnSortDate = $("#patSortDate");
   const btnSortSoc = $("#patSortSoc");
 
-  let patientsCache = [];
+  let patientsCache = null;
+  let patientsLoaded = false;
   let patientsSortMode = "date"; // date|soc
   let currentPatient = null;
   let patientEditEnabled = true; // per create
 
+
+  // --- Warmup dati core (per calendario istantaneo)
+  let warmupPromise = null;
+  function warmupCoreData() {
+    const user = getSession();
+    if (!user || !user.id) return Promise.resolve();
+    if (warmupPromise) return warmupPromise;
+    warmupPromise = (async () => {
+      try {
+        await Promise.all([
+          loadSocietaCache().catch(() => []),
+          (patientsLoaded ? Promise.resolve() : loadPatients({ render: false }).catch(() => {}))
+        ]);
+      } finally {
+        // lascia warmupPromise per riuso (evita richieste duplicate)
+      }
+    })();
+    return warmupPromise;
+  }
   function fmtIsoDate(iso) {
     return ymdLocal(iso);
   }
@@ -1286,13 +1347,15 @@ async function ensurePatientsForCalendar() {
   btnSortDate?.addEventListener("click", () => setPatientsSort("date"));
   btnSortSoc?.addEventListener("click", () => setPatientsSort("soc"));
 
-  async function loadPatients() {
+  async function loadPatients(opts = {}) {
+    const { render = true } = (opts || {});
     const user = getSession();
     if (!user) return;
     try {
       const data = await apiCached("listPatients", { userId: user.id }, 8000);
       patientsCache = Array.isArray(data.pazienti) ? data.pazienti : [];
-      renderPatients();
+      patientsLoaded = true;
+      if (render) renderPatients();
     } catch (err) {
       if (apiHintIfUnknownAction(err)) return;
       throw err;
