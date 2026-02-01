@@ -1,7 +1,7 @@
-/* AMF_1.023 */
+/* AMF_1.025 */
 (() => {
-  const BUILD = "AMF_1.023";
-  const DISPLAY = "1.023";
+  const BUILD = "AMF_1.025";
+  const DISPLAY = "1.025";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -621,7 +621,7 @@
   }
 
 document.querySelectorAll("[data-route]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
         // UI: evidenzia selezione
         timePickList.querySelectorAll(".pill-btn.selected").forEach((el) => el.classList.remove("selected")); 
         btn.classList.add("selected");
@@ -1860,6 +1860,93 @@ async function ensurePatientsForCalendar() {
   const btnPickTimeClose = $("#btnPickTimeClose");
   let activeDayForTime = null;
 
+  // ---- Modal errore terapia (no sovrapposizioni)
+  const modalTherapyError = $("#modalTherapyError");
+  const therapyErrorMsg = $("#therapyErrorMsg");
+  const btnTherapyErrorClose = $("#btnTherapyErrorClose");
+
+  function openTherapyErrorModal(msg) {
+    if (therapyErrorMsg) therapyErrorMsg.textContent = msg || "Conflitto terapia.";
+    if (!modalTherapyError) return;
+    modalTherapyError.classList.add("show");
+    modalTherapyError.setAttribute("aria-hidden", "false");
+  }
+  function closeTherapyErrorModal() {
+    if (!modalTherapyError) return;
+    modalTherapyError.classList.remove("show");
+    modalTherapyError.setAttribute("aria-hidden", "true");
+  }
+  btnTherapyErrorClose?.addEventListener("click", closeTherapyErrorModal);
+  modalTherapyError?.addEventListener("click", (e) => { if (e.target === modalTherapyError) closeTherapyErrorModal(); });
+
+  function __rangesOverlap(aStartStr, aEndStr, bStartStr, bEndStr) {
+    const aS = dateOnlyLocal(aStartStr);
+    const aE = dateOnlyLocal(aEndStr);
+    const bS = dateOnlyLocal(bStartStr);
+    const bE = dateOnlyLocal(bEndStr);
+
+    // Open ranges
+    const sA = aS ? aS.getTime() : -Infinity;
+    const eA = aE ? aE.getTime() : Infinity;
+    const sB = bS ? bS.getTime() : -Infinity;
+    const eB = bE ? bE.getTime() : Infinity;
+
+    return (sA <= eB) && (sB <= eA);
+  }
+
+  function __dayToKey(dayLabel) {
+    const norm = __normDayLabel(dayLabel);
+    let k = DAY_LABEL_TO_KEY[norm];
+    if (!k && /^\d+$/.test(norm)) {
+      const n = parseInt(norm, 10);
+      if (n >= 1 && n <= 6) k = n;
+    }
+    return k || null;
+  }
+
+  async function hasTherapyConflictSlot(dayLabel, timeStr, curStart, curEnd, selfId) {
+    const dayKeyWanted = __dayToKey(dayLabel);
+    if (!dayKeyWanted) return false;
+    const tWanted = normTime(timeStr);
+    if (!tWanted || tWanted === "—") return false;
+
+    const patients = await ensurePatientsForCalendar();
+    for (const p of (patients || [])) {
+      if (!p || p.isDeleted) continue;
+      if (selfId && String(p.id) === String(selfId)) continue;
+
+      if (!__rangesOverlap(curStart, curEnd, p.data_inizio, p.data_fine)) continue;
+
+      const raw = p.giorni_settimana || p.giorni || "";
+      if (!raw) continue;
+      const map = parseGiorniMap(raw);
+      if (!map || typeof map !== "object") continue;
+
+      for (const k of Object.keys(map)) {
+        const kDayKey = __dayToKey(k);
+        if (!kDayKey || kDayKey !== dayKeyWanted) continue;
+
+        const times = normalizeTimeList(map[k]);
+        for (const tt of (times || [])) {
+          if (normTime(tt) === tWanted) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  async function validateTherapyMapNoOverlap(selfId, giorniMap, curStart, curEnd) {
+    const map = giorniMap && typeof giorniMap === "object" ? giorniMap : {};
+    for (const k of Object.keys(map)) {
+      const t = map[k];
+      if (!t) continue;
+      const conflict = await hasTherapyConflictSlot(k, t, curStart, curEnd, selfId);
+      if (conflict) return { ok: false, day: k, time: t };
+    }
+    return { ok: true };
+  }
+
+
   function openPickTimeModal() {
     if (!modalPickTime) return;
     modalPickTime.classList.add("show");
@@ -1895,12 +1982,24 @@ async function ensurePatientsForCalendar() {
       if (t === currentSel) cls += " selected";
       btn.className = cls;
       btn.textContent = t;
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         // UI: evidenzia selezione
         timePickList.querySelectorAll(".pill-btn.selected").forEach((el) => el.classList.remove("selected")); 
         btn.classList.add("selected");
         if (!currentPatient) currentPatient = {};
         if (!currentPatient.giorni_map) currentPatient.giorni_map = {};
+        const curStart = ($("#patStart")?.value || (currentPatient && currentPatient.data_inizio) || "").trim();
+        const curEnd = ($("#patEnd")?.value || (currentPatient && currentPatient.data_fine) || "").trim();
+        const selfId = currentPatient && currentPatient.id ? currentPatient.id : null;
+
+        if (t !== "—") {
+          const conflict = await hasTherapyConflictSlot(day, t, curStart, curEnd, selfId);
+          if (conflict) {
+            openTherapyErrorModal("Errore: esiste già una terapia per un altro paziente nello stesso giorno e alla stessa ora.");
+            return;
+          }
+        }
+
         if (t === "—") {
           delete currentPatient.giorni_map[day];
         } else {
@@ -2110,6 +2209,19 @@ async function ensurePatientsForCalendar() {
     const societa_nome = societa;
     const data_inizio = ($("#patStart")?.value || "").trim();
     const data_fine = ($("#patEnd")?.value || "").trim();
+
+    // Validazione: evita sovrapposizioni terapia (stesso giorno + stessa ora)
+    try {
+      const selfId = currentPatient && currentPatient.id ? currentPatient.id : null;
+      const map = (currentPatient && currentPatient.giorni_map) ? currentPatient.giorni_map : {};
+      const v = await validateTherapyMapNoOverlap(selfId, map, data_inizio, data_fine);
+      if (!v.ok) {
+        openTherapyErrorModal("Errore: terapia sovrapposta (stesso giorno e stessa ora).");
+        return;
+      }
+    } catch (_) {
+      // Se la validazione fallisce per motivi tecnici, non bloccare il salvataggio.
+    }
 
     if (!nome_cognome) { toast("Inserisci il nome"); return; }
     if (!societa_id) { toast("Seleziona la società"); return; }
@@ -2413,7 +2525,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.023").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.025").catch(() => {});
     });
   }
 })();
