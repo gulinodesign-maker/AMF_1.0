@@ -1,7 +1,7 @@
-/* AMF_1.014 */
+/* AMF_1.016 */
 (() => {
-  const BUILD = "AMF_1.014";
-  const DISPLAY = "1.014";
+  const BUILD = "AMF_1.016";
+  const DISPLAY = "1.016";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -331,7 +331,7 @@
   const btnCalPrev = $("#btnCalPrev");
   const btnCalToday = $("#btnCalToday");
   const btnCalNext = $("#btnCalNext");
-  const btnCalMonth = $("#btnCalMonth");
+  const topbarTitle = $("#topbarTitle");
 
   function setTopRight(mode) {
     if (!btnTopRight || !iconTopRight) return;
@@ -349,6 +349,15 @@
 
   let currentView = "home";
 
+  function updateTopbarTitle() {
+    if (!topbarTitle) return;
+    const u = getSession();
+    const name = (u && typeof u.nome === "string" && u.nome.trim()) ? u.nome.trim() : "Montalto PMS";
+    topbarTitle.textContent = name;
+    // aggiorna anche il titolo del documento
+    try { document.title = name; } catch (_) {}
+  }
+
   function showView(name) {
     Object.entries(views).forEach(([k, el]) => {
       if (!el) return;
@@ -361,7 +370,8 @@
     else setTopRight("home");
 
     setTopPlusVisible(name === "patients");
-    setCalendarControlsVisible(name === "calendar");
+    setCalendarControlsVisible(name === "calendar");    updateTopbarTitle();
+
   }
 
   btnTopRight?.addEventListener("click", () => {
@@ -379,7 +389,7 @@
 
 
   function setCalendarControlsVisible(isVisible) {
-    const list = [btnCalPrev, btnCalToday, btnCalNext, btnCalMonth];
+    const list = [btnCalPrev, btnCalToday, btnCalNext];
     list.forEach((b) => { if (b) b.hidden = !isVisible; });
   }
 
@@ -934,8 +944,6 @@ async function ensurePatientsForCalendar() {
     btnCalPrev?.addEventListener("click", () => { shiftCalendarDay(-1); });
     btnCalNext?.addEventListener("click", () => { shiftCalendarDay(1); });
     btnCalToday?.addEventListener("click", () => { calSelectedDate = new Date(); updateCalendarUI(); });
-    btnCalMonth?.addEventListener("click", () => toast("Vista mese (da implementare)"));
-
     calBuilt = true;
   }
 
@@ -2000,7 +2008,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.014").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.015").catch(() => {});
     });
   }
 })();
