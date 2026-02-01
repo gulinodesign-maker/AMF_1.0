@@ -1,7 +1,7 @@
-/* AMF_1.021 */
+/* AMF_1.022 */
 (() => {
-  const BUILD = "AMF_1.021";
-  const DISPLAY = "1.021";
+  const BUILD = "AMF_1.022";
+  const DISPLAY = "1.022";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1403,20 +1403,13 @@ async function ensurePatientsForCalendar() {
 
   function getSettingsPayloadFromUI() {
     return {
-      anno_esercizio: ($("#setAnno")?.value || "").trim(),
-      tariffa_livello_1: ($("#setL1")?.value || "").trim(),
-      tariffa_livello_2: ($("#setL2")?.value || "").trim(),
-      tariffa_livello_3: ($("#setL3")?.value || "").trim()
+      anno_esercizio: ($("#setAnno")?.value || "").trim()
     };
   }
 
   function applySettingsToUI(settings) {
     const s = settings || {};
     if ($("#setAnno")) $("#setAnno").value = s.anno_esercizio ?? "";
-    if ($("#setL1")) $("#setL1").value = s.tariffa_livello_1 ?? "";
-    if ($("#setL2")) $("#setL2").value = s.tariffa_livello_2 ?? "";
-    if ($("#setL3")) $("#setL3").value = s.tariffa_livello_3 ?? "";
-
     const year = s.anno_esercizio || "";
     setPills(getSession(), year);
   }
@@ -2301,7 +2294,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.021").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.022").catch(() => {});
     });
   }
 })();
