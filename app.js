@@ -1,7 +1,7 @@
-/* AMF_1.030 */
+/* AMF_1.031 */
 (() => {
-  const BUILD = "AMF_1.030";
-  const DISPLAY = "1.030";
+  const BUILD = "AMF_1.031";
+  const DISPLAY = "1.031";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -553,28 +553,127 @@
   function renderStatsMonthly_() {
     if (!statsMonthlyList) return;
 
-    const year = (new Date()).getFullYear();
+    const readExerciseYear = () => {
+      const y1 = ($("#setAnno")?.value || "").trim();
+      const y2 = ($("#pillYear")?.textContent || "").trim();
+      const cand = y1 || y2;
+      const n = parseInt(cand, 10);
+      return (isFinite(n) && n >= 2000 && n <= 2100) ? n : (new Date()).getFullYear();
+    };
+
+    const year = readExerciseYear();
     const monthly = new Array(12).fill(0);
 
-    const recs = Array.isArray(patientsCache) ? patientsCache : [];
-    for (const r of recs) {
-      const d = pickDateFromRecord_(r);
-      if (!d) continue;
-      if (d.getFullYear() !== year) continue;
+    const countWeekdayInRange = (startDate, endDate, weekday) => {
+      if (!startDate || !endDate) return 0;
+      const s = new Date(startDate); s.setHours(0,0,0,0);
+      const e = new Date(endDate); e.setHours(0,0,0,0);
+      if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+      if (s.getTime() > e.getTime()) return 0;
+
+      const wd = Number(weekday);
+      if (!isFinite(wd)) return 0;
+
+      const shift = (wd - s.getDay() + 7) % 7;
+      const first = new Date(s);
+      first.setDate(s.getDate() + shift);
+      if (first.getTime() > e.getTime()) return 0;
+
+      const days = Math.floor((e.getTime() - first.getTime()) / 86400000);
+      return 1 + Math.floor(days / 7);
+    };
+
+    const getPatientLevel = (p) => normalizeLevel_(p?.livello ?? p?.level ?? p?.liv ?? p?.livello_id ?? p?.lvl);
+
+    const getRateForPatient = (p) => {
+      const lv = getPatientLevel(p);
+      if (!lv || lv === "T") return 0;
+      const sid = String(p?.societa_id || p?.societaId || p?.soc || "").trim();
+      const s = sid ? getSocietaById(sid) : null;
+      if (!s) return 0;
+
+      const l1 = coerceNumber_(s.l1 ?? s.L1 ?? s.liv1 ?? s.livello1);
+      const l2 = coerceNumber_(s.l2 ?? s.L2 ?? s.liv2 ?? s.livello2);
+      const l3 = coerceNumber_(s.l3 ?? s.L3 ?? s.liv3 ?? s.livello3);
+
+      if (lv === "L1") return l1 ?? 0;
+      if (lv === "L2") return l2 ?? 0;
+      if (lv === "L3") return l3 ?? 0;
+      return 0;
+    };
+
+    const getPatientRangeWithinYear = (p) => {
+      const yStart = new Date(year, 0, 1); yStart.setHours(0,0,0,0);
+      const yEnd = new Date(year, 11, 31); yEnd.setHours(0,0,0,0);
+
+      const pStart = dateOnlyLocal(p?.data_inizio || p?.start || "");
+      const pEnd = dateOnlyLocal(p?.data_fine || p?.end || "");
+
+      const s = pStart ? new Date(pStart) : new Date(yStart);
+      const e = pEnd ? new Date(pEnd) : new Date(yEnd);
+      s.setHours(0,0,0,0);
+      e.setHours(0,0,0,0);
+
+      const start = new Date(Math.max(s.getTime(), yStart.getTime()));
+      const end = new Date(Math.min(e.getTime(), yEnd.getTime()));
+      if (start.getTime() > end.getTime()) return null;
+      return { start, end };
+    };
+
+    const calcMonthlyAmountForPatient = (p, monthIndex) => {
+      if (!p || p.isDeleted) return 0;
 
       // filtro società
-      const sid = String(r.societa_id || r.societaId || r.soc || "").trim();
-      if (statsSelectedSoc !== "ALL" && sid !== statsSelectedSoc) continue;
+      const sid = String(p.societa_id || p.societaId || p.soc || "").trim();
+      if (statsSelectedSoc !== "ALL" && sid !== statsSelectedSoc) return 0;
 
       // filtro livello
-      if (statsSelectedLevel !== "T") {
-        const lv = getRecordLevel_(r);
-        if (lv !== statsSelectedLevel) continue;
-      }
+      const lv = getPatientLevel(p);
+      if (statsSelectedLevel !== "T" && lv !== statsSelectedLevel) return 0;
 
-      const amount = pickAmountFromRecord_(r);
-      const m = d.getMonth(); // 0..11
-      monthly[m] += amount;
+      const range = getPatientRangeWithinYear(p);
+      if (!range) return 0;
+
+      const monthStart = new Date(year, monthIndex, 1); monthStart.setHours(0,0,0,0);
+      const monthEnd = new Date(year, monthIndex + 1, 0); monthEnd.setHours(0,0,0,0);
+
+      const start = new Date(Math.max(range.start.getTime(), monthStart.getTime()));
+      const end = new Date(Math.min(range.end.getTime(), monthEnd.getTime()));
+      if (start.getTime() > end.getTime()) return 0;
+
+      const raw = p.giorni_settimana || p.giorni || "";
+      const map = parseGiorniMap(raw);
+      if (!map || typeof map !== "object") return 0;
+
+      const rate = getRateForPatient(p);
+      if (!rate) return 0;
+
+      let sessions = 0;
+      Object.keys(map).forEach((k) => {
+        const dayLabel = __normDayLabel(k);
+        let wk = DAY_LABEL_TO_KEY[dayLabel];
+        if (wk === undefined || wk === null) {
+          if (/^\d+$/.test(dayLabel)) {
+            const n = parseInt(dayLabel, 10);
+            if (n >= 0 && n <= 6) wk = n;
+          }
+        }
+        if (wk === undefined || wk === null) return;
+        const times = normalizeTimeList(map[k]);
+        const perWeek = times.length || 0;
+        if (!perWeek) return;
+        const occ = countWeekdayInRange(start, end, wk);
+        sessions += occ * perWeek;
+      });
+
+      return sessions * rate;
+    };
+
+    const recs = Array.isArray(patientsCache) ? patientsCache : [];
+    for (let mi = 0; mi < 12; mi++) {
+      let sum = 0;
+      for (const p of recs) sum += calcMonthlyAmountForPatient(p, mi);
+      monthly[mi] = sum;
     }
 
     const max = Math.max(0, ...monthly);
@@ -591,22 +690,22 @@
       name.className = "month-name";
       name.textContent = MONTHS_IT[i];
 
-      const amountEl = document.createElement("div");
-      amountEl.className = "month-amount";
-      amountEl.textContent = formatEuro_(val);
+      const value = document.createElement("div");
+      value.className = "month-value";
+      value.textContent = formatEuro_(val);
 
       top.appendChild(name);
-      top.appendChild(amountEl);
+      top.appendChild(value);
 
       const track = document.createElement("div");
-      track.className = "bar-track";
+      track.className = "month-track";
 
-      const fill = document.createElement("div");
-      fill.className = "bar-fill";
-      const pct = max > 0 ? Math.max(0, Math.min(100, (val / max) * 100)) : 0;
-      fill.style.width = pct.toFixed(2) + "%";
+      const bar = document.createElement("div");
+      bar.className = "month-bar";
+      const pct = max > 0 ? Math.max(0, Math.min(1, val / max)) : 0;
+      bar.style.width = (pct * 100).toFixed(2) + "%";
 
-      track.appendChild(fill);
+      track.appendChild(bar);
 
       row.appendChild(top);
       row.appendChild(track);
@@ -615,7 +714,7 @@
     });
   }
 
-  async function openStatsFlow() {
+async function openStatsFlow() {
     setCalendarControlsVisible(false);
     btnTopPlus && (btnTopPlus.hidden = true);
     const titleEl = $("#topbarTitle");
