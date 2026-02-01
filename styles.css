@@ -1,4 +1,4 @@
-/* AMF_1.028 */
+/* AMF_1.029 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -1027,12 +1027,37 @@ select.field{ appearance: none; }
 }
 
 .cal-cell.disabled{
-  opacity: .30;
+  opacity: .25;
   pointer-events: none;
 }
 
 .cal-cell.filled{
   cursor: pointer;
+}
+
+/* Filled cell content */
+.cal-initials{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform: translate(-50%, -50%);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .4px;
+  color: rgba(255,255,255,.95);
+  text-align:center;
+  line-height: 1;
+  pointer-events:none;
+  user-select:none;
+}
+.cal-cell.filled .cal-dot{
+  left: 10px;
+  top: 10px;
+  transform: none;
+}
+.cal-cell.filled .cal-badge{
+  right: 8px;
+  top: 8px;
 }
 
 /* Slot marker (soc tag) */

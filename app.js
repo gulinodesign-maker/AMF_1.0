@@ -1,7 +1,7 @@
-/* AMF_1.028 */
+/* AMF_1.029 */
 (() => {
-  const BUILD = "AMF_1.028";
-  const DISPLAY = "1.028";
+  const BUILD = "AMF_1.029";
+  const DISPLAY = "1.029";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -377,7 +377,9 @@
     else setTopRight("home");
 
     setTopPlusVisible(name === "patients");
-    setCalendarControlsVisible(name === "calendar");    updateTopbarTitle();
+    setCalendarControlsVisible(name === "calendar");
+    updateTopPatientsVisible();
+    updateTopbarTitle();
 
   }
 
@@ -399,6 +401,16 @@
     const list = [btnCalPrev, btnCalToday, btnCalNext];
     list.forEach((b) => { if (b) b.hidden = !isVisible; });
   }
+
+  function updateTopPatientsVisible() {
+    if (!btnTopPatients) return;
+    const isRO = (currentView === "patientForm") && !patientEditEnabled;
+    btnTopPatients.hidden = !isRO;
+  }
+
+  btnTopPatients?.addEventListener("click", () => {
+    openPatientsFlow();
+  });
 
 
   btnTopPlus?.addEventListener("click", () => {
@@ -657,6 +669,17 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
   let calBuilt = false;
   let calSlotPatients = new Map(); // key "dayKey|HH:MM" -> {count, ids:[]}
 
+  const CAL_COLOR_START = { r: 160, g: 160, b: 160 }; // grey
+  const CAL_COLOR_END   = { r: 42,  g: 116, b: 184 }; // azzurro (primary)
+  function calColorForDay(dayNum) {
+    const t = Math.min(1, Math.max(0, (Number(dayNum) - 1) / 30));
+    const r = Math.round(CAL_COLOR_START.r + (CAL_COLOR_END.r - CAL_COLOR_START.r) * t);
+    const g = Math.round(CAL_COLOR_START.g + (CAL_COLOR_END.g - CAL_COLOR_START.g) * t);
+    const b = Math.round(CAL_COLOR_START.b + (CAL_COLOR_END.b - CAL_COLOR_START.b) * t);
+    return { r, g, b };
+  }
+  function rgba({ r, g, b }, a) { return `rgba(${r},${g},${b},${a})`; }
+
 function __normDayLabel(v) {
   let s = String(v || "").trim().toUpperCase();
   if (!s) return "";
@@ -890,10 +913,28 @@ function clearCalendarCells() {
   if (!calBody) return;
   if (calSlotPatients && calSlotPatients.clear) calSlotPatients.clear();
   calBody.querySelectorAll(".cal-cell").forEach((c) => {
+    const d = parseInt(c.dataset.day || "0", 10);
+    if (d >= 1 && d <= 31) {
+      const col = calColorForDay(d);
+      c.style.backgroundColor = rgba(col, 0.25);
+    }
     c.classList.remove("filled");
     c.innerHTML = "";
     c.removeAttribute("title");
   });
+}
+
+function initialsFromName(fullName) {
+  const s = String(fullName || "").trim();
+  if (!s) return "";
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    const w = parts[0].toUpperCase();
+    return w.slice(0, 2);
+  }
+  const first = parts[0].charAt(0).toUpperCase();
+  const last = parts[parts.length - 1].charAt(0).toUpperCase();
+  return first + last;
 }
 
 function fillCalendarFromPatients(patients) {
@@ -997,6 +1038,23 @@ function fillCalendarFromPatients(patients) {
     if (!info || !info.count) return;
 
     cell.classList.add("filled");
+    {
+      const col = calColorForDay(dayNum);
+      cell.style.backgroundColor = rgba(col, 0.50);
+    }
+
+    // Initials
+    const initialsList = (info.names || []).map(initialsFromName).filter(Boolean);
+    const uniq = [];
+    initialsList.forEach((x) => { if (!uniq.includes(x)) uniq.push(x); });
+    let initialsText = uniq.slice(0, 3).join(" ");
+    if (uniq.length > 3) initialsText += ` +${uniq.length - 3}`;
+    if (initialsText) {
+      const ini = document.createElement("div");
+      ini.className = "cal-initials";
+      ini.textContent = initialsText;
+      cell.appendChild(ini);
+    }
 
     const dot = document.createElement("div");
     dot.className = "cal-dot";
@@ -1106,6 +1164,9 @@ async function ensurePatientsForCalendar() {
     el.className = "cal-day";
     el.textContent = String(d);
     el.dataset.day = String(d);
+    const c = calColorForDay(d);
+    el.style.backgroundColor = rgba(c, 0.80);
+    el.style.color = "rgba(255,255,255,.95)";
     calDaysCol.appendChild(el);
   }
 
@@ -1138,6 +1199,8 @@ async function ensurePatientsForCalendar() {
       cell.className = "cal-cell";
       cell.dataset.day = String(d);
       cell.dataset.time = t;
+      const c = calColorForDay(d);
+      cell.style.backgroundColor = rgba(c, 0.25);
 
       cell.addEventListener("click", async () => {
         const slotKey = `${cell.dataset.day}|${cell.dataset.time}`;
@@ -1197,9 +1260,29 @@ async function ensurePatientsForCalendar() {
   // Topbar calendar controls (hidden by default)
   btnCalPrev?.addEventListener("click", () => { shiftCalendarMonth(-1); });
   btnCalNext?.addEventListener("click", () => { shiftCalendarMonth(1); });
-  btnCalToday?.addEventListener("click", () => { calSelectedDate = new Date(); updateCalendarUI(); });
+  btnCalToday?.addEventListener("click", async () => {
+    calSelectedDate = new Date();
+    await updateCalendarUI();
+    scrollCalendarToNow();
+  });
 
   calBuilt = true;
+}
+
+function scrollCalendarToNow() {
+  if (!calScroll || !calBody) return;
+  const now = new Date();
+  const day = now.getDate();
+  // snap to nearest 30 minutes slot
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = now.getMinutes() < 30 ? "00" : "30";
+  const t = `${hh}:${mm}`;
+  const cell = calBody.querySelector(`.cal-cell[data-day="${day}"][data-time="${t}"]`);
+  if (!cell) return;
+  requestAnimationFrame(() => {
+    const top = cell.offsetTop - (calScroll.clientHeight / 2) + (cell.offsetHeight / 2);
+    calScroll.scrollTop = Math.max(0, top);
+  });
 }
 
 function shiftCalendarMonth(delta) {
@@ -1803,6 +1886,7 @@ function formatItMonth(dateObj) {
       btnDel.setAttribute("aria-label", patientEditEnabled ? "Chiudi" : "Elimina paziente");
     }
 
+    updateTopPatientsVisible();
   }
 
   // ---- Società picker (modal)
