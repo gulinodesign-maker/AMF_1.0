@@ -1,7 +1,7 @@
-/* AMF_1.020 */
+/* AMF_1.021 */
 (() => {
-  const BUILD = "AMF_1.019";
-  const DISPLAY = "1.020";
+  const BUILD = "AMF_1.021";
+  const DISPLAY = "1.021";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -827,7 +827,7 @@ function normalizeTimeList(value) {
 
 
 
-// --- Società cache (id -> {nome, tag})
+// --- Società cache (id -> {nome, tag, l1, l2, l3})
 let societaCache = null;
 let societaMapById = new Map();
 
@@ -840,7 +840,10 @@ function buildSocietaMap_(arr) {
     const nome = String(s.nome || "").trim();
     const tagRaw = (s.tag !== undefined && s.tag !== null) ? s.tag : 0;
     const tag = Math.max(0, Math.min(5, parseInt(tagRaw, 10) || 0));
-    societaMapById.set(id, { id, nome, tag });
+    const l1 = (s.l1 ?? s.L1 ?? s.livello1 ?? s.liv1 ?? s.tariffa_livello_1 ?? "");
+    const l2 = (s.l2 ?? s.L2 ?? s.livello2 ?? s.liv2 ?? s.tariffa_livello_2 ?? "");
+    const l3 = (s.l3 ?? s.L3 ?? s.livello3 ?? s.liv3 ?? s.tariffa_livello_3 ?? "");
+    societaMapById.set(id, { id, nome, tag, l1, l2, l3 });
   });
 }
 
@@ -2055,6 +2058,9 @@ async function ensurePatientsForCalendar() {
   // Modal Societa
   const modalSoc = $("#modalSoc");
   const socNomeInput = $("#socNomeInput");
+  const socL1Input = $("#socL1Input");
+  const socL2Input = $("#socL2Input");
+  const socL3Input = $("#socL3Input");
   const socTagDots = $("#socTagDots");
   const btnSocClose = $("#btnSocClose");
   const btnSocCancel = $("#btnSocCancel");
@@ -2104,6 +2110,9 @@ async function ensurePatientsForCalendar() {
   function openSocModal() {
     if (!modalSoc) return;
     socNomeInput.value = "";
+    if (socL1Input) socL1Input.value = "";
+    if (socL2Input) socL2Input.value = "";
+    if (socL3Input) socL3Input.value = "";
     setSelectedSocTag(0);
     if (socDeletePanel) socDeletePanel.hidden = true;
     if (socDeleteList) socDeleteList.replaceChildren();
@@ -2228,10 +2237,23 @@ async function ensurePatientsForCalendar() {
   btnSocSave?.addEventListener("click", async () => {
     const nome = (socNomeInput.value || "").trim();
     if (!nome) { toast("Inserisci un nome"); return; }
+
+    const normEuro = (v) => {
+      const s = String(v || "").trim().replace(",", ".");
+      if (!s) return "";
+      const n = Number(s);
+      if (!isFinite(n)) return null;
+      return String(n);
+    };
+
+    const l1 = normEuro(socL1Input ? socL1Input.value : "");
+    const l2 = normEuro(socL2Input ? socL2Input.value : "");
+    const l3 = normEuro(socL3Input ? socL3Input.value : "");
+    if (l1 === null || l2 === null || l3 === null) { toast("Valori livelli non validi"); return; }
     const user = getSession();
     if (!user) { toast("Accesso richiesto"); return; }
     try {
-      await api("addSocieta", { userId: user.id, nome, tag: selectedSocTag });
+      await api("addSocieta", { userId: user.id, nome, tag: selectedSocTag, l1, l2, l3 });
       invalidateApiCache("listSocieta");
       toast("Società aggiunta");
       closeSocModal();
@@ -2279,7 +2301,7 @@ async function ensurePatientsForCalendar() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.015").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.021").catch(() => {});
     });
   }
 })();
