@@ -1,4 +1,4 @@
-/* AMF_1.027 */
+/* AMF_1.028 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -885,10 +885,10 @@ select.field{ appearance: none; }
 }
 
 
-/* FIX AMF_1.027: date inputs alignment */
+/* FIX AMF_1.028: date inputs alignment */
 .date-row,.period-row,.row-dates{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:nowrap}
 .date-row input,.period-row input,.row-dates input{flex:1 1 0;min-width:0}
-/* FIX AMF_1.027: home icons vertical position */
+/* FIX AMF_1.028: home icons vertical position */
 .home-layout{padding-top:12px}
 
 /* --- Calendario (ore scroll, giorni fissi) --- */
