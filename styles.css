@@ -1,4 +1,4 @@
-/* AMF_1.019 */
+/* AMF_1.020 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -13,12 +13,23 @@
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; }
+html{
+  min-height:100%;
+  height:-webkit-fill-available;
+  background-color:#e9eef3;
+}
+html,body{ min-height:100%; height:auto; }
 body{
   margin:0;
+  min-height:100%;
+  min-height:-webkit-fill-available;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
   color: var(--text);
-  background: url("./assets/bg-montalto.png") center/cover no-repeat;
+  background-color: #e9eef3;
+  background-image: url("./assets/bg-montalto.png");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 .topbar{
@@ -119,6 +130,7 @@ body{
 
 .main{
   min-height: calc(100vh - 72px);
+  min-height: calc(100svh - 72px);
   padding: 26px 18px 22px;
   display:flex;
   flex-direction: column;
@@ -1065,6 +1077,7 @@ select.field{ appearance: none; }
 }
 
 .seg-tabs{
+  min-height: 40px;
   display:flex;
   flex-direction: row;
   gap: 14px;
@@ -1080,13 +1093,12 @@ select.field{ appearance: none; }
 
 .seg-tab{
   flex: 0 0 auto;
-  height: 40px;
-  padding: 0 6px;
-  border-radius: 0;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  background: transparent;
-  background-color: transparent;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.08);
+  background: rgba(255,255,255,.80);
+  background-color: rgba(255,255,255,.80);
   color: rgba(42,116,184,.92);
   font-weight: 900;
   letter-spacing: .2px;
@@ -1098,10 +1110,14 @@ select.field{ appearance: none; }
 }
 
 
+
 .seg-tab.selected{
-  border-bottom-color: rgba(42,116,184,.92);
-  color: rgba(42,116,184,.92);
+  background: rgba(42,116,184,.80);
+  background-color: rgba(42,116,184,.80);
+  border-color: rgba(42,116,184,.85);
+  color: #fff;
 }
+
 
 
 .dot-row{
