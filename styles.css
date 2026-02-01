@@ -1,4 +1,4 @@
-/* AMF_1.031 */
+/* AMF_1.032 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -75,7 +75,12 @@ body{
   gap: 10px;
   flex-wrap: nowrap;
   flex: 0 0 auto;
+  white-space: nowrap;
+  overflow: hidden;
 }
+
+/* TOPBAR SAFETY: no wrap / no vertical stacking */
+.topbar{ overflow: hidden; }
 #btnTopPlus[hidden]{ display:none !important; }
 
 .logo{
