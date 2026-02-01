@@ -1,4 +1,4 @@
-/* AMF_1.015 */
+/* AMF_1.019 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -1067,23 +1067,26 @@ select.field{ appearance: none; }
 .seg-tabs{
   display:flex;
   flex-direction: row;
-  gap: 8px;
+  gap: 14px;
   align-items: center;
   justify-content: flex-start;
   flex-wrap: nowrap;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
+  padding: 2px 2px 0;
+  border-bottom: 1px solid rgba(0,0,0,.10);
 }
+
 
 .seg-tab{
   flex: 0 0 auto;
   height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(0,0,0,.08);
-  background: rgba(255,255,255,.80);
-  background-color: rgba(255,255,255,.80);
+  padding: 0 6px;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  background-color: transparent;
   color: rgba(42,116,184,.92);
   font-weight: 900;
   letter-spacing: .2px;
@@ -1091,23 +1094,26 @@ select.field{ appearance: none; }
   -webkit-appearance: none;
   appearance: none;
   box-shadow: none;
+  white-space: nowrap;
 }
 
+
 .seg-tab.selected{
-  background: rgba(42,116,184,.80);
-  background-color: rgba(42,116,184,.80);
-  color: rgba(255,255,255,.95);
-  border-color: rgba(0,0,0,.06);
+  border-bottom-color: rgba(42,116,184,.92);
+  color: rgba(42,116,184,.92);
 }
+
 
 .dot-row{
   display:flex;
   flex-direction: row;
   gap: 10px;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   flex-wrap: nowrap;
+  width: 100%;
 }
+
 
 .dot-filter{
   width: 42px;
@@ -1154,19 +1160,30 @@ select.field{ appearance: none; }
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
 }
+
 
 .month-name{
-  font-size: 22px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: clamp(16px, 4.8vw, 22px);
   font-weight: 900;
   color: rgba(42,116,184,.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+
 .month-amount{
-  font-size: 22px;
+  flex: 0 0 auto;
+  font-size: clamp(16px, 4.8vw, 22px);
   font-weight: 900;
   color: rgba(42,116,184,.92);
+  white-space: nowrap;
 }
+
 
 .bar-track{
   margin-top: 10px;
