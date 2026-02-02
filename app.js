@@ -1,7 +1,7 @@
-/* AMF_1.047 */
+/* AMF_1.048 */
 (() => {
-  const BUILD = "AMF_1.047";
-  const DISPLAY = "1.047";
+  const BUILD = "AMF_1.048";
+  const DISPLAY = "1.048";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -2412,12 +2412,21 @@ function formatItMonth(dateObj) {
       addrEl.setAttribute("aria-readonly", (!patientEditEnabled) ? "true" : "false");
     }
 
-    // Geotag button: solo in lettura (apre Maps/percorso)
+    // Geotag button: SOLO in lettura (apre Maps/percorso)
     const geoBtn = $("#btnPatGeotag");
     if (geoBtn) {
-      if (!patientEditEnabled) geoBtn.removeAttribute("hidden");
-      else geoBtn.setAttribute("hidden", "");
-      geoBtn.toggleAttribute("disabled", patientEditEnabled);
+      // Robusto su iOS: usa sia hidden che display
+      if (!patientEditEnabled) {
+        geoBtn.hidden = false;
+        geoBtn.removeAttribute("hidden");
+        geoBtn.style.display = "";
+        geoBtn.disabled = false;
+      } else {
+        geoBtn.hidden = true;
+        geoBtn.setAttribute("hidden", "");
+        geoBtn.style.display = "none";
+        geoBtn.disabled = true;
+      }
     }
 
     const btnPick = $("#btnPickSoc");
@@ -2842,8 +2851,8 @@ function formatItMonth(dateObj) {
     $("#patEnd").value = "";
     setLevel("");
     applyDayUI();
-    setPatientFormEnabled(true);
     showView("patientForm");
+    setPatientFormEnabled(true);
   }
 
   function openPatientExisting(p) {
@@ -2866,8 +2875,8 @@ function formatItMonth(dateObj) {
     $("#patEnd").value = fmtIsoDate(currentPatient.data_fine || "");
     setLevel(level);
     applyDayUI();
-    setPatientFormEnabled(false); // view-only finché non premi modifica
     showView("patientForm");
+    setPatientFormEnabled(false); // view-only finché non premi modifica
   }
 
   $("#btnPatCalendar")?.addEventListener("click", () => openCalendarFlow());
