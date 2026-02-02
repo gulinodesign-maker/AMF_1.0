@@ -742,6 +742,20 @@ select.field{ appearance: none; }
   opacity: .80;
 }
 
+
+.patient-geotag{
+  -webkit-appearance:none;
+  appearance:none;
+  padding:0;
+  margin:0;
+  cursor:pointer;
+}
+.patient-geotag svg{
+  width:20px;
+  height:20px;
+  display:block;
+  fill: currentColor;
+}
 .patient-card{ width: min(520px, 100%); background: rgba(255,149,0,.20); }
 
 .patient-card.patient-readonly{

@@ -1,7 +1,7 @@
-/* AMF_1.048 */
+/* AMF_1.049 */
 (() => {
-  const BUILD = "AMF_1.048";
-  const DISPLAY = "1.048";
+  const BUILD = "AMF_1.049";
+  const DISPLAY = "1.049";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -2359,7 +2359,11 @@ function formatItMonth(dateObj) {
           <div class="patient-name">${escapeHtml(name)}</div>
           <div class="patient-sub">${escapeHtml(soc)}${period ? " • " + escapeHtml(period) : ""}</div>
         </div>
-        <div class="patient-badge">${escapeHtml(String(p.livello || ""))}</div>
+        <button class="patient-badge patient-geotag" type="button" aria-label="Naviga" title="Naviga">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 2c-3.866 0-7 3.134-7 7 0 5.25 7 13 7 13s7-7.75 7-13c0-3.866-3.134-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"></path>
+          </svg>
+        </button>
       `;
       frag.appendChild(row);
     }
@@ -2370,6 +2374,17 @@ function formatItMonth(dateObj) {
   if (patientsListEl && !patientsListEl.__delegatedClick) {
     patientsListEl.__delegatedClick = true;
     patientsListEl.addEventListener("click", (e) => {
+      const geoBtn = e.target && e.target.closest ? e.target.closest(".patient-geotag") : null;
+      if (geoBtn) {
+        const rowG = geoBtn.closest(".patient-row");
+        if (!rowG || !patientsListEl.contains(rowG)) return;
+        const idxG = parseInt(rowG.dataset.idx || "-1", 10);
+        const arrG = patientsListEl.__renderedPatients || [];
+        const pG = arrG[idxG];
+        if (pG) openMapsToPatient(pG);
+        return;
+      }
+
       const row = e.target && e.target.closest ? e.target.closest(".patient-row") : null;
       if (!row || !patientsListEl.contains(row)) return;
       const idx = parseInt(row.dataset.idx || "-1", 10);
@@ -3268,3 +3283,10 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     });
   }
 })();
+
+
+function openGoogleMapsAddress(address){
+  if(!address) return;
+  const url = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address);
+  window.open(url, '_blank');
+}
