@@ -1420,3 +1420,44 @@ select.field{ appearance: none; }
   padding:16px;
   border-radius:8px;
 }
+
+
+/* --- Patient address + Geotag button --- */
+.row-address{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+}
+.row-address .field{
+  flex:1;
+  min-width:0;
+}
+.geo-btn{
+  flex:0 0 auto;
+  width:46px;
+  height:46px;
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,0.10);
+  background:#fff;
+  opacity:0.8;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  -webkit-tap-highlight-color: transparent;
+}
+.geo-btn svg{
+  width:22px;
+  height:22px;
+  stroke: var(--azure, #2b8cff);
+  stroke-width:2;
+  fill:none;
+}
+.geo-btn:active{
+  transform: scale(0.98);
+}
+.patient-readonly #patAddress{
+  cursor: pointer;
+}
+

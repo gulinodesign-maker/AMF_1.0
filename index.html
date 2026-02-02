@@ -231,7 +231,12 @@
           <input class="field" id="patName" type="text" placeholder="Nome e cognome" autocomplete="name" required />
 
           
-          <input class="field" id="patAddress" type="text" placeholder="Indirizzo" autocomplete="street-address" required />
+          <div class="row-address" id="rowPatAddress">
+            <input class="field" id="patAddress" type="text" placeholder="Indirizzo" autocomplete="street-address" required />
+            <button class="geo-btn" id="btnPatGeotag" type="button" aria-label="Geotag">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-4.5 7-10a7 7 0 1 0-14 0c0 5.5 7 10 7 10Z"></path><circle cx="12" cy="11" r="2.5"></circle></svg>
+            </button>
+          </div>
 <div class="row-soc">
             <input class="field" id="patSoc" type="text" placeholder="Società" readonly />
             <input id="patSocId" type="hidden" />

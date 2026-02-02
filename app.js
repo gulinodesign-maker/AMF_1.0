@@ -1,7 +1,7 @@
-/* AMF_1.045 */
+/* AMF_1.046 */
 (() => {
-  const BUILD = "AMF_1.045";
-  const DISPLAY = "1.045";
+  const BUILD = "AMF_1.046";
+  const DISPLAY = "1.046";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -2398,11 +2398,28 @@ function formatItMonth(dateObj) {
     const rowSoc = document.querySelector("#viewPatientForm .row-soc");
     if (rowSoc) rowSoc.classList.toggle("no-drop", !patientEditEnabled);
 
-    const ids = ["patName","patAddress","patStart","patEnd"];
+    const ids = ["patName","patStart","patEnd"];
     ids.forEach(id => {
       const el = $("#" + id);
       if (el) el.disabled = !patientEditEnabled;
     });
+
+    // Indirizzo: in sola-lettura deve restare tappabile per aprire Maps
+    const addrEl = $("#patAddress");
+    if (addrEl) {
+      addrEl.disabled = false;
+      addrEl.readOnly = !patientEditEnabled;
+      addrEl.setAttribute("aria-readonly", (!patientEditEnabled) ? "true" : "false");
+    }
+
+    // Geotag button: solo in modifica
+    const geoBtn = $("#btnPatGeotag");
+    if (geoBtn) {
+      if (patientEditEnabled) geoBtn.removeAttribute("hidden");
+      else geoBtn.setAttribute("hidden", "");
+      geoBtn.toggleAttribute("disabled", !patientEditEnabled);
+    }
+
     const btnPick = $("#btnPickSoc");
     if (btnPick) {
       // In sola lettura non serve la freccia (selezione società)
@@ -2426,7 +2443,101 @@ function formatItMonth(dateObj) {
     }
   }
 
-  // ---- Società picker (modal)
+  
+
+  // ---- Paziente: Geotag + Maps
+  function getPatientGeo(p) {
+    if (!p) return null;
+    const lat = (p.geo_lat !== undefined && p.geo_lat !== null && String(p.geo_lat).trim() !== "") ? Number(p.geo_lat) : null;
+    const lng = (p.geo_lng !== undefined && p.geo_lng !== null && String(p.geo_lng).trim() !== "") ? Number(p.geo_lng) : null;
+    if (lat == null || lng == null || !isFinite(lat) || !isFinite(lng)) return null;
+    return { lat, lng };
+  }
+
+  function openMapsToPatient(p) {
+    const addr = String((p && (p.address || p.indirizzo)) || ($("#patAddress")?.value || "")).trim();
+    const geo = getPatientGeo(p);
+    let dest = "";
+    if (geo) dest = geo.lat + "," + geo.lng;
+    else dest = addr;
+    if (!dest) return;
+    const url = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(dest);
+    try { window.open(url, "_blank"); } catch { try { location.href = url; } catch {} }
+  }
+
+  $("#patAddress")?.addEventListener("click", (e) => {
+    if (patientEditEnabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openMapsToPatient(currentPatient);
+    try { $("#patAddress")?.blur(); } catch {}
+  });
+
+  $("#btnPatGeotag")?.addEventListener("click", async (e) => {
+    if (!patientEditEnabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const session = getSession();
+    if (!session || !session.id) { toast("Sessione non valida"); return; }
+    if (!currentPatient || !currentPatient.id) { toast("Salva prima il paziente"); return; }
+
+    if (!("geolocation" in navigator)) { toast("Geolocalizzazione non disponibile"); return; }
+
+    toast("Acquisizione posizione...");
+    const ok = await ensureApiReady();
+    if (!ok) return;
+
+    const opts = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+
+    await new Promise((resolve) => {
+      try {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          try {
+            const lat = pos && pos.coords ? pos.coords.latitude : null;
+            const lng = pos && pos.coords ? pos.coords.longitude : null;
+            const acc = pos && pos.coords ? pos.coords.accuracy : null;
+            const ts = pos && pos.timestamp ? new Date(pos.timestamp).toISOString() : new Date().toISOString();
+
+            if (lat == null || lng == null) { toast("Posizione non valida"); resolve(); return; }
+
+            const payload = {
+              geo_lat: lat,
+              geo_lng: lng,
+              geo_accuracy: (acc == null ? "" : acc),
+              geo_ts: ts
+            };
+
+            await api("updatePatient", { userId: session.id, id: currentPatient.id, payload: JSON.stringify(payload) });
+
+            // aggiorna stato locale + lista
+            currentPatient.geo_lat = lat;
+            currentPatient.geo_lng = lng;
+            currentPatient.geo_accuracy = acc;
+            currentPatient.geo_ts = ts;
+            try { await loadPatients(); } catch {}
+            toast("Geotag salvato");
+          } catch (err) {
+            if (!apiHintIfUnknownAction(err)) toast("Errore salvataggio");
+          }
+          resolve();
+        }, (err) => {
+          const code = err && err.code;
+          if (code === 1) toast("Permesso posizione negato");
+          else if (code === 2) toast("Posizione non disponibile");
+          else if (code === 3) toast("Timeout posizione");
+          else toast("Errore geolocalizzazione");
+          resolve();
+        }, opts);
+      } catch (_) {
+        toast("Errore geolocalizzazione");
+        resolve();
+      }
+    });
+  });
+
+
+// ---- Società picker (modal)
   const modalPickSoc = $("#modalPickSoc");
   const socPickList = $("#socPickList");
   const btnPickSocClose = $("#btnPickSocClose");
