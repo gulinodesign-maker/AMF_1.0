@@ -1,7 +1,7 @@
-/* AMF_1.050 */
+/* AMF_1.049 */
 (() => {
-  const BUILD = "AMF_1.050";
-  const DISPLAY = "1.050";
+  const BUILD = "AMF_1.049";
+  const DISPLAY = "1.049";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -14,18 +14,7 @@
     toastEl.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2200);
-  
-  // Idle scheduler (iOS-safe fallback)
-  function scheduleIdle(fn, timeout = 500) {
-    try {
-      if (typeof requestIdleCallback === "function") {
-        return requestIdleCallback(() => { try { fn(); } catch (_) {} }, { timeout });
-      }
-    } catch (_) {}
-    return setTimeout(() => { try { fn(); } catch (_) {} }, 0);
   }
-
-}
 
   function apiHintIfUnknownAction(err) {
     const msg = String(err && err.message ? err.message : err);
@@ -413,9 +402,6 @@
     setCalendarControlsVisible(name === "calendar");
     updateTopbarTitle();
 
-  
-    // Warmup in background to keep navigation instant
-    scheduleIdle(() => { try { warmupCoreData(); } catch (_) {} }, 800);
   }
 
   btnTopRight?.addEventListener("click", () => {
@@ -1000,30 +986,15 @@ async function openStatsFlow() {
     const titleEl = $("#topbarTitle");
     if (titleEl) titleEl.textContent = "Statistiche";
 
-    // Apertura pagina immediata (no attese percepite)
+    try { await loadSocietaCache(false); } catch (_) {}
+    try { await loadPatients({ render: false }); } catch (_) {}
+
+    const societaArr = Array.isArray(societaCache) ? societaCache : [];
+    renderStatsSocTabs_(societaArr);
+    renderStatsLevelDots_();
+    renderStatsMonthly_();
+
     showView("stats");
-
-    // Render rapido con cache già disponibile, senza bloccare UI
-    scheduleIdle(() => {
-      const societaArr0 = Array.isArray(societaCache) ? societaCache : [];
-      if (societaArr0.length) renderStatsSocTabs_(societaArr0);
-      try { renderStatsLevelDots_(); } catch (_) {}
-      try { renderStatsMonthly_(); } catch (_) {}
-    }, 250);
-
-    // Warmup/refresh dati in background e re-render al termine
-    try {
-      warmupCoreData()
-        .then(() => {
-          scheduleIdle(() => {
-            const societaArr = Array.isArray(societaCache) ? societaCache : [];
-            renderStatsSocTabs_(societaArr);
-            renderStatsLevelDots_();
-            renderStatsMonthly_();
-          }, 400);
-        })
-        .catch(() => {});
-    } catch (_) {}
   }
 
 document.querySelectorAll("[data-route]").forEach((btn) => {
@@ -1533,14 +1504,8 @@ async function ensurePatientsForCalendar() {
     const ok = await ensureApiReady();
     if (!ok) return;
 
-    let users = getUsersFast();
-
-    // Se abbiamo già cache utenti, non blocchiamo la UI: refresh in background
-    if (users && users.length) {
-      refreshUsersBackground();
-    } else {
-      try { users = await fetchUsers(); } catch { users = []; }
-    }
+    let users = [];
+    try { users = await fetchUsers(); } catch { users = []; }
 
     const session = getSession();
 
@@ -1879,17 +1844,7 @@ function formatItMonth(dateObj) {
 
   // --- Users cache
   let usersCache = null;
-  
-  function getUsersFast() {
-    return Array.isArray(usersCache) ? usersCache : [];
-  }
-
-  function refreshUsersBackground() {
-    // SWR: non bloccare la UI
-    scheduleIdle(() => { fetchUsers().catch(() => {}); }, 600);
-  }
-
-async function fetchUsers() {
+  async function fetchUsers() {
     const data = await apiCached("listUsers", {}, 15000);
     usersCache = Array.isArray(data.users) ? data.users : [];
     return usersCache;
@@ -2081,14 +2036,8 @@ async function fetchUsers() {
     const ok = await ensureApiReady();
     if (!ok) return;
 
-    let users = getUsersFast();
-
-    // Se abbiamo già cache utenti, non blocchiamo la UI: refresh in background
-    if (users && users.length) {
-      refreshUsersBackground();
-    } else {
-      try { users = await fetchUsers(); } catch { users = []; }
-    }
+    let users = [];
+    try { users = await fetchUsers(); } catch { users = []; }
 
     const session = getSession();
 
