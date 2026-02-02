@@ -1,7 +1,7 @@
 /* AMF_1.033 */
 (() => {
-  const BUILD = "AMF_1.033";
-  const DISPLAY = "1.033";
+  const BUILD = "AMF_1.034";
+  const DISPLAY = "1.034";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -2337,7 +2337,7 @@ function formatItMonth(dateObj) {
     const rowSoc = document.querySelector("#viewPatientForm .row-soc");
     if (rowSoc) rowSoc.classList.toggle("no-drop", !patientEditEnabled);
 
-    const ids = ["patName","patStart","patEnd"];
+    const ids = ["patName","patAddress","patStart","patEnd"];
     ids.forEach(id => {
       const el = $("#" + id);
       if (el) el.disabled = !patientEditEnabled;
@@ -2636,7 +2636,8 @@ function formatItMonth(dateObj) {
           if (!nome_cognome || !societa || !liv) return;
 
           const payload = {
-            nome_cognome,
+      nome_cognome,
+      address,
             societa_id: societa_id,
             societa_nome: societa_nome,
             livello: liv,
@@ -2695,6 +2696,7 @@ function formatItMonth(dateObj) {
     currentPatient = { id: null, giorni_map: {} };
     level = "";
     $("#patName").value = "";
+    $("#patAddress").value = "";
     $("#patSoc").value = "";
     $("#patSocId").value = "";
     $("#patStart").value = "";
@@ -2718,6 +2720,7 @@ function formatItMonth(dateObj) {
     currentPatient.giorni_map = map;
     level = String(currentPatient.livello || "");
     $("#patName").value = currentPatient.nome_cognome || "";
+    $("#patAddress").value = currentPatient.address || "";
     $("#patSocId").value = currentPatient.societa_id ? String(currentPatient.societa_id) : "";
     $("#patSoc").value = String(currentPatient.societa_nome || currentPatient.societa || getSocNameById($("#patSocId").value) || "").trim();
     $("#patStart").value = fmtIsoDate(currentPatient.data_inizio || "");
@@ -2776,6 +2779,7 @@ function formatItMonth(dateObj) {
     if (!user) { toast("Devi accedere"); return; }
 
     const nome_cognome = ($("#patName")?.value || "").trim();
+    const address = ($("#patAddress")?.value || "").trim();
     const societa = ($("#patSoc")?.value || "").trim();
     const societa_id = ($("#patSocId")?.value || "").trim();
     const societa_nome = societa;
@@ -2796,11 +2800,13 @@ function formatItMonth(dateObj) {
     }
 
     if (!nome_cognome) { toast("Inserisci il nome"); return; }
+    if (!address) { toast("Inserisci l\u2019indirizzo"); return; }
     if (!societa_id) { toast("Seleziona la società"); return; }
     if (!level) { toast("Seleziona il livello"); return; }
 
     const payload = {
       nome_cognome,
+      address,
       societa,
       societa_id: societa_id,
       societa_nome: societa_nome,

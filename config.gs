@@ -448,6 +448,7 @@ function createPatient_(userId, payloadJson) {
   const payload = payloadJson ? JSON.parse(payloadJson) : {};
 
   const nome = String(payload.nome_cognome || "").trim();
+  const address = String(payload.address || payload.indirizzo || "").trim();
   const livello = String(payload.livello || "").trim();
 
   let societa_id = String(payload.societa_id || payload.societaId || "").trim();
@@ -460,6 +461,7 @@ function createPatient_(userId, payloadJson) {
   }
 
   if (!nome) throw new Error("Nome paziente richiesto");
+  if (!address) throw new Error("Indirizzo richiesto");
   if (!societa_id) throw new Error("Società richiesta");
   if (!livello) throw new Error("Livello richiesto");
 
@@ -474,6 +476,7 @@ function createPatient_(userId, payloadJson) {
   const row = new Array(headers.length).fill("");
   if (col("id") > 0) row[col("id")-1] = id;
   if (col("nome_cognome") > 0) row[col("nome_cognome")-1] = nome;
+  if (col("address") > 0) row[col("address")-1] = address;
 
   // nuova struttura
   if (col("societa_id") > 0) row[col("societa_id")-1] = societa_id;
@@ -525,6 +528,11 @@ function updatePatient_(userId, patientId, payloadJson) {
   };
 
   if (payload.nome_cognome !== undefined) setIf("nome_cognome", String(payload.nome_cognome || "").trim());
+  if (payload.address !== undefined || payload.indirizzo !== undefined) {
+    const addr = String(payload.address || payload.indirizzo || "").trim();
+    if (!addr) throw new Error("Indirizzo richiesto");
+    setIf("address", addr);
+  }
 
   // nuova struttura: societa_id
   if (payload.societa_id !== undefined || payload.societaId !== undefined || payload.societa_nome !== undefined || payload.societa !== undefined) {
