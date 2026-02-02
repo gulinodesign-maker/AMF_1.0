@@ -1,7 +1,7 @@
-/* AMF_1.035 */
+/* AMF_1.036 */
 (() => {
-  const BUILD = "AMF_1.035";
-  const DISPLAY = "1.035";
+  const BUILD = "AMF_1.036";
+  const DISPLAY = "1.036";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1742,14 +1742,6 @@ calBuilt = true;
 function scrollCalendarToNow() {
   // Back-compat: usa il focus robusto su giorno+ora correnti
   try { focusCalendarNow({ announce: false, center: true }); } catch (_) {}
-}
-:${mm}`;
-  const cell = calBody.querySelector(`.cal-cell[data-day="${day}"][data-time="${t}"]`);
-  if (!cell) return;
-  requestAnimationFrame(() => {
-    const top = cell.offsetTop - (calScroll.clientHeight / 2) + (cell.offsetHeight / 2);
-    calScroll.scrollTop = Math.max(0, top);
-  });
 }
 
 function shiftCalendarMonth(delta) {
