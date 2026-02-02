@@ -1,4 +1,4 @@
-/* AMF_1.040 */
+/* AMF_1.050 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -609,14 +609,28 @@ select.field{ appearance: none; }
   position:absolute;
   right: 12px;
   top: 12px;
-  width: 18px;
-  height: 18px;
+  width: 38px;
+  height: 38px;
   border-radius: 999px;
-  border: 0;
-  background: rgba(27,31,35,.28);
+  border: 1px solid rgba(0,0,0,.12);
+  background: var(--white80);
   cursor:pointer;
   padding:0;
 }
+.dot-close::before,
+.dot-close::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width: 18px;
+  height: 2px;
+  background: var(--primary);
+  border-radius: 2px;
+  transform-origin: center;
+}
+.dot-close::before{ transform: translate(-50%,-50%) rotate(45deg); }
+.dot-close::after{ transform: translate(-50%,-50%) rotate(-45deg); }
 .dot-close:active{ transform: scale(.98); }
 
 /* TOAST */
@@ -1475,3 +1489,11 @@ select.field{ appearance: none; }
   cursor: pointer;
 }
 
+
+
+/* Modal Società: spaziatura prezzi */
+#modalSoc #socL1Input,
+#modalSoc #socL2Input,
+#modalSoc #socL3Input{
+  margin-top: 20px;
+}
