@@ -1,7 +1,7 @@
-/* AMF_1.044 */
+/* AMF_1.045 */
 (() => {
-  const BUILD = "AMF_1.044";
-  const DISPLAY = "1.044";
+  const BUILD = "AMF_1.045";
+  const DISPLAY = "1.045";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1811,6 +1811,21 @@ function formatItMonth(dateObj) {
   const buildLabel = $("#buildLabel");
   if (buildLabel) buildLabel.textContent = DISPLAY;
 
+  // Anti-suggerimenti iOS/macOS: evita che WebKit mostri liste (autofill/storico)
+  // Pattern: input readonly finché l'utente non interagisce.
+  function unlockReadonlyOnce(el) {
+    if (!el) return;
+    const unlock = () => {
+      try { el.removeAttribute("readonly"); } catch (_) {}
+    };
+    el.addEventListener("focus", unlock, { once: true, passive: true });
+    el.addEventListener("touchstart", unlock, { once: true, passive: true });
+    el.addEventListener("mousedown", unlock, { once: true, passive: true });
+  }
+  unlockReadonlyOnce($("#loginNome"));
+  unlockReadonlyOnce($("#modNome"));
+  unlockReadonlyOnce($("#createNome"));
+
   // Warmup (session persistita) per calendario istantaneo
   try { warmupCoreData(); } catch (_) {}
 
@@ -1855,7 +1870,12 @@ function formatItMonth(dateObj) {
       showView("create");
       return;
     }
-    fillUserSelect($("#loginNome"), users);
+    const loginNome = $("#loginNome");
+    if (loginNome) {
+      // Non mostrare mai liste/suggerimenti di account: inserimento manuale
+      loginNome.value = "";
+      loginNome.setAttribute("readonly", "readonly");
+    }
     showView("login");
   }
 
@@ -1868,7 +1888,11 @@ function formatItMonth(dateObj) {
       showView("create");
       return;
     }
-    fillUserSelect($("#modNome"), users);
+    const modNome = $("#modNome");
+    if (modNome) {
+      modNome.value = "";
+      modNome.setAttribute("readonly", "readonly");
+    }
     showView("modify");
   }
 
@@ -1901,7 +1925,7 @@ function formatItMonth(dateObj) {
     e.preventDefault();
     const nome = ($("#loginNome")?.value || "").trim();
     const pass = ($("#loginPass")?.value || "");
-    if (!nome) { toast("Seleziona un nome"); return; }
+    if (!nome) { toast("Inserisci il nome"); return; }
     if (!pass) { toast("Inserisci la password"); return; }
 
     const ok = await ensureApiReady();
@@ -1925,7 +1949,7 @@ function formatItMonth(dateObj) {
     const oldP = ($("#modOld")?.value || "");
     const newP = ($("#modNew")?.value || "");
     const newP2 = ($("#modNew2")?.value || "");
-    if (!nome) { toast("Seleziona un nome"); return; }
+    if (!nome) { toast("Inserisci il nome"); return; }
     if (!oldP || !newP) { toast("Compila tutti i campi"); return; }
     if (newP !== newP2) { toast("Le password non coincidono"); return; }
 
