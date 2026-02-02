@@ -159,7 +159,7 @@ body{
   justify-content: center;
 }
 #viewHome .grid{
-  transform: translateY(clamp(0px, 2vh, 18px));
+  transform: translateY(calc(-50px + clamp(0px, 2vh, 18px)));
 }
 #viewHome .home-footer{
   width: min(900px, 100%);
@@ -354,6 +354,30 @@ select.field{ appearance: none; }
   display:flex;
   flex-wrap:nowrap;
   align-items:center;
+}
+
+.pat-sort-btn{
+  height: 46px;
+  border-radius: 16px;
+  border: 1px solid rgba(42,116,184,.25);
+  background: rgba(42,116,184,.30);
+  background-color: rgba(42,116,184,.30);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  padding:0;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow:none;
+}
+.pat-sort-btn svg{
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .pill-row.pill-row-2 .pill-wide{
   flex:1 1 0;

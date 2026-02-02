@@ -1,7 +1,7 @@
-/* AMF_1.040 */
+/* AMF_1.042 */
 (() => {
-  const BUILD = "AMF_1.040";
-  const DISPLAY = "1.040";
+  const BUILD = "AMF_1.042";
+  const DISPLAY = "1.042";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -359,6 +359,7 @@
   const btnCalPrev = $("#btnCalPrev");
   const btnCalToday = $("#btnCalToday");
   const btnCalNext = $("#btnCalNext");
+  const btnCalPatients = $("#btnCalPatients");
   const topbarTitle = $("#topbarTitle");
 
   function setTopRight(mode) {
@@ -418,7 +419,7 @@
 
 
   function setCalendarControlsVisible(isVisible) {
-    const list = [btnCalPrev, btnCalToday, btnCalNext];
+    const list = [btnCalPrev, btnCalToday, btnCalNext, btnCalPatients];
     list.forEach((b) => { if (b) b.hidden = !isVisible; });
   }
 
@@ -1035,7 +1036,7 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
   let calSlotPatients = new Map(); // key "dayKey|HH:MM" -> {count, ids:[]}
 
   const CAL_COLOR_START = { r: 160, g: 160, b: 160 }; // grey
-  const CAL_COLOR_MID   = { r: 245, g: 158, b: 11  }; // arancione
+  const CAL_COLOR_MID   = { r: 90,  g: 150, b: 210 }; // azzurro chiaro
   const CAL_COLOR_END   = { r: 42,  g: 116, b: 184 }; // azzurro (primary)
   function calColorForDay(dayNum) {
     const t = Math.min(1, Math.max(0, (Number(dayNum) - 1) / 30));
@@ -1729,6 +1730,9 @@ async function ensurePatientsForCalendar() {
     calSelectedDate = new Date();
     await updateCalendarUI();
     focusCalendarNow({ announce: true, center: true });
+  });
+  btnCalPatients?.addEventListener("click", async () => {
+    await openPatientsAfterLogin();
   });
 calBuilt = true;
 }
