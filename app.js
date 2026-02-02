@@ -1,7 +1,7 @@
-/* AMF_1.033 */
+/* AMF_1.035 */
 (() => {
-  const BUILD = "AMF_1.034";
-  const DISPLAY = "1.034";
+  const BUILD = "AMF_1.035";
+  const DISPLAY = "1.035";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1020,6 +1020,7 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
 
   // --- Calendario
   const calDateTitle = $("#calDateTitle");
+  const calNowInfo = $("#calNowInfo");
   const calDaysCol = $("#calDaysCol");      // header row: days 1..31
   const calHoursRow = $("#calHoursRow");    // first column: hours 07:30..21:00
   const calBody = $("#calBody");            // grid cells
@@ -1544,17 +1545,24 @@ async function ensurePatientsForCalendar() {
   }
 
 
-  function focusCalendarNow() {
+  function focusCalendarNow(opts = {}) {
   if (!calScroll || !calBody) return;
+
+  const { announce = false, center = false } = (opts && typeof opts === "object") ? opts : {};
+
+  // Rimuovi focus precedente
+  calBody.querySelectorAll(".cal-cell.now-focus").forEach((el) => el.classList.remove("now-focus"));
 
   const now = new Date();
   const ref = new Date(calSelectedDate || now);
 
+  // Day: se siamo nel mese/anno correnti -> oggi, altrimenti il giorno selezionato
   let targetDay = ref.getDate();
   if (now.getFullYear() === ref.getFullYear() && now.getMonth() === ref.getMonth()) {
     targetDay = now.getDate();
   }
 
+  // Time: clamp all'interno degli slot visibili (07:30 -> 21:00), snap a 30'
   const startMin = 7 * 60 + 30;
   const endMin = 21 * 60;
   let m = now.getHours() * 60 + now.getMinutes();
@@ -1567,10 +1575,53 @@ async function ensurePatientsForCalendar() {
   const targetTime = `${hh}:${mm}`;
 
   const cell = calBody.querySelector(`.cal-cell[data-day="${targetDay}"][data-time="${targetTime}"]`);
-  if (!cell) return;
+  if (!cell) {
+    if (calNowInfo) calNowInfo.textContent = "";
+    return;
+  }
 
-  calScroll.scrollLeft = Math.max(0, cell.offsetLeft - 24);
-  calScroll.scrollTop = Math.max(0, cell.offsetTop - 24);
+  // Scroll: sia orizzontale che verticale, con centratura opzionale
+  const doScroll = () => {
+    const pad = 24;
+
+    if (center) {
+      const left = cell.offsetLeft - (calScroll.clientWidth / 2) + (cell.offsetWidth / 2);
+      const top = cell.offsetTop - (calScroll.clientHeight / 2) + (cell.offsetHeight / 2);
+      calScroll.scrollLeft = Math.max(0, left);
+      calScroll.scrollTop = Math.max(0, top);
+    } else {
+      calScroll.scrollLeft = Math.max(0, cell.offsetLeft - pad);
+      calScroll.scrollTop = Math.max(0, cell.offsetTop - pad);
+    }
+
+    // Evidenzia cella "adesso"
+    cell.classList.add("now-focus");
+
+    // Info paziente/i nello slot corrente
+    const slotKey = `${targetDay}|${targetTime}`;
+    const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
+    const names = info && Array.isArray(info.names) ? info.names.filter(Boolean) : [];
+
+    let label = `Adesso: nessuna terapia • ${targetTime}`;
+    if (names.length === 1) {
+      label = `Adesso: ${names[0]} • ${targetTime}`;
+    } else if (names.length > 1) {
+      const uniq = [];
+      names.forEach((x) => { if (!uniq.includes(x)) uniq.push(x); });
+      const shown = uniq.slice(0, 2);
+      label = `Adesso: ${shown.join(", ")}${uniq.length > 2 ? " +" + (uniq.length - 2) : ""} • ${targetTime}`;
+    }
+
+    if (calNowInfo) calNowInfo.textContent = label;
+
+    if (announce) {
+      // Toast breve per feedback immediato (persistenza in calNowInfo)
+      try { toast(label); } catch (_) {}
+    }
+  };
+
+  // iOS: attendi frame per misure offset corrette
+  requestAnimationFrame(() => { try { doScroll(); } catch (_) {} });
 }
 
   function ensureCalendarBuilt() {
@@ -1683,20 +1734,16 @@ async function ensurePatientsForCalendar() {
   btnCalToday?.addEventListener("click", async () => {
     calSelectedDate = new Date();
     await updateCalendarUI();
-    scrollCalendarToNow();
+    focusCalendarNow({ announce: true, center: true });
   });
-
-  calBuilt = true;
+calBuilt = true;
 }
 
 function scrollCalendarToNow() {
-  if (!calScroll || !calBody) return;
-  const now = new Date();
-  const day = now.getDate();
-  // snap to nearest 30 minutes slot
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = now.getMinutes() < 30 ? "00" : "30";
-  const t = `${hh}:${mm}`;
+  // Back-compat: usa il focus robusto su giorno+ora correnti
+  try { focusCalendarNow({ announce: false, center: true }); } catch (_) {}
+}
+:${mm}`;
   const cell = calBody.querySelector(`.cal-cell[data-day="${day}"][data-time="${t}"]`);
   if (!cell) return;
   requestAnimationFrame(() => {

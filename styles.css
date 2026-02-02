@@ -927,6 +927,28 @@ select.field{ appearance: none; }
   align-items:center;
   justify-content:flex-end;
 }
+.calendar-nav-left{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  min-width: 0;
+}
+.cal-nowinfo{
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  color: rgba(0,0,0,.60);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.cal-cell.now-focus{
+  outline: 2px solid rgba(42,116,184,.95);
+  outline-offset: -2px;
+}
+
 .calendar-grid{
   display:grid;
   grid-template-columns: 78px 1fr;

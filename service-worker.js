@@ -1,5 +1,5 @@
-/* AMF_1.034 */
-const CACHE_NAME = "amf-cache-1.034";
+/* AMF_1.035 */
+const CACHE_NAME = "amf-cache-1.035";
 const APP_SHELL = [
   "./",
   "./index.html",
