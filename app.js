@@ -1,7 +1,7 @@
-/* AMF_1.038 */
+/* AMF_1.039 */
 (() => {
-  const BUILD = "AMF_1.038";
-  const DISPLAY = "1.038";
+  const BUILD = "AMF_1.039";
+  const DISPLAY = "1.039";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -371,7 +371,7 @@
     } else {
       btnTopRight.setAttribute("aria-label", "Impostazioni");
       // settings icon
-      iconTopRight.innerHTML = '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="M19.4 15a7.9 7.9 0 0 0 .1-1l2-1.5-2-3.5-2.4 1a8.6 8.6 0 0 0-1.7-1L15 5H9L8.6 7.9a8.6 8.6 0 0 0-1.7 1L4.5 8l-2 3.5L4.5 13a7.9 7.9 0 0 0 .1 1l-2 1.5 2 3.5 2.4-1a8.6 8.6 0 0 0 1.7 1L9 19h6l.4-2.9a8.6 8.6 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5Z"></path>';
+      iconTopRight.innerHTML = '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"></path><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>';
     }
   }
 
@@ -1449,8 +1449,13 @@ function fillCalendarFromPatients(patients) {
 
     cell.classList.add("filled");
     {
-      const col = calColorForDay(dayNum);
-      cell.style.backgroundColor = rgba(col, 0.50);
+      const tag = Array.isArray(info.tags) && info.tags.length ? info.tags[0] : null;
+      if (tag !== null && tag !== undefined && SOC_TAG_COLORS[tag] !== undefined) {
+        cell.style.backgroundColor = hexToRgba(SOC_TAG_COLORS[tag], 0.50);
+      } else {
+        const col = calColorForDay(dayNum);
+        cell.style.backgroundColor = rgba(col, 0.50);
+      }
     }
 
     // Initials
@@ -1465,14 +1470,7 @@ function fillCalendarFromPatients(patients) {
       ini.textContent = initialsText;
       cell.appendChild(ini);
     }
-
-    const dot = document.createElement("div");
-    dot.className = "cal-dot";
-    const tag = Array.isArray(info.tags) && info.tags.length ? info.tags[0] : 0;
-    dot.dataset.tag = String(tag);
-    cell.appendChild(dot);
-
-    if (info.count === 1) {
+if (info.count === 1) {
       cell.title = info.names[0] || "";
     } else {
       cell.title = `${info.count} pazienti`;
@@ -2758,7 +2756,8 @@ function formatItMonth(dateObj) {
   }
 
   $("#btnPatCalendar")?.addEventListener("click", () => openCalendarFlow());
-  $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
+  $("#btnPatBackList")?.addEventListener("click", () => showView("patients"));
+$("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
   $("#btnPatDelete")?.addEventListener("click", async () => {
     // In modifica: chiudi scheda
     if (patientEditEnabled) {
