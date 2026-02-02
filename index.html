@@ -83,7 +83,7 @@
       </section>
         </div>
         <div class="home-footer" aria-label="Build">
-          <div class="build" id="buildLabel">1.043</div>
+          <div class="build" id="buildLabel">1.044</div>
         </div>
       </div>
     </section>
@@ -104,10 +104,10 @@
     <section class="view" id="viewCreate" aria-label="Crea account">
       <div class="card card-form">
         <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <form class="form" id="formCreate">
-          <input class="field" id="createNome" type="text" placeholder="Nome fisioterapista" autocomplete="name" required />
-          <input class="field" id="createPass" type="password" placeholder="Password" autocomplete="new-password" required />
-          <input class="field" id="createPass2" type="password" placeholder="Conferma password" autocomplete="new-password" required />
+        <form class="form" id="formCreate" autocomplete="off">
+          <input class="field" id="createNome" type="text" placeholder="Nome fisioterapista" autocomplete="off" required autocapitalize="none" autocorrect="off" spellcheck="false" />
+          <input class="field" id="createPass" type="password" placeholder="Password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+          <input class="field" id="createPass2" type="password" placeholder="Conferma password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
           <div class="row2">
             <button class="pill-btn pill-gray" type="button" id="btnCreateBack">indietro</button>
             <button class="pill-btn pill-blue" type="submit">crea account</button>
@@ -120,9 +120,9 @@
     <section class="view" id="viewLogin" aria-label="Login">
       <div class="card card-form">
         <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <form class="form" id="formLogin">
+        <form class="form" id="formLogin" autocomplete="off">
           <select class="field" id="loginNome" required></select>
-          <input class="field" id="loginPass" type="password" placeholder="Password" autocomplete="current-password" required />
+          <input class="field" id="loginPass" type="password" placeholder="Password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
           <div class="row2">
             <button class="pill-btn pill-gray" type="button" id="btnLoginBack">indietro</button>
             <button class="pill-btn pill-green" type="submit">login</button>
@@ -135,11 +135,11 @@
     <section class="view" id="viewModify" aria-label="Modifica account">
       <div class="card card-form">
         <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <form class="form" id="formModify">
+        <form class="form" id="formModify" autocomplete="off">
           <select class="field" id="modNome" required></select>
-          <input class="field" id="modOld" type="password" placeholder="Password attuale" autocomplete="current-password" required />
-          <input class="field" id="modNew" type="password" placeholder="Nuova password" autocomplete="new-password" required />
-          <input class="field" id="modNew2" type="password" placeholder="Conferma nuova password" autocomplete="new-password" required />
+          <input class="field" id="modOld" type="password" placeholder="Password attuale" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+          <input class="field" id="modNew" type="password" placeholder="Nuova password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+          <input class="field" id="modNew2" type="password" placeholder="Conferma nuova password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
           <div class="row2">
             <button class="pill-btn pill-gray" type="button" id="btnModBack">indietro</button>
             <button class="pill-btn pill-blue" type="submit">salva</button>
