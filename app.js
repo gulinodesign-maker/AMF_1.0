@@ -1,7 +1,7 @@
-/* AMF_1.039 */
+/* AMF_1.040 */
 (() => {
-  const BUILD = "AMF_1.039";
-  const DISPLAY = "1.039";
+  const BUILD = "AMF_1.040";
+  const DISPLAY = "1.040";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1035,12 +1035,19 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
   let calSlotPatients = new Map(); // key "dayKey|HH:MM" -> {count, ids:[]}
 
   const CAL_COLOR_START = { r: 160, g: 160, b: 160 }; // grey
+  const CAL_COLOR_MID   = { r: 245, g: 158, b: 11  }; // arancione
   const CAL_COLOR_END   = { r: 42,  g: 116, b: 184 }; // azzurro (primary)
   function calColorForDay(dayNum) {
     const t = Math.min(1, Math.max(0, (Number(dayNum) - 1) / 30));
-    const r = Math.round(CAL_COLOR_START.r + (CAL_COLOR_END.r - CAL_COLOR_START.r) * t);
-    const g = Math.round(CAL_COLOR_START.g + (CAL_COLOR_END.g - CAL_COLOR_START.g) * t);
-    const b = Math.round(CAL_COLOR_START.b + (CAL_COLOR_END.b - CAL_COLOR_START.b) * t);
+
+    // gradiente a 3 stop: grigio -> arancione -> azzurro
+    const a = (t < 0.5) ? (t * 2) : ((t - 0.5) * 2);
+    const from = (t < 0.5) ? CAL_COLOR_START : CAL_COLOR_MID;
+    const to   = (t < 0.5) ? CAL_COLOR_MID   : CAL_COLOR_END;
+
+    const r = Math.round(from.r + (to.r - from.r) * a);
+    const g = Math.round(from.g + (to.g - from.g) * a);
+    const b = Math.round(from.b + (to.b - from.b) * a);
     return { r, g, b };
   }
   function rgba({ r, g, b }, a) { return `rgba(${r},${g},${b},${a})`; }
