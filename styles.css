@@ -529,6 +529,34 @@ select.field{ appearance: none; }
   padding: 10px 2px;
   border-bottom: 1px solid rgba(0,0,0,.10);
 }
+
+.soc-del-actions{
+  display:flex;
+  align-items:center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+.soc-edit-btn{
+  appearance:none;
+  -webkit-appearance:none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.12);
+  padding: 0;
+  cursor:pointer;
+  opacity: .80;
+  background: rgba(255,255,255,.80);
+  position: relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.soc-edit-btn svg{
+  width: 12px;
+  height: 12px;
+  display:block;
+}
 .soc-del-name{
   font-weight: 800;
   color: rgba(27,31,35,.86);
@@ -564,7 +592,7 @@ select.field{ appearance: none; }
 .soc-del-btn::after{ transform: rotate(-45deg); }
 
 /* touch responsiveness */
-.nav-btn, .pill-btn, .action-btn, .icon-btn, .tag-dot, .soc-del-btn{
+.nav-btn, .pill-btn, .action-btn, .icon-btn, .tag-dot, .soc-del-btn, .soc-edit-btn{
   touch-action: manipulation;
 }
 

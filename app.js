@@ -1,6 +1,6 @@
-/* AMF_1.050 */
+/* AMF_1.051 */
 (() => {
-  const BUILD = "AMF_1.050";
+  const BUILD = "AMF_1.051";
   const DISPLAY = "1.050";
 
   // --- Helpers
@@ -1300,6 +1300,8 @@ async function loadSocietaCache(force = false) {
   try {
     const data = await apiCached("listSocieta", { userId: user.id }, 15000);
     const arr = Array.isArray(data && data.societa) ? data.societa : [];
+    societaCache = arr;
+    buildSocietaMap_(arr);
     societaCache = arr;
     buildSocietaMap_(arr);
     return arr;
@@ -3047,6 +3049,9 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
   const socDeletePanel = $("#socDeletePanel");
   const socDeleteList = $("#socDeleteList");
 
+  const socModalTitle = modalSoc ? modalSoc.querySelector(".modal-title") : null;
+  let editingSocId = "";
+  let editingSocOldName = "";
   let selectedSocTag = 0;
 
   function getSocTagMap() {
@@ -3087,6 +3092,9 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
 
   function openSocModal() {
     if (!modalSoc) return;
+    editingSocId = "";
+    editingSocOldName = "";
+    if (socModalTitle) socModalTitle.textContent = "Aggiungi società";
     socNomeInput.value = "";
     if (socL1Input) socL1Input.value = "";
     if (socL2Input) socL2Input.value = "";
@@ -3100,6 +3108,9 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
   }
   function closeSocModal() {
     if (!modalSoc) return;
+    editingSocId = "";
+    editingSocOldName = "";
+    if (socModalTitle) socModalTitle.textContent = "Aggiungi società";
     modalSoc.classList.remove("show");
     modalSoc.setAttribute("aria-hidden", "true");
   }
@@ -3135,6 +3146,8 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
       return;
     }
     const arr = Array.isArray(data && data.societa) ? data.societa : [];
+    societaCache = arr;
+    buildSocietaMap_(arr);
 
     if (!socDeleteList) return;
     socDeleteList.replaceChildren();
@@ -3157,14 +3170,37 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
       row.dataset.id = id;
       row.innerHTML = '<div class="soc-del-name">' + escapeHtml(nome) + '</div>';
 
-      const btn = document.createElement("button");
-      btn.className = "soc-del-btn";
-      btn.type = "button";
-      btn.setAttribute("aria-label", "Elimina " + nome);
-      btn.dataset.nome = nome;
-      btn.dataset.id = id;
+      const actions = document.createElement("div");
+      actions.className = "soc-del-actions";
 
-      row.appendChild(btn);
+      const delBtn = document.createElement("button");
+      delBtn.className = "soc-del-btn";
+      delBtn.type = "button";
+      delBtn.setAttribute("aria-label", "Elimina " + nome);
+      delBtn.dataset.nome = nome;
+      delBtn.dataset.id = id;
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "soc-edit-btn";
+      editBtn.type = "button";
+      editBtn.setAttribute("aria-label", "Modifica " + nome);
+      editBtn.dataset.nome = nome;
+      editBtn.dataset.id = id;
+
+      const l1v = (s && (s.l1 ?? s.L1 ?? s.livello1 ?? s.liv1 ?? s.tariffa_livello_1)) ?? "";
+      const l2v = (s && (s.l2 ?? s.L2 ?? s.livello2 ?? s.liv2 ?? s.tariffa_livello_2)) ?? "";
+      const l3v = (s && (s.l3 ?? s.L3 ?? s.livello3 ?? s.liv3 ?? s.tariffa_livello_3)) ?? "";
+      editBtn.dataset.l1 = String(l1v ?? "");
+      editBtn.dataset.l2 = String(l2v ?? "");
+      editBtn.dataset.l3 = String(l3v ?? "");
+      editBtn.dataset.tag = String(getSocTagIndexById(id) || 0);
+
+      editBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11a2 2 0 0 0 0-3l-1-1a2 2 0 0 0-3 0L4 16v4z" fill="none" stroke="rgba(42,116,184,1)" stroke-width="2" stroke-linejoin="round"></path><path d="M13 6l5 5" fill="none" stroke="rgba(42,116,184,1)" stroke-width="2" stroke-linecap="round"></path></svg>';
+
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+
+      row.appendChild(actions);
       frag.appendChild(row);
 
       // se il backend non restituisce il tag, lo manteniamo localmente
@@ -3181,6 +3217,26 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
   if (socDeleteList && !socDeleteList.__delegated) {
     socDeleteList.__delegated = true;
     socDeleteList.addEventListener("click", async (e) => {
+      const editBtn = e.target && e.target.closest ? e.target.closest(".soc-edit-btn") : null;
+      if (editBtn && socDeleteList.contains(editBtn)) {
+        const nome = String(editBtn.dataset.nome || "").trim();
+        const id = String(editBtn.dataset.id || "").trim();
+
+        if (socModalTitle) socModalTitle.textContent = "Modifica società";
+        editingSocId = id || "";
+        editingSocOldName = nome || "";
+
+        if (socNomeInput) socNomeInput.value = nome || "";
+        if (socL1Input) socL1Input.value = String(editBtn.dataset.l1 || "");
+        if (socL2Input) socL2Input.value = String(editBtn.dataset.l2 || "");
+        if (socL3Input) socL3Input.value = String(editBtn.dataset.l3 || "");
+        setSelectedSocTag(editBtn.dataset.tag || 0);
+
+        if (socDeletePanel) socDeletePanel.hidden = true;
+        if (socL1Input) socL1Input.focus();
+        return;
+      }
+
       const btn = e.target && e.target.closest ? e.target.closest(".soc-del-btn") : null;
       if (!btn || !socDeleteList.contains(btn)) return;
 
@@ -3231,6 +3287,31 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     const user = getSession();
     if (!user) { toast("Accesso richiesto"); return; }
     try {
+      if (editingSocId) {
+        try {
+          await apiTry(
+            ["updateSocieta", "editSocieta", "updSocieta", "setSocieta", "updateSociety", "editSociety"],
+            { userId: user.id, id: editingSocId, nome, tag: selectedSocTag, l1, l2, l3, oldNome: editingSocOldName || undefined }
+          );
+        } catch (errUp) {
+          const msg = String(errUp && errUp.message ? errUp.message : errUp).toLowerCase();
+          // fallback: delete + add (in caso il backend non supporti update)
+          if (msg.includes("unknown action")) {
+            await apiTry(
+              ["deleteSocieta", "delSocieta", "removeSocieta", "deleteSociety"],
+              { userId: user.id, id: editingSocId || undefined, nome: editingSocOldName || undefined }
+            );
+            await api("addSocieta", { userId: user.id, nome, tag: selectedSocTag, l1, l2, l3 });
+          } else {
+            throw errUp;
+          }
+        }
+        invalidateApiCache("listSocieta");
+        toast("Società aggiornata");
+        closeSocModal();
+        return;
+      }
+
       await api("addSocieta", { userId: user.id, nome, tag: selectedSocTag, l1, l2, l3 });
       invalidateApiCache("listSocieta");
       toast("Società aggiunta");
@@ -3279,7 +3360,7 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.025").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.051").catch(() => {});
     });
   }
 })();
