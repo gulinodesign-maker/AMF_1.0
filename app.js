@@ -1,7 +1,7 @@
-/* AMF_1.036 */
+/* AMF_1.037 */
 (() => {
-  const BUILD = "AMF_1.036";
-  const DISPLAY = "1.036";
+  const BUILD = "AMF_1.037";
+  const DISPLAY = "1.037";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1602,7 +1602,7 @@ async function ensurePatientsForCalendar() {
     const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
     const names = info && Array.isArray(info.names) ? info.names.filter(Boolean) : [];
 
-    let label = `Adesso: nessuna terapia • ${targetTime}`;
+    let label = `${targetTime}`;
     if (names.length === 1) {
       label = `Adesso: ${names[0]} • ${targetTime}`;
     } else if (names.length > 1) {
