@@ -314,7 +314,7 @@ select.field{ appearance: none; }
 .row2{
   display:flex;
   gap: 14px;
-  margin-top: 8px;
+  margin-top: 14px;
   flex-wrap: nowrap;
   align-items: stretch;
 }
@@ -357,18 +357,22 @@ select.field{ appearance: none; }
 }
 
 .pat-sort-btn{
-  height: 46px;
+  height: 62px;
   border-radius: 16px;
-  border: 1px solid rgba(140,140,140,.55);
-  background: rgba(140,140,140,.50);
-  background-color: rgba(140,140,140,.50);
-  display:grid;
-  place-items:center;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(255,255,255,.80);
+  background-color: rgba(255,255,255,.80);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap: 4px;
   cursor:pointer;
-  padding:0;
+  padding: 6px 0;
   -webkit-appearance: none;
   appearance: none;
   box-shadow:none;
+  opacity: .80;
 }
 .pat-sort-btn svg{
   width: 20px;
@@ -378,6 +382,15 @@ select.field{ appearance: none; }
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.pat-sort-label{
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: .2px;
+  color: #2A74B8;
+  text-transform: none;
 }
 .pill-row.pill-row-2 .pill-wide{
   flex:1 1 0;
@@ -494,7 +507,7 @@ select.field{ appearance: none; }
 
 /* 3 tasti in riga nel modal società */
 .row3{
-  margin-top: 8px;
+  margin-top: 14px;
   display:flex;
   flex-wrap: nowrap;
   gap: 10px;
@@ -539,8 +552,10 @@ select.field{ appearance: none; }
 .soc-edit-btn{
   appearance:none;
   -webkit-appearance:none;
-  width: 18px;
-  height: 18px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
   border-radius: 999px;
   border: 1px solid rgba(0,0,0,.12);
   padding: 0;
@@ -551,10 +566,11 @@ select.field{ appearance: none; }
   display:flex;
   align-items:center;
   justify-content:center;
+  touch-action: manipulation;
 }
 .soc-edit-btn svg{
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   display:block;
 }
 .soc-del-name{
@@ -567,8 +583,10 @@ select.field{ appearance: none; }
 .soc-del-btn{
   appearance:none;
   -webkit-appearance:none;
-  width: 18px;
-  height: 18px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
   border-radius: 999px;
   border: 0;
   padding: 0;
@@ -576,14 +594,15 @@ select.field{ appearance: none; }
   opacity: .80;
   background: rgba(217,74,74,.80);
   position: relative;
+  touch-action: manipulation;
 }
 .soc-del-btn::before,
 .soc-del-btn::after{
   content:"";
   position:absolute;
-  left: 4px;
-  right: 4px;
-  top: 8px;
+  left: 8px;
+  right: 8px;
+  top: 14px;
   height: 2px;
   background:#ffffff;
   transform-origin:center;
@@ -1159,7 +1178,7 @@ select.field{ appearance: none; }
 }
 .cal-cell.filled .cal-badge{
   right: 8px;
-  top: 8px;
+  top: 14px;
 }
 
 /* Slot marker (soc tag) */
