@@ -893,7 +893,7 @@ select.field{ appearance: none; }
 
 /* --- Calendario (ore scroll, giorni fissi) --- */
 :root{
-  --cal-cell-h: 75px;
+  --cal-cell-h: 45px;
   --cal-cell-w: 33px;
   --cal-gap: 2px;
 }

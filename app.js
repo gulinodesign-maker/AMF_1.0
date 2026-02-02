@@ -1,7 +1,7 @@
-/* AMF_1.037 */
+/* AMF_1.038 */
 (() => {
-  const BUILD = "AMF_1.037";
-  const DISPLAY = "1.037";
+  const BUILD = "AMF_1.038";
+  const DISPLAY = "1.038";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -399,7 +399,6 @@
 
     setTopPlusVisible(name === "patients");
     setCalendarControlsVisible(name === "calendar");
-    updateTopPatientsVisible();
     updateTopbarTitle();
 
   }
@@ -422,16 +421,6 @@
     const list = [btnCalPrev, btnCalToday, btnCalNext];
     list.forEach((b) => { if (b) b.hidden = !isVisible; });
   }
-
-  function updateTopPatientsVisible() {
-    if (!btnTopPatients) return;
-    const isRO = (currentView === "patientForm") && !patientEditEnabled;
-    btnTopPatients.hidden = !isRO;
-  }
-
-  btnTopPatients?.addEventListener("click", () => {
-    openPatientsFlow();
-  });
 
 
   btnTopPlus?.addEventListener("click", () => {
@@ -2402,8 +2391,6 @@ function formatItMonth(dateObj) {
       else btnDel.setAttribute("hidden", "");
       btnDel.setAttribute("aria-label", patientEditEnabled ? "Chiudi" : "Elimina paziente");
     }
-
-    updateTopPatientsVisible();
   }
 
   // ---- Società picker (modal)
