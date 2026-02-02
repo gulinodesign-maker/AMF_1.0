@@ -359,9 +359,9 @@ select.field{ appearance: none; }
 .pat-sort-btn{
   height: 46px;
   border-radius: 16px;
-  border: 1px solid rgba(42,116,184,.25);
-  background: rgba(42,116,184,.30);
-  background-color: rgba(42,116,184,.30);
+  border: 1px solid rgba(140,140,140,.55);
+  background: rgba(140,140,140,.50);
+  background-color: rgba(140,140,140,.50);
   display:grid;
   place-items:center;
   cursor:pointer;
@@ -374,7 +374,7 @@ select.field{ appearance: none; }
   width: 20px;
   height: 20px;
   fill: none;
-  stroke: #ffffff;
+  stroke: #2A74B8;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
