@@ -1,7 +1,7 @@
-/* AMF_1.046 */
+/* AMF_1.047 */
 (() => {
-  const BUILD = "AMF_1.046";
-  const DISPLAY = "1.046";
+  const BUILD = "AMF_1.047";
+  const DISPLAY = "1.047";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -2412,12 +2412,12 @@ function formatItMonth(dateObj) {
       addrEl.setAttribute("aria-readonly", (!patientEditEnabled) ? "true" : "false");
     }
 
-    // Geotag button: solo in modifica
+    // Geotag button: solo in lettura (apre Maps/percorso)
     const geoBtn = $("#btnPatGeotag");
     if (geoBtn) {
-      if (patientEditEnabled) geoBtn.removeAttribute("hidden");
+      if (!patientEditEnabled) geoBtn.removeAttribute("hidden");
       else geoBtn.setAttribute("hidden", "");
-      geoBtn.toggleAttribute("disabled", !patientEditEnabled);
+      geoBtn.toggleAttribute("disabled", patientEditEnabled);
     }
 
     const btnPick = $("#btnPickSoc");
@@ -2465,6 +2465,28 @@ function formatItMonth(dateObj) {
     try { window.open(url, "_blank"); } catch { try { location.href = url; } catch {} }
   }
 
+  async function acquireGeoOnce() {
+    if (!("geolocation" in navigator)) return null;
+    const opts = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+    try {
+      return await new Promise((resolve) => {
+        try {
+          navigator.geolocation.getCurrentPosition((pos) => {
+            const lat = pos && pos.coords ? pos.coords.latitude : null;
+            const lng = pos && pos.coords ? pos.coords.longitude : null;
+            const acc = pos && pos.coords ? pos.coords.accuracy : null;
+            const ts = pos && pos.timestamp ? new Date(pos.timestamp).toISOString() : new Date().toISOString();
+            if (lat == null || lng == null) { resolve(null); return; }
+            resolve({ lat, lng, acc, ts });
+          }, () => resolve(null), opts);
+        } catch (_) { resolve(null); }
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
+
   $("#patAddress")?.addEventListener("click", (e) => {
     if (patientEditEnabled) return;
     e.preventDefault();
@@ -2473,68 +2495,15 @@ function formatItMonth(dateObj) {
     try { $("#patAddress")?.blur(); } catch {}
   });
 
-  $("#btnPatGeotag")?.addEventListener("click", async (e) => {
-    if (!patientEditEnabled) return;
+  $("#btnPatGeotag")?.addEventListener("click", (e) => {
+    // In lettura: apre Google Maps e genera il percorso verso il paziente
+    if (patientEditEnabled) return;
     e.preventDefault();
     e.stopPropagation();
-
-    const session = getSession();
-    if (!session || !session.id) { toast("Sessione non valida"); return; }
-    if (!currentPatient || !currentPatient.id) { toast("Salva prima il paziente"); return; }
-
-    if (!("geolocation" in navigator)) { toast("Geolocalizzazione non disponibile"); return; }
-
-    toast("Acquisizione posizione...");
-    const ok = await ensureApiReady();
-    if (!ok) return;
-
-    const opts = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
-
-    await new Promise((resolve) => {
-      try {
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-          try {
-            const lat = pos && pos.coords ? pos.coords.latitude : null;
-            const lng = pos && pos.coords ? pos.coords.longitude : null;
-            const acc = pos && pos.coords ? pos.coords.accuracy : null;
-            const ts = pos && pos.timestamp ? new Date(pos.timestamp).toISOString() : new Date().toISOString();
-
-            if (lat == null || lng == null) { toast("Posizione non valida"); resolve(); return; }
-
-            const payload = {
-              geo_lat: lat,
-              geo_lng: lng,
-              geo_accuracy: (acc == null ? "" : acc),
-              geo_ts: ts
-            };
-
-            await api("updatePatient", { userId: session.id, id: currentPatient.id, payload: JSON.stringify(payload) });
-
-            // aggiorna stato locale + lista
-            currentPatient.geo_lat = lat;
-            currentPatient.geo_lng = lng;
-            currentPatient.geo_accuracy = acc;
-            currentPatient.geo_ts = ts;
-            try { await loadPatients(); } catch {}
-            toast("Geotag salvato");
-          } catch (err) {
-            if (!apiHintIfUnknownAction(err)) toast("Errore salvataggio");
-          }
-          resolve();
-        }, (err) => {
-          const code = err && err.code;
-          if (code === 1) toast("Permesso posizione negato");
-          else if (code === 2) toast("Posizione non disponibile");
-          else if (code === 3) toast("Timeout posizione");
-          else toast("Errore geolocalizzazione");
-          resolve();
-        }, opts);
-      } catch (_) {
-        toast("Errore geolocalizzazione");
-        resolve();
-      }
-    });
+    openMapsToPatient(currentPatient);
+    try { $("#patAddress")?.blur(); } catch {}
   });
+
 
 
 // ---- Società picker (modal)
@@ -2975,6 +2944,14 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     if (!societa_id) { toast("Seleziona la società"); return; }
     if (!level) { toast("Seleziona il livello"); return; }
 
+
+    // Geotag automatico (scrittura/modifica): tenta acquisizione senza tasto dedicato
+    let geo = null;
+    try {
+      toast("Acquisizione posizione...");
+      geo = await acquireGeoOnce();
+    } catch (_) { geo = null; }
+
     const payload = {
       nome_cognome,
       address,
@@ -2985,6 +2962,10 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
       data_inizio,
       data_fine,
       giorni_settimana: JSON.stringify((currentPatient && currentPatient.giorni_map) ? currentPatient.giorni_map : {}),
+      geo_lat: (geo ? geo.lat : ""),
+      geo_lng: (geo ? geo.lng : ""),
+      geo_accuracy: (geo && geo.acc != null ? geo.acc : ""),
+      geo_ts: (geo ? geo.ts : ""),
       utente_id: user.id
     };
 
