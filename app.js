@@ -1,7 +1,7 @@
-/* AMF_1.052 */
+/* AMF_1.055 */
 (() => {
-  const BUILD = "AMF_1.052";
-  const DISPLAY = "1.052";
+  const BUILD = "AMF_1.055";
+  const DISPLAY = "1.055";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1279,13 +1279,26 @@ function assignSocColorIndex0to5_(socId) {
 
 function buildSocietaMap_(arr) {
   societaMapById = new Map();
+  const localTagMap = getSocTagMap_();
   (arr || []).forEach((s) => {
     if (!s) return;
     const id = String(s.id || "").trim();
     if (!id) return;
     const nome = String(s.nome || "").trim();
-    // Colore assegnato in modo progressivo e coerente (0..5)
-    const tag = assignSocColorIndex0to5_(id);
+    // Tag/colore società:
+    // 1) se il backend lo fornisce, usalo
+    // 2) fallback locale (iOS) per salvare modifiche anche se il backend non persiste
+    // 3) default: sequenza stabile per id
+    let tag = (s.tag ?? s.tagIndex ?? s.tag_index ?? s.colore ?? s.color ?? null);
+    if (tag === null || tag === undefined || tag === "") {
+      const keyId = "id:" + id;
+      const keyName = "name:" + nome;
+      if (localTagMap[keyId] !== undefined && localTagMap[keyId] !== null) tag = localTagMap[keyId];
+      else if (nome && localTagMap[keyName] !== undefined && localTagMap[keyName] !== null) tag = localTagMap[keyName];
+      else if (nome && localTagMap[nome] !== undefined && localTagMap[nome] !== null) tag = localTagMap[nome];
+      else tag = assignSocColorIndex0to5_(id);
+    }
+    tag = Math.max(0, Math.min(5, Number(tag) || 0));
     const l1 = (s.l1 ?? s.L1 ?? s.livello1 ?? s.liv1 ?? s.tariffa_livello_1 ?? "");
     const l2 = (s.l2 ?? s.L2 ?? s.livello2 ?? s.liv2 ?? s.tariffa_livello_2 ?? "");
     const l3 = (s.l3 ?? s.L3 ?? s.livello3 ?? s.liv3 ?? s.tariffa_livello_3 ?? "");
@@ -1312,6 +1325,32 @@ async function loadSocietaCache(force = false) {
   }
 }
 
+// Refresh società state + UI (iOS: rendi immediato dopo Salva)
+async function refreshSocietaEverywhere_(opts = {}) {
+  const { rerenderPatients = true, rerenderStats = true, rerenderDeleteList = true } = (opts || {});
+
+  // Reset cache locali e API cache
+  societaCache = null;
+  invalidateApiCache("listSocieta");
+
+  // Ricarica forzata
+  await loadSocietaCache(true);
+
+  // Aggiorna viste che dipendono da società
+  if (rerenderPatients && (currentView === "patients")) {
+    try { renderPatients(); } catch (_) {}
+  }
+  if (rerenderStats && (currentView === "stats")) {
+    try {
+      const arr = Array.isArray(societaCache) ? societaCache : [];
+      renderStatsSocTabs_(arr);
+    } catch (_) {}
+  }
+  if (rerenderDeleteList && socDeletePanel && !socDeletePanel.hidden) {
+    try { await renderSocietaDeleteList(); } catch (_) {}
+  }
+}
+
 function getSocietaById(id) {
   const key = String(id || "").trim();
   if (!key) return null;
@@ -1323,9 +1362,31 @@ function getSocNameById(id) {
   return s && s.nome ? s.nome : "";
 }
 
+function getSocTagMap_() {
+  try {
+    return safeJsonParse(localStorage.getItem("AMF_SOC_TAGS") || "", {}) || {};
+  } catch (_) {
+    return {};
+  }
+}
+
 function getSocTagIndexById(id) {
   const s = getSocietaById(id);
-  return s && s.tag !== undefined && s.tag !== null ? (Number(s.tag) || 0) : 0;
+  // 1) Preferisci tag restituito dal backend
+  if (s && s.tag !== undefined && s.tag !== null) return (Number(s.tag) || 0);
+
+  // 2) Fallback locale (iOS): salva tag/colore anche se il backend non lo persiste
+  const map = getSocTagMap_();
+  const keyId = "id:" + String(id || "").trim();
+  if (keyId && map[keyId] !== undefined && map[keyId] !== null) return (Number(map[keyId]) || 0);
+
+  const nome = s && s.nome ? String(s.nome).trim() : "";
+  const keyName = "name:" + nome;
+  if (nome && map[keyName] !== undefined && map[keyName] !== null) return (Number(map[keyName]) || 0);
+
+  // compatibilità vecchie chiavi (nome puro)
+  if (nome && map[nome] !== undefined && map[nome] !== null) return (Number(map[nome]) || 0);
+  return 0;
 }
 
 
@@ -3057,19 +3118,33 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
   function getSocTagMap() {
     return safeJsonParse(localStorage.getItem("AMF_SOC_TAGS") || "", {}) || {};
   }
-  function setSocTagForName(nome, tag) {
-    const key = String(nome || "").trim();
-    if (!key) return;
+  function setSocTagForName(nome, tag, id) {
+    const name = String(nome || "").trim();
     const map = getSocTagMap();
-    map[key] = Number(tag) || 0;
-    localStorage.setItem("AMF_SOC_TAGS", JSON.stringify(map));
+    const v = Math.max(0, Math.min(5, Number(tag) || 0));
+
+    // compatibilità: chiave "nome" pura
+    if (name) map[name] = v;
+    // nuove chiavi stabili
+    if (name) map["name:" + name] = v;
+    const sid = String(id || "").trim();
+    if (sid) map["id:" + sid] = v;
+
+    try { localStorage.setItem("AMF_SOC_TAGS", JSON.stringify(map)); } catch (_) {}
   }
-  function deleteSocTagForName(nome) {
-    const key = String(nome || "").trim();
-    if (!key) return;
+  function deleteSocTagForName(nome, id) {
+    const name = String(nome || "").trim();
+    const sid = String(id || "").trim();
+    if (!name && !sid) return;
     const map = getSocTagMap();
-    delete map[key];
-    localStorage.setItem("AMF_SOC_TAGS", JSON.stringify(map));
+    if (name) {
+      delete map[name];
+      delete map["name:" + name];
+    }
+    if (sid) {
+      delete map["id:" + sid];
+    }
+    try { localStorage.setItem("AMF_SOC_TAGS", JSON.stringify(map)); } catch (_) {}
   }
 
   function setSelectedSocTag(tag) {
@@ -3131,7 +3206,36 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     throw lastErr || new Error("Errore API");
   }
 
-  async function renderSocietaDeleteList() {
+  
+  async function verifySocietaApplied_(expect) {
+    try {
+      invalidateApiCache("listSocieta");
+      const fresh = await api("listSocieta", { userId: expect.userId });
+      const arr = Array.isArray(fresh && fresh.societa) ? fresh.societa : [];
+      const byId = expect.id ? arr.find((x) => String(x.id || x.societa_id || x.societaId || x.societyId || "").trim() === String(expect.id).trim()) : null;
+      const byName = arr.find((x) => String(x.nome || x.name || "").trim().toLowerCase() === String(expect.nome || "").trim().toLowerCase());
+      const row = byId || byName;
+      if (!row) return false;
+
+      const getNum = (v) => {
+        const s = String(v ?? "").trim().replace(",", ".");
+        if (!s) return "";
+        const n = Number(s);
+        return isFinite(n) ? String(n) : s;
+      };
+
+      const okNome = String(row.nome || row.name || "").trim().toLowerCase() === String(expect.nome || "").trim().toLowerCase();
+      const okL1 = getNum(row.l1 ?? row.L1 ?? row.livello1 ?? row.liv1 ?? row.tariffa_livello_1) === getNum(expect.l1);
+      const okL2 = getNum(row.l2 ?? row.L2 ?? row.livello2 ?? row.liv2 ?? row.tariffa_livello_2) === getNum(expect.l2);
+      const okL3 = getNum(row.l3 ?? row.L3 ?? row.livello3 ?? row.liv3 ?? row.tariffa_livello_3) === getNum(expect.l3);
+
+      // tag opzionale: il backend può non restituirlo
+      return okNome && okL1 && okL2 && okL3;
+    } catch (_) {
+      return false;
+    }
+  }
+async function renderSocietaDeleteList() {
     const user = getSession();
     if (!user) { toast("Accesso richiesto"); return; }
     const ok = await ensureApiReady();
@@ -3205,9 +3309,8 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
 
       // se il backend non restituisce il tag, lo manteniamo localmente
       if (s && (s.tag !== undefined && s.tag !== null)) {
-        setSocTagForName(nome, s.tag);
-      } else if (tagMap[nome] !== undefined) {
-        // no-op
+        // se il backend restituisce il tag, aggiorna anche il fallback locale
+        setSocTagForName(nome, s.tag, id);
       }
     }
     socDeleteList.appendChild(frag);
@@ -3253,9 +3356,22 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
       try {
         await apiTry(
           ["deleteSocieta", "delSocieta", "removeSocieta", "deleteSociety"],
-          { userId: user.id, id: id || undefined, nome: nome || undefined }
+          {
+            userId: user.id,
+            id: id || undefined,
+            societa_id: id || undefined,
+            societaId: id || undefined,
+            societyId: id || undefined,
+            nome: nome || undefined,
+            name: nome || undefined,
+            oldNome: nome || undefined,
+            nome_old: nome || undefined,
+            old_name: nome || undefined
+          }
         );
-        invalidateApiCache("listSocieta");
+          // pulizia fallback locale tag/colore
+          deleteSocTagForName(nome, id);
+        await refreshSocietaEverywhere_({ rerenderDeleteList: false });
         toast("Società eliminata");
         await renderSocietaDeleteList();
       } catch (err) {
@@ -3287,33 +3403,103 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     const user = getSession();
     if (!user) { toast("Accesso richiesto"); return; }
     try {
+      const baseSocPayload = {
+        userId: user.id,
+        nome,
+        name: nome,
+        tag: selectedSocTag,
+        tagIndex: selectedSocTag,
+        l1, l2, l3,
+        L1: l1, L2: l2, L3: l3,
+        livello1: l1, livello2: l2, livello3: l3,
+        liv1: l1, liv2: l2, liv3: l3,
+        tariffa_livello_1: l1,
+        tariffa_livello_2: l2,
+        tariffa_livello_3: l3
+      };
+
+      
       if (editingSocId) {
+        const expected = Object.assign({}, baseSocPayload, { id: editingSocId });
+        // 1) Prova update (più nomi action possibili)
+        let updated = false;
         try {
           await apiTry(
             ["updateSocieta", "editSocieta", "updSocieta", "setSocieta", "updateSociety", "editSociety"],
-            { userId: user.id, id: editingSocId, nome, tag: selectedSocTag, l1, l2, l3, oldNome: editingSocOldName || undefined }
+            Object.assign({}, baseSocPayload, {
+              id: editingSocId,
+              societa_id: editingSocId,
+              societaId: editingSocId,
+              societyId: editingSocId,
+              oldNome: editingSocOldName || undefined,
+              nome_old: editingSocOldName || undefined,
+              old_name: editingSocOldName || undefined,
+              prevNome: editingSocOldName || undefined,
+              payload: JSON.stringify(baseSocPayload),
+              data: JSON.stringify(baseSocPayload)
+            })
           );
+          updated = await verifySocietaApplied_(expected);
         } catch (errUp) {
-          const msg = String(errUp && errUp.message ? errUp.message : errUp).toLowerCase();
-          // fallback: delete + add (in caso il backend non supporti update)
-          if (msg.includes("unknown action")) {
+          // se l'update fallisce, passiamo al fallback
+          updated = false;
+        }
+
+        // 2) Fallback robusto: delete + add (garantisce applicazione su backend che non supporta update)
+        if (!updated) {
+          try {
             await apiTry(
               ["deleteSocieta", "delSocieta", "removeSocieta", "deleteSociety"],
-              { userId: user.id, id: editingSocId || undefined, nome: editingSocOldName || undefined }
+              {
+                userId: user.id,
+                id: editingSocId || undefined,
+                societa_id: editingSocId || undefined,
+                societaId: editingSocId || undefined,
+                societyId: editingSocId || undefined,
+                nome: editingSocOldName || undefined,
+                name: editingSocOldName || undefined,
+                oldNome: editingSocOldName || undefined,
+                nome_old: editingSocOldName || undefined,
+                old_name: editingSocOldName || undefined
+              }
             );
-            await api("addSocieta", { userId: user.id, nome, tag: selectedSocTag, l1, l2, l3 });
-          } else {
-            throw errUp;
-          }
+          } catch (_) { /* ignore */ }
+
+          await apiTry(
+            ["addSocieta", "createSocieta", "insertSocieta", "newSocieta", "addSociety", "createSociety"],
+            Object.assign({}, baseSocPayload, {
+              // in alcuni backend il nome vecchio serve per la sostituzione
+              oldNome: editingSocOldName || undefined,
+              nome_old: editingSocOldName || undefined
+            })
+          );
+
+          updated = await verifySocietaApplied_(Object.assign({}, baseSocPayload, { id: "" }));
         }
-        invalidateApiCache("listSocieta");
+
+        if (!updated) {
+          toast("Salvataggio non riuscito");
+          return;
+        }
+
+        // Persistenza locale tag/colore (iOS): anche se il backend non salva/rest... 
+        // Se cambia nome, rimuovi il mapping vecchio.
+        if (editingSocOldName && editingSocOldName.trim() && editingSocOldName.trim().toLowerCase() !== nome.trim().toLowerCase()) {
+          deleteSocTagForName(editingSocOldName, editingSocId);
+        }
+        setSocTagForName(nome, selectedSocTag, editingSocId);
+
+        await refreshSocietaEverywhere_();
         toast("Società aggiornata");
         closeSocModal();
         return;
       }
 
-      await api("addSocieta", { userId: user.id, nome, tag: selectedSocTag, l1, l2, l3 });
-      invalidateApiCache("listSocieta");
+
+      const addRes = await api("addSocieta", baseSocPayload);
+      const newId = String((addRes && (addRes.id || addRes.societa_id || addRes.societaId || addRes.societyId)) || "").trim();
+      setSocTagForName(nome, selectedSocTag, newId);
+      await refreshSocietaEverywhere_();
       toast("Società aggiunta");
       closeSocModal();
     } catch (err) {
@@ -3360,7 +3546,7 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.051").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.055").catch(() => {});
     });
   }
 })();

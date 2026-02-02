@@ -314,7 +314,7 @@ select.field{ appearance: none; }
 .row2{
   display:flex;
   gap: 14px;
-  margin-top: 14px;
+  margin-top: 21px;
   flex-wrap: nowrap;
   align-items: stretch;
 }
@@ -507,7 +507,7 @@ select.field{ appearance: none; }
 
 /* 3 tasti in riga nel modal società */
 .row3{
-  margin-top: 14px;
+  margin-top: 21px;
   display:flex;
   flex-wrap: nowrap;
   gap: 10px;
@@ -521,7 +521,7 @@ select.field{ appearance: none; }
 
 /* tendina eliminazione società */
 .soc-delete-panel{
-  margin-top: 14px;
+  margin-top: 21px;
   padding-top: 12px;
   border-top: 1px solid rgba(0,0,0,.10);
 }
@@ -552,10 +552,10 @@ select.field{ appearance: none; }
 .soc-edit-btn{
   appearance:none;
   -webkit-appearance:none;
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  min-height: 30px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 999px;
   border: 1px solid rgba(0,0,0,.12);
   padding: 0;
@@ -569,8 +569,8 @@ select.field{ appearance: none; }
   touch-action: manipulation;
 }
 .soc-edit-btn svg{
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   display:block;
 }
 .soc-del-name{
@@ -583,10 +583,10 @@ select.field{ appearance: none; }
 .soc-del-btn{
   appearance:none;
   -webkit-appearance:none;
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  min-height: 30px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 999px;
   border: 0;
   padding: 0;
@@ -600,9 +600,9 @@ select.field{ appearance: none; }
 .soc-del-btn::after{
   content:"";
   position:absolute;
-  left: 8px;
-  right: 8px;
-  top: 14px;
+  left: 12px;
+  right: 12px;
+  top: 21px;
   height: 2px;
   background:#ffffff;
   transform-origin:center;
@@ -1177,8 +1177,8 @@ select.field{ appearance: none; }
   transform: none;
 }
 .cal-cell.filled .cal-badge{
-  right: 8px;
-  top: 14px;
+  right: 12px;
+  top: 21px;
 }
 
 /* Slot marker (soc tag) */
