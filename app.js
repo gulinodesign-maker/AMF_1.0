@@ -1,7 +1,7 @@
-/* AMF_1.055 */
+/* AMF_1.056 */
 (() => {
-  const BUILD = "AMF_1.055";
-  const DISPLAY = "1.055";
+  const BUILD = "AMF_1.056";
+  const DISPLAY = "1.056";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -3492,6 +3492,7 @@ async function renderSocietaDeleteList() {
         await refreshSocietaEverywhere_();
         toast("Società aggiornata");
         closeSocModal();
+        showView("settings");
         return;
       }
 
@@ -3502,6 +3503,7 @@ async function renderSocietaDeleteList() {
       await refreshSocietaEverywhere_();
       toast("Società aggiunta");
       closeSocModal();
+      showView("settings");
     } catch (err) {
       if (apiHintIfUnknownAction(err)) return;
       toast(String(err && err.message ? err.message : "Errore"));
