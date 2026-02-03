@@ -1,7 +1,7 @@
-/* AMF_1.063 */
+/* AMF_1.066 */
 (() => {
-  const BUILD = "AMF_1.063";
-  const DISPLAY = "1.063";
+  const BUILD = "AMF_1.066";
+  const DISPLAY = "1.066";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -686,6 +686,14 @@
 
     return { rows, totalAcc, totalEur, year, monthIndex: mi };
   }
+  function formatPatientShort_(cognome, nome) {
+    const c = String(cognome || "").trim();
+    const n = String(nome || "").trim();
+    const init = n ? ((n.split(/\s+/).filter(Boolean)[0] || "").charAt(0) || "") : "";
+    if (c && init) return `${c} ${init.toUpperCase()}.`;
+    return c || (init ? `${init.toUpperCase()}.` : "");
+  }
+
 
   function applyStatsCardColor_() {
     if (!statsTableCard) return;
@@ -716,8 +724,7 @@
       const row = document.createElement("div");
       row.className = "stats-row";
       row.innerHTML = `
-        <div class="st-c1">${escapeHtml(String(r.cognome || ""))}</div>
-        <div class="st-c2">${escapeHtml(String(r.nome || ""))}</div>
+        <div class="st-c1">${escapeHtml(formatPatientShort_(r.cognome, r.nome))}</div>
         <div class="st-c3 st-num">${escapeHtml(String(r.accessi || 0))}</div>
         <div class="st-c4 st-num">${escapeHtml(formatEuro_(r.importo || 0))}</div>
       `;
@@ -1181,17 +1188,20 @@ function renderStatsMonthly_() {
     const docTitle = `Report Accessi - ${monthName} ${y}`;
 
     const bodyRows = (Array.isArray(rows) ? rows : []).map((r) => {
+      const c = String(r.cognome || "").trim();
+      const n = String(r.nome || "").trim();
+      const init = n ? ((n.split(/\s+/).filter(Boolean)[0] || "").charAt(0) || "") : "";
+      const paz = (c && init) ? `${c} ${String(init).toUpperCase()}.` : (c || (init ? `${String(init).toUpperCase()}.` : ""));
       return `<tr>
-        <td class="c1">${safe(r.cognome || "")}</td>
-        <td class="c2">${safe(r.nome || "")}</td>
-        <td class="c3">${safe(String(r.accessi || 0))}</td>
+        <td class="c1">${safe(paz)}</td>
+        <td class="c2">${safe(String(r.accessi || 0))}</td>
       </tr>`;
     }).join("");
 
     // righe vuote per dare "respiro" tipo modulo
     const minRows = 18;
     const emptyCount = Math.max(0, minRows - (Array.isArray(rows) ? rows.length : 0));
-    const emptyRows = new Array(emptyCount).fill(0).map(() => `<tr class="empty"><td class="c1">&nbsp;</td><td class="c2"></td><td class="c3"></td></tr>`).join("");
+    const emptyRows = new Array(emptyCount).fill(0).map(() => `<tr class="empty"><td class="c1">&nbsp;</td><td class="c2"></td></tr>`).join("");
 
     const html = `<!doctype html>
 <html lang="it">
@@ -1219,12 +1229,6 @@ function renderStatsMonthly_() {
     border-radius: 24px;
     background: rgba(255,255,255,.98);
   }
-  .hdr{display:flex;align-items:center;gap:12px;margin:0 0 10px;}
-  .logo{width:46px;height:46px;border-radius:14px;object-fit:cover;border:2px solid rgba(42,116,184,.25);}
-  .hdr-txt{display:flex;flex-direction:column;gap:2px;}
-  .app{font-size:18px;font-weight:900;letter-spacing:.2px;color:var(--primary);}
-  .sub{font-size:12px;font-weight:900;letter-spacing:.2px;color:rgba(27,31,35,.68);}
-
   .title{
     font-size: 30px;
     font-weight: 900;
@@ -1273,9 +1277,8 @@ function renderStatsMonthly_() {
     height: 28px;
     vertical-align: middle;
   }
-  .c1{ width: 38%; border-right: 2px solid rgba(42,116,184,.25); }
-  .c2{ width: 38%; border-right: 2px solid rgba(42,116,184,.25); }
-  .c3{ width: 24%; text-align: right; font-weight: 900; }
+  .c1{ width: 70%; border-right: 2px solid rgba(42,116,184,.25); }
+  .c2{ width: 30%; text-align: right; font-weight: 900; }
   tfoot td{
     padding: 12px 10px 6px;
     font-size: 18px;
@@ -1291,13 +1294,6 @@ function renderStatsMonthly_() {
 </head>
 <body>
   <div class="sheet">
-    <div class="hdr">
-      <img class="logo" src="./assets/logo.jpg" alt="Logo"/>
-      <div class="hdr-txt">
-        <div class="app">AMF</div>
-        <div class="sub">Report Accessi</div>
-      </div>
-    </div>
     <div class="title">${societaLabel || "Nome società"}</div>
     <div class="hr"></div>
 
@@ -1309,9 +1305,8 @@ function renderStatsMonthly_() {
     <table>
       <thead>
         <tr>
-          <th class="c1">COGNOME</th>
-          <th class="c2">NOME</th>
-          <th class="c3">TOTALI ACCESSI</th>
+          <th class="c1">PAZIENTE</th>
+          <th class="c2">TOTALI ACCESSI</th>
         </tr>
       </thead>
       <tbody>
@@ -1320,7 +1315,7 @@ function renderStatsMonthly_() {
       </tbody>
       <tfoot>
         <tr>
-          <td class="tot-label" colspan="2">TOTALE ACCESSI</td>
+          <td class="tot-label">TOTALE ACCESSI</td>
           <td class="tot-val">${safe(String(total || 0))}</td>
         </tr>
       </tfoot>
