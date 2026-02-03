@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Montalto PMS</title>
-  <link rel="stylesheet" href="./styles.css?v=1.063" />
+  <link rel="stylesheet" href="./styles.css?v=1.064" />
   <link rel="manifest" href="./manifest.json" />
   <meta name="theme-color" content="#2a74b8" />
   <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
@@ -83,7 +83,7 @@
       </section>
         </div>
         <div class="home-footer" aria-label="Build">
-          <div class="build" id="buildLabel">1.059</div>
+          <div class="build" id="buildLabel">1.064</div>
         </div>
       </div>
     </section>
@@ -399,6 +399,14 @@
         </div>
       </div>
     </div>
+    <div class="modal" id="modalPickMonth" aria-hidden="true">
+      <div class="modal-card">
+        <button class="dot-close" id="btnPickMonthClose" aria-label="Chiudi"></button>
+        <div class="modal-title">Mese</div>
+        <div class="list" id="monthPickList" aria-label="Elenco mesi"></div>
+      </div>
+    </div>
+
 
     <!-- TOAST -->
     <div class="toast" id="toast" aria-live="polite" aria-atomic="true"></div>
@@ -407,22 +415,52 @@
     <!-- STATISTICHE -->
     <section class="view" id="viewStats" aria-label="Statistiche">
       <div class="page">
-        <div class="stats-head">
-          <div class="page-title">Fatturati mensili</div>
+        <div class="page-title">Fatturati &amp; Accessi</div>
+
+        <div class="stats-controls" aria-label="Filtri statistiche">
+          <button class="stats-select" id="btnStatsMonth" type="button" aria-label="Seleziona mese">
+            <span class="stats-select-text" id="lblStatsMonth">Mese</span>
+            <span class="stats-select-badge" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg>
+            </span>
+          </button>
+
+          <button class="stats-select" id="btnStatsSoc" type="button" aria-label="Seleziona società">
+            <span class="stats-select-text" id="lblStatsSoc">Società</span>
+            <span class="stats-select-badge" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></svg>
+            </span>
+          </button>
+
+          <div class="stats-levels" id="statsLevelDots" aria-label="Fascia prezzo">
+            <!-- bottoni livello generati da JS -->
+          </div>
         </div>
 
-        <div class="stats-filters" aria-label="Filtri statistiche">
-          <div class="seg-tabs" id="statsSocTabs" role="tablist" aria-label="Selezione società"><button type="button" class="seg-tab selected" role="tab" data-soc="ALL">Tutte</button></div>
-          <div class="dot-row" id="statsLevelDots" aria-label="Filtro livello"></div>
-        </div>
+        <div class="stats-table-card" id="statsTableCard" aria-label="Tabella fatturati e accessi">
+          <div class="stats-table-head" aria-hidden="true">
+            <div class="st-c1">COGNOME</div>
+            <div class="st-c2">NOME</div>
+            <div class="st-c3">ACC</div>
+            <div class="st-c4">IMPORTO</div>
+          </div>
+          <div class="stats-table-body" id="statsTableBody" aria-label="Elenco"></div>
 
-        <div class="stats-list" id="statsMonthlyList" aria-label="Lista fatturati mensili"></div>
+          <div class="stats-totals" aria-label="Totali selezione">
+            <div class="stats-total-left">
+              <div class="stats-total-val" id="statsTotalAccessi">0</div>
+            </div>
+            <div class="stats-total-right">
+              <div class="stats-total-val" id="statsTotalImporto">0 €</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
 </main>
 
   <script src="./config.js"></script>
-  <script src="./app.js?v=1.063"></script>
+  <script src="./app.js?v=1.064"></script>
 </body>
 </html>

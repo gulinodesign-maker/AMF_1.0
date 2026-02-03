@@ -428,7 +428,9 @@
     if (name === "home") setTopRight("settings");
     else setTopRight("home");
 
-    setTopPlusVisible(name === "patients");
+    if (name === "patients") { setTopPlusMode_("add"); }
+    else if (name === "stats") { setTopPlusMode_("print"); }
+    else { setTopPlusVisible(false); }
     setCalendarControlsVisible(name === "calendar");
     updateTopbarTitle();
 
@@ -446,6 +448,21 @@
     if (!btnTopPlus) return;
     btnTopPlus.hidden = !isVisible;
   }
+  function setTopPlusMode_(mode) {
+    if (!btnTopPlus) return;
+    if (mode === "print") {
+      btnTopPlus.hidden = false;
+      btnTopPlus.setAttribute("aria-label", "Stampa report");
+      btnTopPlus.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l3 3v17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"></path><path d="M15 2v4h4"></path><path d="M8 11h8"></path><path d="M8 15h8"></path><path d="M8 19h5"></path></svg>';
+      return;
+    }
+    // default: add
+    btnTopPlus.hidden = false;
+    btnTopPlus.setAttribute("aria-label", "Aggiungi");
+    btnTopPlus.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>';
+  }
+
+
 
 
   function setCalendarControlsVisible(isVisible) {
@@ -455,11 +472,13 @@
 
 
   btnTopPlus?.addEventListener("click", () => {
+    if (currentView === "stats") {
+      try { statsPrintReport_(); } catch (_) {}
+      return;
+    }
     openPatientCreate();
   });
-
-
-  // --- Home routes placeholders
+// --- Home routes placeholders
   const routes = {
     
     pazienti: () => openPatientsFlow(),
@@ -469,14 +488,314 @@
   
 
   // --- Statistiche
-  const statsSocTabs = $("#statsSocTabs");
+  const btnStatsMonth = $("#btnStatsMonth");
+  const lblStatsMonth = $("#lblStatsMonth");
+  const btnStatsSoc = $("#btnStatsSoc");
+  const lblStatsSoc = $("#lblStatsSoc");
   const statsLevelDots = $("#statsLevelDots");
-  const statsMonthlyList = $("#statsMonthlyList");
+  const statsTableBody = $("#statsTableBody");
+  const statsTableCard = $("#statsTableCard");
+  const statsTotalAccessi = $("#statsTotalAccessi");
+  const statsTotalImporto = $("#statsTotalImporto");
+
+  const modalPickMonth = $("#modalPickMonth");
+  const btnPickMonthClose = $("#btnPickMonthClose");
+  const monthPickList = $("#monthPickList");
 
   let statsSelectedSoc = "ALL"; // "ALL" = Tutte
   let statsSelectedLevel = "T"; // L1/L2/L3/T
+  let statsSelectedMonthIndex = (new Date()).getMonth(); // 0..11
 
   const MONTHS_IT = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+
+  let statsHandlersBound = false;
+
+  function openPickMonthModal_() {
+    if (!modalPickMonth) return;
+    modalPickMonth.classList.add("show");
+    modalPickMonth.setAttribute("aria-hidden", "false");
+  }
+  function closePickMonthModal_() {
+    if (!modalPickMonth) return;
+    modalPickMonth.classList.remove("show");
+    modalPickMonth.setAttribute("aria-hidden", "true");
+  }
+  btnPickMonthClose?.addEventListener("click", closePickMonthModal_);
+  modalPickMonth?.addEventListener("click", (e) => { if (e.target === modalPickMonth) closePickMonthModal_(); });
+
+  function renderStatsMonthLabel_() {
+    if (!lblStatsMonth) return;
+    lblStatsMonth.textContent = (MONTHS_IT[statsSelectedMonthIndex] || "Mese").toUpperCase();
+  }
+
+  function renderStatsSocLabel_() {
+    if (!lblStatsSoc) return;
+    const label = (statsSelectedSoc === "ALL") ? "SOCIETÀ" : (String(getSocietaById(statsSelectedSoc)?.nome || "Società").toUpperCase());
+    lblStatsSoc.textContent = label;
+  }
+
+  function getStatsYear_() {
+    const y1 = ($("#setAnno")?.value || "").trim();
+    const y2 = ($("#pillYear")?.textContent || "").trim();
+    const cand = y1 || y2;
+    const n = parseInt(cand, 10);
+    return (isFinite(n) && n >= 2000 && n <= 2100) ? n : (new Date()).getFullYear();
+  }
+
+  function getPatientLevel_(p) {
+    return normalizeLevel_(p?.livello ?? p?.level ?? p?.liv ?? p?.livello_id ?? p?.lvl);
+  }
+
+  function getRateForPatient_(p) {
+    const lv = getPatientLevel_(p);
+    if (!lv || lv === "T") return 0;
+    const sid = String(p?.societa_id || p?.societaId || p?.soc || "").trim();
+    const s = sid ? getSocietaById(sid) : null;
+    if (!s) return 0;
+
+    const l1 = coerceNumber_(s.l1 ?? s.L1 ?? s.liv1 ?? s.livello1);
+    const l2 = coerceNumber_(s.l2 ?? s.L2 ?? s.liv2 ?? s.livello2);
+    const l3 = coerceNumber_(s.l3 ?? s.L3 ?? s.liv3 ?? s.livello3);
+
+    if (lv === "L1") return l1 ?? 0;
+    if (lv === "L2") return l2 ?? 0;
+    if (lv === "L3") return l3 ?? 0;
+    return 0;
+  }
+
+  function countWeekdayInRange_(startDate, endDate, weekday) {
+    if (!startDate || !endDate) return 0;
+    const s = new Date(startDate); s.setHours(0,0,0,0);
+    const e = new Date(endDate); e.setHours(0,0,0,0);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+    if (s.getTime() > e.getTime()) return 0;
+
+    const wd = Number(weekday);
+    if (!isFinite(wd)) return 0;
+
+    const shift = (wd - s.getDay() + 7) % 7;
+    const first = new Date(s);
+    first.setDate(s.getDate() + shift);
+    if (first.getTime() > e.getTime()) return 0;
+
+    const days = Math.floor((e.getTime() - first.getTime()) / 86400000);
+    return 1 + Math.floor(days / 7);
+  }
+
+  function getPatientRangeWithinYear_(p, year) {
+    const yStart = new Date(year, 0, 1); yStart.setHours(0,0,0,0);
+    const yEnd = new Date(year, 11, 31); yEnd.setHours(0,0,0,0);
+
+    const pStart = dateOnlyLocal(p?.data_inizio || p?.start || "");
+    const pEnd = dateOnlyLocal(p?.data_fine || p?.end || "");
+
+    const s = pStart ? new Date(pStart) : new Date(yStart);
+    const e = pEnd ? new Date(pEnd) : new Date(yEnd);
+    s.setHours(0,0,0,0);
+    e.setHours(0,0,0,0);
+
+    const start = new Date(Math.max(s.getTime(), yStart.getTime()));
+    const end = new Date(Math.min(e.getTime(), yEnd.getTime()));
+    if (start.getTime() > end.getTime()) return null;
+    return { start, end };
+  }
+
+  function calcSessionsForPatientMonth_(p, year, monthIndex) {
+    if (!p || p.isDeleted) return 0;
+
+    const sid = String(p.societa_id || p.societaId || p.soc || "").trim();
+    if (statsSelectedSoc !== "ALL" && sid !== statsSelectedSoc) return 0;
+
+    const lv = getPatientLevel_(p);
+    if (statsSelectedLevel !== "T" && lv !== statsSelectedLevel) return 0;
+
+    const range = getPatientRangeWithinYear_(p, year);
+    if (!range) return 0;
+
+    const monthStart = new Date(year, monthIndex, 1); monthStart.setHours(0,0,0,0);
+    const monthEnd = new Date(year, monthIndex + 1, 0); monthEnd.setHours(0,0,0,0);
+
+    const start = new Date(Math.max(range.start.getTime(), monthStart.getTime()));
+    const end = new Date(Math.min(range.end.getTime(), monthEnd.getTime()));
+    if (start.getTime() > end.getTime()) return 0;
+
+    const raw = p.giorni_settimana || p.giorni || "";
+    const map = parseGiorniMap(raw);
+    if (!map || typeof map !== "object") return 0;
+
+    const rate = getRateForPatient_(p);
+    if (!rate) return 0;
+
+    let sessions = 0;
+    Object.keys(map).forEach((k) => {
+      const dayLabel = __normDayLabel(k);
+      let wk = DAY_LABEL_TO_KEY[dayLabel];
+      if (wk === undefined || wk === null) {
+        if (/^\d+$/.test(dayLabel)) {
+          const n = parseInt(dayLabel, 10);
+          if (n >= 0 && n <= 6) wk = n;
+        }
+      }
+      if (wk === undefined || wk === null) return;
+      const times = normalizeTimeList(map[k]);
+      const perWeek = times.length || 0;
+      if (!perWeek) return;
+      const occ = countWeekdayInRange_(start, end, wk);
+      sessions += occ * perWeek;
+    });
+
+    return sessions;
+  }
+
+  function calcAmountForPatientMonth_(p, year, monthIndex) {
+    const sessions = calcSessionsForPatientMonth_(p, year, monthIndex);
+    if (!sessions) return 0;
+    const rate = getRateForPatient_(p);
+    return sessions * (rate || 0);
+  }
+
+  function computeStatsRows_() {
+    const year = getStatsYear_();
+    const mi = statsSelectedMonthIndex;
+
+    const rows = [];
+    let totalAcc = 0;
+    let totalEur = 0;
+
+    const recs = Array.isArray(patientsCache) ? patientsCache : [];
+    for (const p of recs) {
+      const sessions = calcSessionsForPatientMonth_(p, year, mi);
+      if (!sessions) continue;
+
+      const amount = calcAmountForPatientMonth_(p, year, mi);
+
+      const full = String(p?.nome_cognome || p?.nome || "").trim();
+      const parts = full.split(/\s+/).filter(Boolean);
+      const cognome = parts.length >= 2 ? parts[parts.length - 1] : (parts[0] || "");
+      const nome = parts.length >= 2 ? parts.slice(0, -1).join(" ") : "";
+
+      rows.push({ cognome, nome, accessi: sessions, importo: amount });
+      totalAcc += sessions;
+      totalEur += amount;
+    }
+
+    rows.sort((a, b) =>
+      String(a.cognome || "").localeCompare(String(b.cognome || ""), "it", { sensitivity: "base" }) ||
+      String(a.nome || "").localeCompare(String(b.nome || ""), "it", { sensitivity: "base" })
+    );
+
+    return { rows, totalAcc, totalEur, year, monthIndex: mi };
+  }
+
+  function applyStatsCardColor_() {
+    if (!statsTableCard) return;
+    if (statsSelectedSoc === "ALL") {
+      statsTableCard.style.backgroundColor = "rgba(255,255,255,.80)";
+      return;
+    }
+    const tag = getSocTagIndexById(statsSelectedSoc);
+    const hex = (SOC_TAG_COLORS && SOC_TAG_COLORS[tag] !== undefined) ? SOC_TAG_COLORS[tag] : null;
+    if (hex) {
+      statsTableCard.style.backgroundColor = hexToRgba(hex, 0.38);
+    } else {
+      statsTableCard.style.backgroundColor = "rgba(255,255,255,.80)";
+    }
+  }
+
+  function renderStatsTable_() {
+    if (!statsTableBody) return;
+
+    renderStatsMonthLabel_();
+    renderStatsSocLabel_();
+    applyStatsCardColor_();
+
+    const out = computeStatsRows_();
+    statsTableBody.innerHTML = "";
+
+    (out.rows || []).forEach((r) => {
+      const row = document.createElement("div");
+      row.className = "stats-row";
+      row.innerHTML = `
+        <div class="st-c1">${escapeHtml(String(r.cognome || ""))}</div>
+        <div class="st-c2">${escapeHtml(String(r.nome || ""))}</div>
+        <div class="st-c3 st-num">${escapeHtml(String(r.accessi || 0))}</div>
+        <div class="st-c4 st-num">${escapeHtml(formatEuro_(r.importo || 0))}</div>
+      `;
+      statsTableBody.appendChild(row);
+    });
+
+    if (statsTotalAccessi) statsTotalAccessi.textContent = String(out.totalAcc || 0);
+    if (statsTotalImporto) statsTotalImporto.textContent = formatEuro_(out.totalEur || 0);
+  }
+
+  function statsPrintReport_() {
+    const out = computeStatsRows_();
+    const societaLabel = (statsSelectedSoc === "ALL") ? "Tutte" : (getSocietaById(statsSelectedSoc)?.nome || "Società");
+    const operatorName = (() => {
+      const u = getSession();
+      return (u && typeof u.nome === "string" && u.nome.trim()) ? u.nome.trim() : "";
+    })();
+
+    const rows = (out.rows || []).map((r) => ({ cognome: r.cognome, nome: r.nome, accessi: r.accessi }));
+    const total = out.totalAcc || 0;
+    openAccessReportPrint_(rows, total, { societaLabel, operatorName, monthIndex: out.monthIndex, year: out.year });
+  }
+
+  function bindStatsHandlersOnce_() {
+    if (statsHandlersBound) return;
+    statsHandlersBound = true;
+
+    btnStatsMonth?.addEventListener("click", () => {
+      if (!monthPickList) return;
+      monthPickList.innerHTML = "";
+      MONTHS_IT.forEach((m, idx) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "pill-btn";
+        if (idx === statsSelectedMonthIndex) b.classList.add("selected");
+        b.textContent = m;
+        b.addEventListener("click", () => {
+          statsSelectedMonthIndex = idx;
+          closePickMonthModal_();
+          renderStatsTable_();
+        });
+        monthPickList.appendChild(b);
+      });
+      openPickMonthModal_();
+    });
+
+    btnStatsSoc?.addEventListener("click", async () => {
+      try { await loadSocietaCache(false); } catch (_) {}
+      const arr = Array.isArray(societaCache) ? societaCache : [];
+      if (!socPickList) return;
+
+      socPickList.innerHTML = "";
+      const mk = (id, label) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "pill-btn";
+        if (statsSelectedSoc === id) b.classList.add("selected");
+        b.textContent = label;
+        b.addEventListener("click", () => {
+          statsSelectedSoc = id;
+          closePickSocModal();
+          renderStatsTable_();
+        });
+        return b;
+      };
+
+      socPickList.appendChild(mk("ALL", "Tutte"));
+      arr.forEach((s) => {
+        const sid = String(s?.id || "").trim();
+        if (!sid) return;
+        socPickList.appendChild(mk(sid, String(s?.nome || "Società")));
+      });
+
+      openPickSocModal();
+    });
+  }
+
+
 
 
 function __hexToRgb_(hex) {
@@ -605,24 +924,24 @@ function statsMonthColor_(idx, total) {
     if (!statsLevelDots) return;
     statsLevelDots.innerHTML = "";
 
-    const levels = ["L1","L2","L3","T"];
+    const levels = ["T","L1","L2","L3"];
     levels.forEach((lv) => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "dot-filter";
+      b.className = "level-circle";
       b.setAttribute("data-lv", lv);
       b.textContent = lv;
       if (statsSelectedLevel === lv) b.classList.add("selected");
       b.addEventListener("click", () => {
         statsSelectedLevel = lv;
         renderStatsLevelDots_();
-        renderStatsMonthly_();
+        renderStatsTable_();
       });
       statsLevelDots.appendChild(b);
     });
   }
 
-  function renderStatsMonthly_() {
+function renderStatsMonthly_() {
     if (!statsMonthlyList) return;
 
     const readExerciseYear = () => {
@@ -879,6 +1198,7 @@ function statsMonthColor_(idx, total) {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<base href="${safe((location && location.href ? location.href : '').split('#')[0])}"/>
 <title>${safe(docTitle)}</title>
 <style>
   :root{ --primary:${primary}; --accent:${accent}; --text:${text}; }
@@ -894,9 +1214,17 @@ function statsMonthColor_(idx, total) {
     width: 100%;
     max-width: 820px;
     margin: 0 auto;
-    border: 2px solid rgba(0,0,0,.85);
+    border: 2px solid rgba(42,116,184,.55);
     padding: 18px 18px 14px;
+    border-radius: 24px;
+    background: rgba(255,255,255,.98);
   }
+  .hdr{display:flex;align-items:center;gap:12px;margin:0 0 10px;}
+  .logo{width:46px;height:46px;border-radius:14px;object-fit:cover;border:2px solid rgba(42,116,184,.25);}
+  .hdr-txt{display:flex;flex-direction:column;gap:2px;}
+  .app{font-size:18px;font-weight:900;letter-spacing:.2px;color:var(--primary);}
+  .sub{font-size:12px;font-weight:900;letter-spacing:.2px;color:rgba(27,31,35,.68);}
+
   .title{
     font-size: 30px;
     font-weight: 900;
@@ -905,7 +1233,7 @@ function statsMonthColor_(idx, total) {
   }
   .hr{
     height: 2px;
-    background: rgba(0,0,0,.85);
+    background: rgba(42,116,184,.55);
     margin: 8px 0 18px;
   }
   .top-grid{
@@ -917,7 +1245,7 @@ function statsMonthColor_(idx, total) {
   .box{
     flex: 1 1 0;
     min-width: 0;
-    border: 2px solid rgba(0,0,0,.85);
+    border: 2px solid rgba(42,116,184,.55);
     border-radius: 10px;
     padding: 10px 12px;
     font-size: 14px;
@@ -934,19 +1262,19 @@ function statsMonthColor_(idx, total) {
   thead th{
     text-align:left;
     padding: 10px 10px;
-    border-bottom: 2px solid rgba(0,0,0,.85);
+    border-bottom: 2px solid rgba(42,116,184,.35);
     font-size: 14px;
     font-weight: 900;
     letter-spacing: .2px;
   }
   tbody td{
     padding: 8px 10px;
-    border-bottom: 1px solid rgba(0,0,0,.55);
+    border-bottom: 1px solid rgba(42,116,184,.18);
     height: 28px;
     vertical-align: middle;
   }
-  .c1{ width: 38%; border-right: 2px solid rgba(0,0,0,.85); }
-  .c2{ width: 38%; border-right: 2px solid rgba(0,0,0,.85); }
+  .c1{ width: 38%; border-right: 2px solid rgba(42,116,184,.25); }
+  .c2{ width: 38%; border-right: 2px solid rgba(42,116,184,.25); }
   .c3{ width: 24%; text-align: right; font-weight: 900; }
   tfoot td{
     padding: 12px 10px 6px;
@@ -963,6 +1291,13 @@ function statsMonthColor_(idx, total) {
 </head>
 <body>
   <div class="sheet">
+    <div class="hdr">
+      <img class="logo" src="./assets/logo.jpg" alt="Logo"/>
+      <div class="hdr-txt">
+        <div class="app">AMF</div>
+        <div class="sub">Report Accessi</div>
+      </div>
+    </div>
     <div class="title">${societaLabel || "Nome società"}</div>
     <div class="hr"></div>
 
@@ -1012,21 +1347,18 @@ function statsMonthColor_(idx, total) {
   }
 async function openStatsFlow() {
     setCalendarControlsVisible(false);
-    btnTopPlus && (btnTopPlus.hidden = true);
     const titleEl = $("#topbarTitle");
-    if (titleEl) titleEl.textContent = "Statistiche";
+    if (titleEl) titleEl.textContent = "Fatturati & Accessi";
 
     try { await loadSocietaCache(false); } catch (_) {}
     try { await loadPatients({ render: false }); } catch (_) {}
 
-    const societaArr = Array.isArray(societaCache) ? societaCache : [];
-    renderStatsSocTabs_(societaArr);
+    bindStatsHandlersOnce_();
     renderStatsLevelDots_();
-    renderStatsMonthly_();
+    renderStatsTable_();
 
     showView("stats");
   }
-
 document.querySelectorAll("[data-route]").forEach((btn) => {
     btn.addEventListener("click", async () => {
         // UI: evidenzia selezione
