@@ -1,7 +1,7 @@
-/* AMF_1.056 */
+/* AMF_1.059 */
 (() => {
-  const BUILD = "AMF_1.056";
-  const DISPLAY = "1.056";
+  const BUILD = "AMF_1.059";
+  const DISPLAY = "1.059";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -3114,6 +3114,7 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
   let editingSocId = "";
   let editingSocOldName = "";
   let selectedSocTag = 0;
+  let socSaveInFlight = false;
 
   function getSocTagMap() {
     return safeJsonParse(localStorage.getItem("AMF_SOC_TAGS") || "", {}) || {};
@@ -3175,6 +3176,8 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     if (socL2Input) socL2Input.value = "";
     if (socL3Input) socL3Input.value = "";
     setSelectedSocTag(0);
+    socSaveInFlight = false;
+    if (btnSocSave) btnSocSave.disabled = false;
     if (socDeletePanel) socDeletePanel.hidden = true;
     if (socDeleteList) socDeleteList.replaceChildren();
     modalSoc.classList.add("show");
@@ -3186,6 +3189,8 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     editingSocId = "";
     editingSocOldName = "";
     if (socModalTitle) socModalTitle.textContent = "Aggiungi società";
+    socSaveInFlight = false;
+    if (btnSocSave) btnSocSave.disabled = false;
     modalSoc.classList.remove("show");
     modalSoc.setAttribute("aria-hidden", "true");
   }
@@ -3385,6 +3390,8 @@ async function renderSocietaDeleteList() {
   btnSocCancel?.addEventListener("click", closeSocModal);
 
   btnSocSave?.addEventListener("click", async () => {
+    if (socSaveInFlight) return;
+
     const nome = (socNomeInput.value || "").trim();
     if (!nome) { toast("Inserisci un nome"); return; }
 
@@ -3402,112 +3409,120 @@ async function renderSocietaDeleteList() {
     if (l1 === null || l2 === null || l3 === null) { toast("Valori livelli non validi"); return; }
     const user = getSession();
     if (!user) { toast("Accesso richiesto"); return; }
-    try {
-      const baseSocPayload = {
-        userId: user.id,
-        nome,
-        name: nome,
-        tag: selectedSocTag,
-        tagIndex: selectedSocTag,
-        l1, l2, l3,
-        L1: l1, L2: l2, L3: l3,
-        livello1: l1, livello2: l2, livello3: l3,
-        liv1: l1, liv2: l2, liv3: l3,
-        tariffa_livello_1: l1,
-        tariffa_livello_2: l2,
-        tariffa_livello_3: l3
-      };
 
-      
-      if (editingSocId) {
-        const expected = Object.assign({}, baseSocPayload, { id: editingSocId });
-        // 1) Prova update (più nomi action possibili)
-        let updated = false;
-        try {
-          await apiTry(
-            ["updateSocieta", "editSocieta", "updSocieta", "setSocieta", "updateSociety", "editSociety"],
-            Object.assign({}, baseSocPayload, {
-              id: editingSocId,
-              societa_id: editingSocId,
-              societaId: editingSocId,
-              societyId: editingSocId,
-              oldNome: editingSocOldName || undefined,
-              nome_old: editingSocOldName || undefined,
-              old_name: editingSocOldName || undefined,
-              prevNome: editingSocOldName || undefined,
-              payload: JSON.stringify(baseSocPayload),
-              data: JSON.stringify(baseSocPayload)
-            })
-          );
-          updated = await verifySocietaApplied_(expected);
-        } catch (errUp) {
-          // se l'update fallisce, passiamo al fallback
-          updated = false;
-        }
+    // Snapshot stato corrente del modal (evita race dopo chiusura)
+    const _editingSocId = editingSocId;
+    const _editingSocOldName = editingSocOldName;
+    const _selectedSocTag = selectedSocTag;
 
-        // 2) Fallback robusto: delete + add (garantisce applicazione su backend che non supporta update)
-        if (!updated) {
+    const baseSocPayload = {
+      userId: user.id,
+      nome,
+      name: nome,
+      tag: _selectedSocTag,
+      tagIndex: _selectedSocTag,
+      l1, l2, l3,
+      L1: l1, L2: l2, L3: l3,
+      livello1: l1, livello2: l2, livello3: l3,
+      liv1: l1, liv2: l2, liv3: l3,
+      tariffa_livello_1: l1,
+      tariffa_livello_2: l2,
+      tariffa_livello_3: l3
+    };
+
+    // UX: chiudi subito e torna alle impostazioni (salvataggio prosegue in background)
+    socSaveInFlight = true;
+    if (btnSocSave) btnSocSave.disabled = true;
+    closeSocModal();
+    showView("settings");
+    toast("Salvataggio in corso…");
+
+    (async () => {
+      try {
+        if (_editingSocId) {
+          const expected = Object.assign({}, baseSocPayload, { id: _editingSocId });
+          // 1) Prova update (più nomi action possibili)
+          let updated = false;
           try {
             await apiTry(
-              ["deleteSocieta", "delSocieta", "removeSocieta", "deleteSociety"],
-              {
-                userId: user.id,
-                id: editingSocId || undefined,
-                societa_id: editingSocId || undefined,
-                societaId: editingSocId || undefined,
-                societyId: editingSocId || undefined,
-                nome: editingSocOldName || undefined,
-                name: editingSocOldName || undefined,
-                oldNome: editingSocOldName || undefined,
-                nome_old: editingSocOldName || undefined,
-                old_name: editingSocOldName || undefined
-              }
+              ["updateSocieta", "editSocieta", "updSocieta", "setSocieta", "updateSociety", "editSociety"],
+              Object.assign({}, baseSocPayload, {
+                id: _editingSocId,
+                societa_id: _editingSocId,
+                societaId: _editingSocId,
+                societyId: _editingSocId,
+                oldNome: _editingSocOldName || undefined,
+                nome_old: _editingSocOldName || undefined,
+                old_name: _editingSocOldName || undefined,
+                prevNome: _editingSocOldName || undefined,
+                payload: JSON.stringify(baseSocPayload),
+                data: JSON.stringify(baseSocPayload)
+              })
             );
-          } catch (_) { /* ignore */ }
+            updated = await verifySocietaApplied_(expected);
+          } catch (errUp) {
+            updated = false;
+          }
 
-          await apiTry(
-            ["addSocieta", "createSocieta", "insertSocieta", "newSocieta", "addSociety", "createSociety"],
-            Object.assign({}, baseSocPayload, {
-              // in alcuni backend il nome vecchio serve per la sostituzione
-              oldNome: editingSocOldName || undefined,
-              nome_old: editingSocOldName || undefined
-            })
-          );
+          // 2) Fallback robusto: delete + add
+          if (!updated) {
+            try {
+              await apiTry(
+                ["deleteSocieta", "delSocieta", "removeSocieta", "deleteSociety"],
+                {
+                  userId: user.id,
+                  id: _editingSocId || undefined,
+                  societa_id: _editingSocId || undefined,
+                  societaId: _editingSocId || undefined,
+                  societyId: _editingSocId || undefined,
+                  nome: _editingSocOldName || undefined,
+                  name: _editingSocOldName || undefined,
+                  oldNome: _editingSocOldName || undefined,
+                  nome_old: _editingSocOldName || undefined,
+                  old_name: _editingSocOldName || undefined
+                }
+              );
+            } catch (_) { /* ignore */ }
 
-          updated = await verifySocietaApplied_(Object.assign({}, baseSocPayload, { id: "" }));
-        }
+            await apiTry(
+              ["addSocieta", "createSocieta", "insertSocieta", "newSocieta", "addSociety", "createSociety"],
+              Object.assign({}, baseSocPayload, {
+                oldNome: _editingSocOldName || undefined,
+                nome_old: _editingSocOldName || undefined
+              })
+            );
 
-        if (!updated) {
-          toast("Salvataggio non riuscito");
+            updated = await verifySocietaApplied_(Object.assign({}, baseSocPayload, { id: "" }));
+          }
+
+          if (!updated) {
+            toast("Salvataggio non riuscito");
+            return;
+          }
+
+          if (_editingSocOldName && _editingSocOldName.trim() && _editingSocOldName.trim().toLowerCase() !== nome.trim().toLowerCase()) {
+            deleteSocTagForName(_editingSocOldName, _editingSocId);
+          }
+          setSocTagForName(nome, _selectedSocTag, _editingSocId);
+
+          await refreshSocietaEverywhere_();
+          toast("Società aggiornata");
           return;
         }
 
-        // Persistenza locale tag/colore (iOS): anche se il backend non salva/rest... 
-        // Se cambia nome, rimuovi il mapping vecchio.
-        if (editingSocOldName && editingSocOldName.trim() && editingSocOldName.trim().toLowerCase() !== nome.trim().toLowerCase()) {
-          deleteSocTagForName(editingSocOldName, editingSocId);
-        }
-        setSocTagForName(nome, selectedSocTag, editingSocId);
-
+        const addRes = await api("addSocieta", baseSocPayload);
+        const newId = String((addRes && (addRes.id || addRes.societa_id || addRes.societaId || addRes.societyId)) || "").trim();
+        setSocTagForName(nome, _selectedSocTag, newId);
         await refreshSocietaEverywhere_();
-        toast("Società aggiornata");
-        closeSocModal();
-        showView("settings");
-        return;
+        toast("Società aggiunta");
+      } catch (err) {
+        if (apiHintIfUnknownAction(err)) return;
+        toast(String(err && err.message ? err.message : "Errore"));
+      } finally {
+        socSaveInFlight = false;
+        if (btnSocSave) btnSocSave.disabled = false;
       }
-
-
-      const addRes = await api("addSocieta", baseSocPayload);
-      const newId = String((addRes && (addRes.id || addRes.societa_id || addRes.societaId || addRes.societyId)) || "").trim();
-      setSocTagForName(nome, selectedSocTag, newId);
-      await refreshSocietaEverywhere_();
-      toast("Società aggiunta");
-      closeSocModal();
-      showView("settings");
-    } catch (err) {
-      if (apiHintIfUnknownAction(err)) return;
-      toast(String(err && err.message ? err.message : "Errore"));
-    }
+    })();
   });
 
   btnSocDelete?.addEventListener("click", async () => {
