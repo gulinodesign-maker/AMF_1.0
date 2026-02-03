@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Montalto PMS</title>
-  <link rel="stylesheet" href="./styles.css?v=1.066" />
+  <link rel="stylesheet" href="./styles.css?v=1.067" />
   <link rel="manifest" href="./manifest.json" />
   <meta name="theme-color" content="#2a74b8" />
   <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
@@ -437,7 +437,19 @@
           </div>
         </div>
 
-        <div class="stats-table-card" id="statsTableCard" aria-label="Tabella fatturati e accessi">
+        
+        <div class="stats-summary-row" aria-label="Totali selezione">
+          <div class="stats-summary-pill" aria-label="Totale accessi">
+            <div class="stats-summary-title">ACC</div>
+            <div class="stats-summary-value" id="statsTotalAccessi">0</div>
+          </div>
+          <div class="stats-summary-pill" aria-label="Totale fatturato">
+            <div class="stats-summary-title">€</div>
+            <div class="stats-summary-value" id="statsTotalImporto">0 €</div>
+          </div>
+        </div>
+
+<div class="stats-table-card" id="statsTableCard" aria-label="Tabella fatturati e accessi">
           <div class="stats-table-head" aria-hidden="true">
             <div class="st-c1">PAZIENTE</div>
             <div class="st-c3">ACC</div>
@@ -445,11 +457,6 @@
           </div>
           <div class="stats-table-body" id="statsTableBody" aria-label="Elenco"></div>
 
-          <div class="stats-totals" aria-label="Totali selezione">
-            <div class="st-c1"></div>
-            <div class="st-c3"><div class="stats-total-val" id="statsTotalAccessi">0</div></div>
-            <div class="st-c4"><div class="stats-total-val" id="statsTotalImporto">0 €</div></div>
-          </div>
         </div>
       </div>
     </section>
@@ -457,6 +464,6 @@
 </main>
 
   <script src="./config.js"></script>
-  <script src="./app.js?v=1.066"></script>
+  <script src="./app.js?v=1.067"></script>
 </body>
 </html>
