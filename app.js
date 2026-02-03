@@ -1,7 +1,7 @@
-/* AMF_1.059 */
+/* AMF_1.063 */
 (() => {
-  const BUILD = "AMF_1.059";
-  const DISPLAY = "1.059";
+  const BUILD = "AMF_1.063";
+  const DISPLAY = "1.063";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -28,6 +28,36 @@
 
   function safeJsonParse(str, fallback) {
     try { return JSON.parse(str); } catch { return fallback; }
+  }
+
+  // Euro helpers (2 decimals)
+  function toEuro2String_(v) {
+    const raw = String(v ?? "").trim();
+    if (!raw) return "";
+    const s = raw.replace(/\s+/g, "").replace(",", ".");
+    const n = Number(s);
+    if (!isFinite(n)) return raw;
+    return (Math.round(n * 100) / 100).toFixed(2);
+  }
+  function toEuro2StringStrict_(v) {
+    const raw = String(v ?? "").trim();
+    if (!raw) return "";
+    const s = raw.replace(/\s+/g, "").replace(",", ".");
+    const n = Number(s);
+    if (!isFinite(n)) return null;
+    return (Math.round(n * 100) / 100).toFixed(2);
+  }
+
+
+  // Convert a normalized euro string with dot decimals (e.g. "15.50")
+  // to a Sheets-friendly Italian format (e.g. "15,50") to avoid time parsing like 20.00 -> 20:00
+  function euroToSheetNumber_(euroDotString) {
+    const s = String(euroDotString ?? "").trim();
+    if (!s) return "";
+    // ensure 2 decimals with dot
+    const norm = toEuro2StringStrict_(s);
+    if (norm === null) return null;
+    return norm.replace(".", ",");
   }
 
   // Date helpers (robust with ISO/timezone): always interpret as LOCAL calendar date (iOS-safe)
@@ -1326,29 +1356,140 @@ async function loadSocietaCache(force = false) {
 }
 
 // Refresh società state + UI (iOS: rendi immediato dopo Salva)
-async function refreshSocietaEverywhere_(opts = {}) {
-  const { rerenderPatients = true, rerenderStats = true, rerenderDeleteList = true } = (opts || {});
 
-  // Reset cache locali e API cache
-  societaCache = null;
-  invalidateApiCache("listSocieta");
+// Helper: verifica se una riga società corrisponde ai valori attesi (per refresh immediato iOS)
+function societaMatchesExpected_(row, expect) {
+  if (!row || !expect) return false;
 
-  // Ricarica forzata
-  await loadSocietaCache(true);
+  const getNum = (v) => {
+    const s = String(v ?? "").trim().replace(",", ".");
+    if (!s) return "";
+    const n = Number(s);
+    return isFinite(n) ? String(n) : s;
+  };
 
-  // Aggiorna viste che dipendono da società
-  if (rerenderPatients && (currentView === "patients")) {
-    try { renderPatients(); } catch (_) {}
+  const nomeRow = String(row.nome || row.name || "").trim().toLowerCase();
+  const nomeExp = String(expect.nome || expect.name || "").trim().toLowerCase();
+  const okNome = nomeExp ? (nomeRow === nomeExp) : true;
+
+  const okL1 = (expect.l1 === undefined || expect.l1 === null) ? true :
+    (getNum(row.l1 ?? row.L1 ?? row.livello1 ?? row.liv1 ?? row.tariffa_livello_1) === getNum(expect.l1));
+  const okL2 = (expect.l2 === undefined || expect.l2 === null) ? true :
+    (getNum(row.l2 ?? row.L2 ?? row.livello2 ?? row.liv2 ?? row.tariffa_livello_2) === getNum(expect.l2));
+  const okL3 = (expect.l3 === undefined || expect.l3 === null) ? true :
+    (getNum(row.l3 ?? row.L3 ?? row.livello3 ?? row.liv3 ?? row.tariffa_livello_3) === getNum(expect.l3));
+
+  return okNome && okL1 && okL2 && okL3;
+}
+
+function societaContainsExpected_(arr, expect) {
+  const list = Array.isArray(arr) ? arr : [];
+  const idExp = String(expect && (expect.id || expect.societa_id || expect.societaId || expect.societyId || "") || "").trim();
+  const nomeExp = String(expect && (expect.nome || expect.name || "") || "").trim().toLowerCase();
+
+  for (const r of list) {
+    const rid = String(r && (r.id || r.societa_id || r.societaId || r.societyId || "") || "").trim();
+    const rnome = String(r && (r.nome || r.name || "") || "").trim().toLowerCase();
+    if ((idExp && rid === idExp) || (nomeExp && rnome === nomeExp)) {
+      if (societaMatchesExpected_(r, expect)) return true;
+    }
   }
-  if (rerenderStats && (currentView === "stats")) {
+  return false;
+}
+
+async function refreshSocietaEverywhere_(opts = {}) {
+  const {
+    rerenderPatients = true,
+    rerenderStats = true,
+    rerenderDeleteList = true,
+    expected = null,
+    optimistic = null,
+    maxAttempts = 8,
+    baseDelayMs = 180
+  } = (opts || {});
+
+  const user = getSession();
+  if (!user || !user.id) return;
+
+  // 1) Aggiornamento UI immediato (ottimistico) dopo Salva
+  if (optimistic) {
     try {
-      const arr = Array.isArray(societaCache) ? societaCache : [];
-      renderStatsSocTabs_(arr);
+      const getId = (x) => String(x && (x.id || x.societa_id || x.societaId || x.societyId || "") || "").trim();
+      const arr = Array.isArray(societaCache) ? Array.from(societaCache) : [];
+
+      const oid = getId(optimistic);
+      let done = false;
+
+      if (oid) {
+        const idx = arr.findIndex((x) => getId(x) === oid);
+        if (idx >= 0) {
+          arr[idx] = Object.assign({}, arr[idx], optimistic);
+          done = true;
+        }
+      }
+
+      if (!done) {
+        const oname = String(optimistic.nome || optimistic.name || "").trim().toLowerCase();
+        if (oname) {
+          const idx = arr.findIndex((x) => String(x && (x.nome || x.name || "") || "").trim().toLowerCase() === oname);
+          if (idx >= 0) {
+            arr[idx] = Object.assign({}, arr[idx], optimistic);
+            done = true;
+          }
+        }
+      }
+
+      if (!done) arr.push(optimistic);
+
+      societaCache = arr;
+      buildSocietaMap_(arr);
+
+      try { window.dispatchEvent(new CustomEvent("amf:societa-updated", { detail: { phase: "optimistic" } })); } catch (_) {}
     } catch (_) {}
   }
+
+  // 2) Sync reale con retry brevi (backend può essere eventual-consistent)
+  let lastArr = Array.isArray(societaCache) ? societaCache : [];
+  for (let i = 0; i < Math.max(1, Number(maxAttempts) || 1); i++) {
+    try {
+      societaCache = null;
+      invalidateApiCache("listSocieta");
+
+      // bypass cache: params extra + timestamp
+      const fresh = await api("listSocieta", { userId: user.id, __bust: Date.now(), _bust: Date.now() });
+      const arr = Array.isArray(fresh && fresh.societa) ? fresh.societa : [];
+      lastArr = arr;
+
+      societaCache = arr;
+      buildSocietaMap_(arr);
+
+      if (!expected || societaContainsExpected_(arr, expected)) break;
+    } catch (_) {
+      // ignora, riprova
+    }
+    // backoff breve
+    await new Promise((r) => setTimeout(r, (Number(baseDelayMs) || 150) + i * 120));
+  }
+
+  // 3) Aggiorna viste che dipendono da società (senza richiedere riavvio)
+  if (rerenderPatients && (currentView === "patients" || currentView === "patientForm" || currentView === "modify" || currentView === "create")) {
+    try { renderPatients(); } catch (_) {}
+    try { renderPatientForm && renderPatientForm(); } catch (_) {}
+  }
+
+  if (rerenderStats && (currentView === "stats")) {
+    try {
+      const arr = Array.isArray(societaCache) ? societaCache : (Array.isArray(lastArr) ? lastArr : []);
+      renderStatsSocTabs_(arr);
+      renderStatsMonthly_ && renderStatsMonthly_();
+    } catch (_) {}
+  }
+
   if (rerenderDeleteList && socDeletePanel && !socDeletePanel.hidden) {
     try { await renderSocietaDeleteList(); } catch (_) {}
   }
+
+  try { window.dispatchEvent(new CustomEvent("amf:societa-updated", { detail: { phase: "synced" } })); } catch (_) {}
 }
 
 function getSocietaById(id) {
@@ -3299,9 +3440,9 @@ async function renderSocietaDeleteList() {
       const l1v = (s && (s.l1 ?? s.L1 ?? s.livello1 ?? s.liv1 ?? s.tariffa_livello_1)) ?? "";
       const l2v = (s && (s.l2 ?? s.L2 ?? s.livello2 ?? s.liv2 ?? s.tariffa_livello_2)) ?? "";
       const l3v = (s && (s.l3 ?? s.L3 ?? s.livello3 ?? s.liv3 ?? s.tariffa_livello_3)) ?? "";
-      editBtn.dataset.l1 = String(l1v ?? "");
-      editBtn.dataset.l2 = String(l2v ?? "");
-      editBtn.dataset.l3 = String(l3v ?? "");
+      editBtn.dataset.l1 = toEuro2String_(l1v ?? "");
+      editBtn.dataset.l2 = toEuro2String_(l2v ?? "");
+      editBtn.dataset.l3 = toEuro2String_(l3v ?? "");
       editBtn.dataset.tag = String(getSocTagIndexById(id) || 0);
 
       editBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11a2 2 0 0 0 0-3l-1-1a2 2 0 0 0-3 0L4 16v4z" fill="none" stroke="rgba(42,116,184,1)" stroke-width="2" stroke-linejoin="round"></path><path d="M13 6l5 5" fill="none" stroke="rgba(42,116,184,1)" stroke-width="2" stroke-linecap="round"></path></svg>';
@@ -3335,9 +3476,9 @@ async function renderSocietaDeleteList() {
         editingSocOldName = nome || "";
 
         if (socNomeInput) socNomeInput.value = nome || "";
-        if (socL1Input) socL1Input.value = String(editBtn.dataset.l1 || "");
-        if (socL2Input) socL2Input.value = String(editBtn.dataset.l2 || "");
-        if (socL3Input) socL3Input.value = String(editBtn.dataset.l3 || "");
+        if (socL1Input) socL1Input.value = toEuro2String_(editBtn.dataset.l1 || "");
+        if (socL2Input) socL2Input.value = toEuro2String_(editBtn.dataset.l2 || "");
+        if (socL3Input) socL3Input.value = toEuro2String_(editBtn.dataset.l3 || "");
         setSelectedSocTag(editBtn.dataset.tag || 0);
 
         if (socDeletePanel) socDeletePanel.hidden = true;
@@ -3395,17 +3536,15 @@ async function renderSocietaDeleteList() {
     const nome = (socNomeInput.value || "").trim();
     if (!nome) { toast("Inserisci un nome"); return; }
 
-    const normEuro = (v) => {
-      const s = String(v || "").trim().replace(",", ".");
-      if (!s) return "";
-      const n = Number(s);
-      if (!isFinite(n)) return null;
-      return String(n);
-    };
+    const l1Dot = toEuro2StringStrict_(socL1Input ? socL1Input.value : "");
+    const l2Dot = toEuro2StringStrict_(socL2Input ? socL2Input.value : "");
+    const l3Dot = toEuro2StringStrict_(socL3Input ? socL3Input.value : "");
+    if (l1Dot === null || l2Dot === null || l3Dot === null) { toast("Valori livelli non validi"); return; }
 
-    const l1 = normEuro(socL1Input ? socL1Input.value : "");
-    const l2 = normEuro(socL2Input ? socL2Input.value : "");
-    const l3 = normEuro(socL3Input ? socL3Input.value : "");
+    // Sheets (locale IT) can parse "20.00" as time (20:00). Send decimals with comma to force number parsing.
+    const l1 = euroToSheetNumber_(l1Dot);
+    const l2 = euroToSheetNumber_(l2Dot);
+    const l3 = euroToSheetNumber_(l3Dot);
     if (l1 === null || l2 === null || l3 === null) { toast("Valori livelli non validi"); return; }
     const user = getSession();
     if (!user) { toast("Accesso richiesto"); return; }
@@ -3505,7 +3644,7 @@ async function renderSocietaDeleteList() {
           }
           setSocTagForName(nome, _selectedSocTag, _editingSocId);
 
-          await refreshSocietaEverywhere_();
+          await refreshSocietaEverywhere_({ expected: expected, optimistic: { id: _editingSocId, nome, l1: l1Dot, l2: l2Dot, l3: l3Dot, tag: _selectedSocTag } });
           toast("Società aggiornata");
           return;
         }
@@ -3513,7 +3652,7 @@ async function renderSocietaDeleteList() {
         const addRes = await api("addSocieta", baseSocPayload);
         const newId = String((addRes && (addRes.id || addRes.societa_id || addRes.societaId || addRes.societyId)) || "").trim();
         setSocTagForName(nome, _selectedSocTag, newId);
-        await refreshSocietaEverywhere_();
+        await refreshSocietaEverywhere_({ expected: Object.assign({}, baseSocPayload, { id: newId, userId: user.id }), optimistic: { id: newId, nome, l1: l1Dot, l2: l2Dot, l3: l3Dot, tag: _selectedSocTag } });
         toast("Società aggiunta");
       } catch (err) {
         if (apiHintIfUnknownAction(err)) return;
