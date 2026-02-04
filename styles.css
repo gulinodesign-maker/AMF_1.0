@@ -778,9 +778,20 @@ select.field{ appearance: none; }
 .patient-name{
   font-weight: 900;
   font-size: 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.patient-name-text{
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.patient-name-time{
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .patient-sub{
   font-size: 13px;

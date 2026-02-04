@@ -1,7 +1,7 @@
-/* AMF_1.070 */
+/* AMF_1.071 */
 (() => {
-  const BUILD = "AMF_1.070";
-  const DISPLAY = "1.070";
+  const BUILD = "AMF_1.071";
+  const DISPLAY = "1.071";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -2931,7 +2931,7 @@ function formatItMonth(dateObj) {
 
       row.innerHTML = `
         <div class="patient-info">
-          <div class="patient-name">${escapeHtml(name)}</div>
+          <div class="patient-name"><span class="patient-name-text">${escapeHtml(name)}</span>${patientsSortMode === "today" && p.__todayTime ? '<span class="patient-name-time"> - ' + escapeHtml(p.__todayTime) + '</span>' : ""}</div>
           <div class="patient-sub">${escapeHtml(soc)}${period ? " • " + escapeHtml(period) : ""}</div>
         </div>
         <button class="patient-badge patient-geotag" type="button" aria-label="Naviga" title="Naviga">
