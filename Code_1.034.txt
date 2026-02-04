@@ -1,4 +1,4 @@
-// Code_2.002 (GeoTag paziente)
+// Code_2.001
 /**
  * AMF - Google Apps Script Web App API
  * Deploy as Web App (doGet) and paste /exec URL into config.js (API_URL).
@@ -123,14 +123,6 @@ function createUser_(nome, password) {
   const values = sh.getDataRange().getValues();
   const headers = values[0] || [];
   const col = (h) => headers.indexOf(h) + 1;
-  const ensureCol_ = (h) => {
-    let c = col(h);
-    if (c > 0) return c;
-    // aggiungi colonna in fondo (retrocompatibile)
-    headers.push(h);
-    sh.getRange(1, headers.length).setValue(h);
-    return headers.length;
-  };
 
   const id = uuid_();
   const createdAt = now_();
@@ -535,11 +527,6 @@ function updatePatient_(userId, patientId, payloadJson) {
     if (c > 0) sh.getRange(rowNum, c).setValue(v);
   };
 
-  const setAny = (h, v) => {
-    const c = ensureCol_(h);
-    if (c > 0) sh.getRange(rowNum, c).setValue(v);
-  };
-
   if (payload.nome_cognome !== undefined) setIf("nome_cognome", String(payload.nome_cognome || "").trim());
   if (payload.address !== undefined || payload.indirizzo !== undefined) {
     const addr = String(payload.address || payload.indirizzo || "").trim();
@@ -565,13 +552,6 @@ function updatePatient_(userId, patientId, payloadJson) {
   if (payload.data_fine !== undefined) setIf("data_fine", payload.data_fine || "");
   if (payload.giorni_settimana !== undefined) setIf("giorni_settimana", payload.giorni_settimana || "{}");
   if (payload.note !== undefined) setIf("note", payload.note || "");
-
-
-  // GeoTag (retrocompatibile: colonne create se mancanti)
-  if (payload.geo_lat !== undefined) setAny("geo_lat", payload.geo_lat);
-  if (payload.geo_lng !== undefined) setAny("geo_lng", payload.geo_lng);
-  if (payload.geo_accuracy !== undefined) setAny("geo_accuracy", payload.geo_accuracy);
-  if (payload.geo_ts !== undefined) setAny("geo_ts", payload.geo_ts);
 
   setIf("updatedAt", now);
   return { id: patientId };

@@ -1,7 +1,7 @@
-/* AMF_1.068 */
+/* AMF_1.070 */
 (() => {
-  const BUILD = "AMF_1.068";
-  const DISPLAY = "1.068";
+  const BUILD = "AMF_1.070";
+  const DISPLAY = "1.070";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -116,6 +116,22 @@
     }
 
     return null;
+  }
+
+
+  // Date range helper: checks if a LOCAL calendar date falls within [start,end] (inclusive)
+  function inRangeDate(cellDate, startStr, endStr) {
+    const s = dateOnlyLocal(startStr);
+    const e = dateOnlyLocal(endStr);
+    if (!s && !e) return true;
+    if (!cellDate) return false;
+
+    const d = dateOnlyLocal(cellDate);
+    if (!d) return false;
+
+    if (s && d.getTime() < s.getTime()) return false;
+    if (e && d.getTime() > e.getTime()) return false;
+    return true;
   }
 
   function patientDisplayName(p) {
@@ -2344,18 +2360,26 @@ function formatItMonth(dateObj) {
 
   // Anti-suggerimenti iOS/macOS: evita che WebKit mostri liste (autofill/storico)
   // Pattern: input readonly finché l'utente non interagisce.
-  function unlockReadonlyOnce(el) {
+  // Nota: i campi login/modifica vengono rimessi readonly ogni volta che si riapre la view;
+  // quindi il binding NON deve essere "once".
+  function bindReadonlyUnlock(el) {
     if (!el) return;
+    try {
+      if (el.dataset && el.dataset.unlockReadonlyBound === "1") return;
+      if (el.dataset) el.dataset.unlockReadonlyBound = "1";
+    } catch (_) {}
+
     const unlock = () => {
       try { el.removeAttribute("readonly"); } catch (_) {}
     };
-    el.addEventListener("focus", unlock, { once: true, passive: true });
-    el.addEventListener("touchstart", unlock, { once: true, passive: true });
-    el.addEventListener("mousedown", unlock, { once: true, passive: true });
+    el.addEventListener("focus", unlock, { passive: true });
+    el.addEventListener("touchstart", unlock, { passive: true });
+    el.addEventListener("mousedown", unlock, { passive: true });
+    el.addEventListener("pointerdown", unlock, { passive: true });
   }
-  unlockReadonlyOnce($("#loginNome"));
-  unlockReadonlyOnce($("#modNome"));
-  unlockReadonlyOnce($("#createNome"));
+  bindReadonlyUnlock($("#loginNome"));
+  bindReadonlyUnlock($("#modNome"));
+  bindReadonlyUnlock($("#createNome"));
 
   // Warmup (session persistita) per calendario istantaneo
   try { warmupCoreData(); } catch (_) {}
@@ -2403,6 +2427,8 @@ function formatItMonth(dateObj) {
     }
     const loginNome = $("#loginNome");
     if (loginNome) {
+      // Assicura che lo sblocco readonly sia sempre bindato anche dopo riaperture view
+      try { bindReadonlyUnlock(loginNome); } catch (_) {}
       // Non mostrare mai liste/suggerimenti di account: inserimento manuale
       loginNome.value = "";
       loginNome.setAttribute("readonly", "readonly");
@@ -2421,6 +2447,7 @@ function formatItMonth(dateObj) {
     }
     const modNome = $("#modNome");
     if (modNome) {
+      try { bindReadonlyUnlock(modNome); } catch (_) {}
       modNome.value = "";
       modNome.setAttribute("readonly", "readonly");
     }
@@ -2719,7 +2746,7 @@ function formatItMonth(dateObj) {
 
     // active period check
     const today = dateOnlyLocal(new Date());
-    if (!inRange(today, p.data_inizio, p.data_fine)) return [];
+    if (!inRangeDate(today, p.data_inizio, p.data_fine)) return [];
 
     const raw = p.giorni_settimana || p.giorni || "";
     if (!raw) return [];
@@ -2793,11 +2820,28 @@ function formatItMonth(dateObj) {
       );
       arr = filtered;
     } else if (patientsSortMode === "soc") {
-  arr.sort((a,b) =>
-    String(getSocNameById(a.societa_id||"")||"").localeCompare(String(getSocNameById(b.societa_id||"")||""), "it", { sensitivity: "base" }) ||
-    String(a.nome_cognome||"").localeCompare(String(b.nome_cognome||""), "it", { sensitivity: "base" })
-  );
-} else if (patientsSortMode === "az") {
+  const socKey = (p) => String(getSocNameById(p?.societa_id || "") || p?.societa_nome || p?.societa || "").trim();
+  const nameKey = (p) => {
+    const full = String(p?.nome_cognome || p?.nome || "").trim();
+    if (!full) return { cognome: "", nome: "", full: "" };
+    const parts = full.split(/\s+/).filter(Boolean);
+    if (!parts.length) return { cognome: "", nome: "", full: full };
+    const cognome = parts.length >= 2 ? parts[parts.length - 1] : parts[0];
+    const nome = parts.length >= 2 ? parts.slice(0, -1).join(" ") : "";
+    return { cognome, nome, full };
+  };
+  arr.sort((a, b) => {
+    const s = socKey(a).localeCompare(socKey(b), "it", { sensitivity: "base" });
+    if (s) return s;
+    const ka = nameKey(a);
+    const kb = nameKey(b);
+    const c = String(ka.cognome||"").localeCompare(String(kb.cognome||""), "it", { sensitivity: "base" });
+    if (c) return c;
+    const n = String(ka.nome||"").localeCompare(String(kb.nome||""), "it", { sensitivity: "base" });
+    if (n) return n;
+    return String(ka.full||"").localeCompare(String(kb.full||""), "it", { sensitivity: "base" });
+  });
+	} else if (patientsSortMode === "az") {
   const nameKey = (p) => {
     const full = String(p?.nome_cognome || p?.nome || "").trim();
     if (!full) return { cognome: "", nome: "", full: "" };
@@ -4029,7 +4073,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.068").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.070").catch(() => {});
     });
   }
 })();
