@@ -1,4 +1,4 @@
-/* AMF_1.064 */
+/* AMF_1.075 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -1625,19 +1625,24 @@ select.field{ appearance: none; }
 
 /* Pallini selezione rapida società (sotto "Società") */
 .stats-soc-dots{
+  --soc-gap: 12px;
+  --soc-count: 1;
   display:flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: var(--soc-gap);
   align-items:center;
-  justify-content: center;
+  justify-content: space-between;
   padding: 8px 0 4px;
+  width: 100%;
+  overflow: hidden;
 }
 
 .soc-circle{
   -webkit-appearance:none;
   appearance:none;
-  width: 48px;
-  height: 48px;
+  width: clamp(28px, calc((100% - (var(--soc-gap) * (var(--soc-count) - 1))) / var(--soc-count)), 48px);
+  aspect-ratio: 1 / 1;
+  height: auto;
   border-radius: 999px;
   border: 2px solid transparent;
   padding: 0;

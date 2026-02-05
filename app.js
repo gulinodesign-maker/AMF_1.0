@@ -1,7 +1,7 @@
-/* AMF_1.071 */
+/* AMF_1.075 */
 (() => {
-  const BUILD = "AMF_1.071";
-  const DISPLAY = "1.071";
+  const BUILD = "AMF_1.075";
+  const DISPLAY = "1.075";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -602,6 +602,10 @@
       b.setAttribute("aria-label", "Seleziona " + nome);
       statsSocDots.appendChild(b);
     });
+
+    // layout: keep all dots on one row by providing count to CSS
+    statsSocDots.style.setProperty('--soc-count', String(statsSocDots.children.length || 1));
+
   }
 
   function getStatsYear_() {
@@ -4128,7 +4132,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.070").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.075").catch(() => {});
     });
   }
 })();
