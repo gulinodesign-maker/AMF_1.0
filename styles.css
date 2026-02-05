@@ -1623,6 +1623,61 @@ select.field{ appearance: none; }
   padding: 4px 0 2px;
 }
 
+/* Pallini selezione rapida società (sotto "Società") */
+.stats-soc-dots{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items:center;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+
+.soc-circle{
+  -webkit-appearance:none;
+  appearance:none;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  padding: 0;
+  display:grid;
+  place-items:center;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: .4px;
+  cursor:pointer;
+  opacity: .80;
+  color:#ffffff;
+  background-color: rgba(0,0,0,.25);
+}
+
+.soc-circle.selected{
+  border-color: rgba(0,0,0,.55);
+}
+
+.soc-circle.soc-all{
+  background: rgba(0,0,0,.35);
+  background-color: rgba(0,0,0,.35);
+  color:#ffffff;
+}
+
+/* stessi colori dei tag società */
+.soc-circle.t1{ background:#E53935; background-color:#E53935; }
+.soc-circle.t2{ background:#FB8C00; background-color:#FB8C00; }
+.soc-circle.t3{ background:#FDD835; background-color:#FDD835; }
+.soc-circle.t4{ background:#43A047; background-color:#43A047; }
+.soc-circle.t5{ background:#1E88E5; background-color:#1E88E5; }
+.soc-circle.t6{ background:#3949AB; background-color:#3949AB; }
+
+/* Separatore tra pallini società e livelli (L1/L2/L3) */
+.stats-divider{
+  height: 2px;
+  background: #000000;
+  opacity: .80;
+  margin: 8px 20px 6px;
+}
+
 .level-circle{
   width: 74px;
   height: 74px;

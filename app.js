@@ -508,6 +508,7 @@
   const lblStatsMonth = $("#lblStatsMonth");
   const btnStatsSoc = $("#btnStatsSoc");
   const lblStatsSoc = $("#lblStatsSoc");
+  const statsSocDots = $("#statsSocDots");
   const statsLevelDots = $("#statsLevelDots");
   const statsTableBody = $("#statsTableBody");
   const statsTableCard = $("#statsTableCard");
@@ -548,6 +549,59 @@
     if (!lblStatsSoc) return;
     const label = (statsSelectedSoc === "ALL") ? "SOCIETÀ" : (String(getSocietaById(statsSelectedSoc)?.nome || "Società").toUpperCase());
     lblStatsSoc.textContent = label;
+  }
+
+  function statsSocInitials_(name) {
+    const n = String(name || "").trim();
+    if (!n) return "S";
+    const parts = n.replace(/\s+/g, " ").split(" ").filter(Boolean);
+    if (parts.length === 1) {
+      const w = parts[0];
+      return (w.slice(0, 2) || "S").toUpperCase();
+    }
+    const a = (parts[0][0] || "");
+    const b = (parts[1][0] || "");
+    const out = (a + b) || "S";
+    return out.toUpperCase();
+  }
+
+  function renderStatsSocDots_() {
+    if (!statsSocDots) return;
+    statsSocDots.innerHTML = "";
+
+    // "Tutte"
+    const mkBtn = (id, label, className, bgColor) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = className;
+      b.setAttribute("data-soc", id);
+      b.textContent = label;
+      if (bgColor) {
+        b.style.background = bgColor;
+        b.style.backgroundColor = bgColor;
+      }
+      b.classList.toggle("selected", statsSelectedSoc === id);
+      b.addEventListener("click", () => {
+        statsSelectedSoc = id;
+        renderStatsTable_();
+      });
+      return b;
+    };
+
+    statsSocDots.appendChild(mkBtn("ALL", "T", "soc-circle soc-all", null));
+
+    const arr = Array.isArray(societaCache) ? societaCache : [];
+    arr.forEach((s) => {
+      const sid = String(s?.id || "").trim();
+      if (!sid) return;
+      const nome = String(s?.nome || "Società").trim();
+      const tag = Math.max(0, Math.min(5, Number(s?.tag) || 0));
+      const cls = "soc-circle t" + String(tag + 1);
+      const ini = statsSocInitials_(nome);
+      const b = mkBtn(sid, ini, cls, null);
+      b.setAttribute("aria-label", "Seleziona " + nome);
+      statsSocDots.appendChild(b);
+    });
   }
 
   function getStatsYear_() {
@@ -731,6 +785,7 @@
 
     renderStatsMonthLabel_();
     renderStatsSocLabel_();
+    renderStatsSocDots_();
     applyStatsCardColor_();
 
     const out = computeStatsRows_();
@@ -1365,6 +1420,7 @@ async function openStatsFlow() {
     try { await loadPatients({ render: false }); } catch (_) {}
 
     bindStatsHandlersOnce_();
+    renderStatsSocDots_();
     renderStatsLevelDots_();
     renderStatsTable_();
 
