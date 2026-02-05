@@ -2874,15 +2874,8 @@ function formatItMonth(dateObj) {
     const nome = parts.length >= 2 ? parts.slice(0, -1).join(" ") : "";
     return { cognome, nome, full };
   };
-  arr.sort((a, b) => {
-    const ta = endTs(a);
-    const tb = endTs(b);
-    if (ta !== tb) return ta < tb ? -1 : 1;
-    const ka = nameKey(a);
-    const kb = nameKey(b);
-    const c = String(ka.cognome||"").localeCompare(String(kb.cognome||""), "it", { sensitivity: "base" });
-
   // FILTER_EXPIRED_ON_DATE_SORT: nasconde terapie scadute solo in ordinamento per scadenza
+  // Nota: non va eseguito dentro il comparator del sort (causa comportamenti non deterministici su Android/Chrome).
   const today = dateOnlyLocal(new Date());
   const todayTs = today ? today.getTime() : Date.now();
   arr = arr.filter((p) => {
@@ -2890,7 +2883,13 @@ function formatItMonth(dateObj) {
     return t === Infinity || t >= todayTs;
   });
 
-
+  arr.sort((a, b) => {
+    const ta = endTs(a);
+    const tb = endTs(b);
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    const ka = nameKey(a);
+    const kb = nameKey(b);
+    const c = String(ka.cognome||"").localeCompare(String(kb.cognome||""), "it", { sensitivity: "base" });
     if (c) return c;
     const n = String(ka.nome||"").localeCompare(String(kb.nome||""), "it", { sensitivity: "base" });
     if (n) return n;
