@@ -1,4 +1,4 @@
-/* AMF_1.078 */
+/* AMF_1.089 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -1040,6 +1040,7 @@ select.field{ appearance: none; }
 .calendar-wrap{
   padding: 18px 10px 22px;
 }
+
 .calendar-date{
   font-size: 26px;
   font-weight: 800;
@@ -1195,8 +1196,13 @@ select.field{ appearance: none; }
 
 .cal-cell.filled{
   cursor: pointer;
+  /* iOS: evita selezione testo/callout sull'elemento draggable senza rompere menu/scroll */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  touch-action: manipulation;
 }
-
 /* Filled cell content */
 .cal-initials{
   position:absolute;
@@ -1841,7 +1847,8 @@ select.field{ appearance: none; }
 
 
 /* Drag & drop sedute (Calendario) */
-body.cal-dragging { touch-action: none; }
+body.cal-dragging { touch-action: none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+body.cal-dragging .calendar-wrap, body.cal-dragging .calendar-wrap *{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
 .cal-cell.drag-source { outline: 2px solid rgba(0,160,255,0.9); outline-offset: -2px; }
 .cal-cell.drop-target { outline: 3px solid rgba(0,160,255,0.9); outline-offset: -3px; }
 .cal-drag-ghost{
