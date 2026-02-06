@@ -1,4 +1,4 @@
-// Code_AMF_1.085
+// Code_AMF_1.084
 /**
  * AMF - Google Apps Script Web App API
  * Deploy as Web App (doGet) and paste /exec URL into config.js (API_URL).
@@ -679,18 +679,44 @@ function parseYmd_(s) {
 }
 
 function ymdToDate_(ymd) {
-  const p = parseYmd_(ymd);
+  if (Object.prototype.toString.call(ymd) === "[object Date]" && !isNaN(ymd.getTime())) {
+    const d = new Date(ymd.getTime());
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  const norm = normalizeYmd_(ymd);
+  const p = parseYmd_(norm);
   if (!p) return null;
   const d = new Date(p.y, p.m - 1, p.d);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
+
 function dateToYmd_(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${dd}`;
+}
+
+
+function normalizeYmd_(v) {
+  // Accepts Date objects, ISO strings (YYYY-MM-DD...), or other date-like strings.
+  if (v === null || v === undefined || v === "") return "";
+  if (Object.prototype.toString.call(v) === "[object Date]" && !isNaN(v.getTime())) {
+    return dateToYmd_(v);
+  }
+  const s = String(v).trim();
+  const ymd = s.slice(0, 10);
+  if (parseYmd_(ymd)) return ymd;
+
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    d.setHours(0, 0, 0, 0);
+    return dateToYmd_(d);
+  }
+  return "";
 }
 
 function listMoves_(userId, yearStr, monthStr) {
@@ -722,6 +748,10 @@ function listMoves_(userId, yearStr, monthStr) {
 
     const obj = {};
     headers.forEach((h, j) => obj[h] = r[j]);
+
+    // Normalize dates (Sheets may return Date objects)
+    if (Object.prototype.hasOwnProperty.call(obj, "from_date")) obj.from_date = normalizeYmd_(obj.from_date);
+    if (Object.prototype.hasOwnProperty.call(obj, "to_date")) obj.to_date = normalizeYmd_(obj.to_date);
 
     const fd = ymdToDate_(obj.from_date);
     const td = ymdToDate_(obj.to_date);
@@ -904,19 +934,12 @@ function lastOccurrenceDateForPatient_(patient, movesForPatient) {
   return dateToYmd_(start);
 }
 
-
-// Alias per compatibilità: alcuni client/deploy possono invocare moveSession senza underscore
-function moveSession(userId, paziente_id, from_date, from_time, to_date, to_time) {
-  return moveSession_(userId, paziente_id, from_date, from_time, to_date, to_time);
-}
-
-
 function moveSession_(userId, pazienteId, fromDate, fromTime, toDate, toTime) {
   if (!userId) throw new Error("UserId richiesto");
   if (!pazienteId) throw new Error("Paziente richiesto");
 
-  fromDate = String(fromDate || "").slice(0, 10);
-  toDate = String(toDate || "").slice(0, 10);
+  fromDate = normalizeYmd_(fromDate) || String(fromDate || "").slice(0, 10);
+  toDate = normalizeYmd_(toDate) || String(toDate || "").slice(0, 10);
   fromTime = normalizeTime_(fromTime);
   toTime = normalizeTime_(toTime);
 
@@ -945,7 +968,7 @@ function moveSession_(userId, pazienteId, fromDate, fromTime, toDate, toTime) {
     if (idxDel >= 0 && String(r[idxDel] || "").toLowerCase() === "true") continue;
     if (idxUser >= 0 && String(r[idxUser] || "") !== String(userId)) continue;
     if (idxPid >= 0 && String(r[idxPid] || "") !== String(pazienteId)) continue;
-    if (idxFromD >= 0 && String(r[idxFromD] || "").slice(0, 10) !== fromDate) continue;
+    if (idxFromD >= 0 && normalizeYmd_(r[idxFromD]) !== fromDate) continue;
     if (idxFromT >= 0 && normalizeTime_(r[idxFromT]) !== fromTime) continue;
     rowNum = i + 1;
     break;
