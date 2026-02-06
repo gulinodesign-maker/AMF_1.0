@@ -1,4 +1,4 @@
-/* AMF_1.087 */
+/* AMF_1.088 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -1207,8 +1207,9 @@ select.field{ appearance: none; }
 
 .cal-cell.filled{
   cursor: pointer;
+  touch-action: none;
+  -webkit-user-drag: none;
 }
-
 /* Filled cell content */
 .cal-initials{
   position:absolute;
