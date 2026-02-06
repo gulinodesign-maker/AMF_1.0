@@ -1,7 +1,7 @@
-/* AMF_1.076 */
+/* AMF_1.079 */
 (() => {
-    const BUILD = "AMF_1.076";
-    const DISPLAY = "1.076";
+    const BUILD = "AMF_1.079";
+    const DISPLAY = "1.079";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -1497,6 +1497,8 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
   let calHours = [];
   let calBuilt = false;
   let calSlotPatients = new Map(); // key "dayKey|HH:MM" -> {count, ids:[]}
+  let calMovesCache = []; // spostamenti/override sedute per il mese corrente
+  let calDragState = null;
 
   const CAL_COLOR_START = { r: 160, g: 160, b: 160 }; // grey
   const CAL_COLOR_MID   = { r: 90,  g: 150, b: 210 }; // azzurro chiaro
@@ -1992,9 +1994,7 @@ function initialsFromName(fullName) {
   return first + last;
 }
 
-function fillCalendarFromPatients(patients) {
-  if (!calBody) return;
-
+function buildCalendarSlotsFromPatients(patients) {
   const year = calSelectedDate.getFullYear();
   const month = calSelectedDate.getMonth();
   const daysInThisMonth = new Date(year, month + 1, 0).getDate();
@@ -2082,6 +2082,11 @@ function fillCalendarFromPatients(patients) {
     }
   });
 
+  return slots;
+}
+
+function paintCalendarSlots(slots) {
+  if (!calBody) return;
   calSlotPatients = slots;
 
   calBody.querySelectorAll(".cal-cell").forEach((cell) => {
@@ -2115,7 +2120,7 @@ function fillCalendarFromPatients(patients) {
       ini.textContent = initialsText;
       cell.appendChild(ini);
     }
-if (info.count === 1) {
+    if (info.count === 1) {
       cell.title = info.names[0] || "";
     } else {
       cell.title = `${info.count} pazienti`;
@@ -2125,6 +2130,127 @@ if (info.count === 1) {
       cell.appendChild(badge);
     }
   });
+}
+
+function slotInfoClone_(info) {
+  return {
+    count: info && info.count ? info.count : 0,
+    names: Array.isArray(info && info.names) ? info.names.slice() : [],
+    ids: Array.isArray(info && info.ids) ? info.ids.slice() : [],
+    tags: Array.isArray(info && info.tags) ? info.tags.slice() : []
+  };
+}
+
+function slotRemovePatient_(slots, slotKey, pid) {
+  const info = slots.get(slotKey);
+  if (!info || !info.count) return;
+
+  const idx = Array.isArray(info.ids) ? info.ids.findIndex((x) => String(x) === String(pid)) : -1;
+  if (idx < 0) return;
+
+  info.ids.splice(idx, 1);
+  if (Array.isArray(info.names)) info.names.splice(idx, 1);
+  if (Array.isArray(info.tags)) info.tags.splice(idx, 1);
+
+  info.count = Math.max(0, (info.count || 0) - 1);
+  if (!info.count) slots.delete(slotKey);
+  else slots.set(slotKey, info);
+}
+
+function slotAddPatient_(slots, slotKey, p) {
+  if (!p) return;
+  const info = slots.get(slotKey) || { count: 0, names: [], ids: [], tags: [] };
+  info.count += 1;
+  info.names.push(patientDisplayName(p) || "Paziente");
+  info.ids.push(p.id);
+  info.tags.push(getSocTagIndexById(p.societa_id || ""));
+  slots.set(slotKey, info);
+}
+
+function isoYmdFromParts_(y, m0, d) {
+  const mm = String(m0 + 1).padStart(2, "0");
+  const dd = String(d).padStart(2, "0");
+  return `${y}-${mm}-${dd}`;
+}
+
+function parseYmd_(s) {
+  const m = String(s || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return { y: parseInt(m[1], 10), m: parseInt(m[2], 10) - 1, d: parseInt(m[3], 10) };
+}
+
+async function fetchCalendarMovesForMonth_(year, month0) {
+  try {
+    const user = getSession();
+    if (!user || !user.id) return [];
+    const ok = await ensureApiReady();
+    if (!ok) return [];
+
+    const res = await api("listMoves", { userId: user.id, year: String(year), month: String(month0 + 1) });
+    const moves = res && (res.moves || res.spostamenti || res.sedute) ? (res.moves || res.spostamenti || res.sedute) : [];
+    return Array.isArray(moves) ? moves : [];
+  } catch (err) {
+    if (apiHintIfUnknownAction(err)) return [];
+    return [];
+  }
+}
+
+function normalizeMove_(m) {
+  if (!m) return null;
+  const pid = m.paziente_id || m.pazienteId || m.patient_id || m.patientId || m.pid;
+  const fd = m.from_date || m.fromDate || m.da_data || m.daData || m.from_day || m.fromDay;
+  const ft = m.from_time || m.fromTime || m.da_ora || m.daOra || m.from_hour || m.fromHour;
+  const td = m.to_date || m.toDate || m.a_data || m.aData || m.to_day || m.toDay;
+  const tt = m.to_time || m.toTime || m.a_ora || m.aOra || m.to_hour || m.toHour;
+  if (!pid || !fd || !ft || !td || !tt) return null;
+  return {
+    id: m.id || "",
+    paziente_id: String(pid),
+    from_date: String(fd).slice(0, 10),
+    from_time: normalizeTime(String(ft)),
+    to_date: String(td).slice(0, 10),
+    to_time: normalizeTime(String(tt))
+  };
+}
+
+async function applyCalendarMoves_(baseSlots, patients) {
+  const year = calSelectedDate.getFullYear();
+  const month0 = calSelectedDate.getMonth();
+
+  const movesRaw = await fetchCalendarMovesForMonth_(year, month0);
+  const moves = (movesRaw || []).map(normalizeMove_).filter(Boolean);
+
+  // clone base slots
+  const slots = new Map();
+  (baseSlots || new Map()).forEach((info, key) => slots.set(key, slotInfoClone_(info)));
+
+  const patientById = new Map();
+  (patients || []).forEach((p) => { if (p && p.id != null) patientById.set(String(p.id), p); });
+
+  moves.forEach((mv) => {
+    const p = patientById.get(String(mv.paziente_id));
+    if (!p) return;
+
+    const from = parseYmd_(mv.from_date);
+    const to = parseYmd_(mv.to_date);
+    if (from && from.y === year && from.m === month0) {
+      const kFrom = `${from.d}|${mv.from_time}`;
+      slotRemovePatient_(slots, kFrom, mv.paziente_id);
+    }
+    if (to && to.y === year && to.m === month0) {
+      const kTo = `${to.d}|${mv.to_time}`;
+      slotAddPatient_(slots, kTo, p);
+    }
+  });
+
+  calMovesCache = moves;
+  return slots;
+}
+
+function fillCalendarFromPatients(patients) {
+  const baseSlots = buildCalendarSlotsFromPatients(patients);
+  paintCalendarSlots(baseSlots);
+  return baseSlots;
 }
 async function ensurePatientsForCalendar() {
   const user = getSession();
@@ -2305,7 +2431,13 @@ async function ensurePatientsForCalendar() {
       const c = calColorForDay(d);
       cell.style.backgroundColor = rgba(c, 0.25);
 
-      cell.addEventListener("click", async () => {
+      cell.addEventListener("click", async (e) => {
+        if (cell.dataset.suppressClick === "1") {
+          cell.dataset.suppressClick = "";
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         const slotKey = `${cell.dataset.day}|${cell.dataset.time}`;
         const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
         const ids = info && Array.isArray(info.ids) ? info.ids.filter((x) => x != null) : [];
@@ -2319,6 +2451,176 @@ async function ensurePatientsForCalendar() {
         const p = (patients || []).find((x) => String(x.id) === String(pid));
         if (!p) { toast("Paziente non trovato"); return; }
         openPatientExisting(p);
+      });
+
+      // Long-press (0.5s) + drag&drop per spostare UNA seduta su uno slot vuoto
+      let lpTimer = null;
+      let lpFired = false;
+
+      const clearLP = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+
+      const endDragCleanup = () => {
+        try { document.body.classList.remove("cal-dragging"); } catch (_) {}
+        try { calBody && calBody.querySelectorAll(".cal-cell.drop-target").forEach((x) => x.classList.remove("drop-target")); } catch (_) {}
+        try { calBody && calBody.querySelectorAll(".cal-cell.drag-source").forEach((x) => x.classList.remove("drag-source")); } catch (_) {}
+        if (calDragState && calDragState.ghost && calDragState.ghost.parentNode) {
+          try { calDragState.ghost.parentNode.removeChild(calDragState.ghost); } catch (_) {}
+        }
+        try { document.removeEventListener("pointermove", onDragMove); } catch (_) {}
+        try { document.removeEventListener("pointerup", onDragEnd); } catch (_) {}
+        try { document.removeEventListener("pointercancel", onDragEnd); } catch (_) {}
+        calDragState = null;
+      };
+
+      const onDragMove = (ev) => {
+        if (!calDragState || !calDragState.dragging) return;
+        try { ev.preventDefault(); } catch (_) {}
+
+        const x = ev.clientX;
+        const y = ev.clientY;
+
+        if (calDragState.ghost) {
+          calDragState.ghost.style.transform = `translate(${x}px, ${y}px)`;
+        }
+
+        let el = null;
+        try { el = document.elementFromPoint(x, y); } catch (_) { el = null; }
+        const cell2 = el && el.closest ? el.closest(".cal-cell") : null;
+
+        // reset highlight
+        try { calBody && calBody.querySelectorAll(".cal-cell.drop-target").forEach((n) => n.classList.remove("drop-target")); } catch (_) {}
+
+        if (!cell2 || cell2.classList.contains("disabled")) return;
+
+        const k = `${cell2.dataset.day}|${cell2.dataset.time}`;
+        const info2 = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(k) : null;
+        const occupied = info2 && info2.count;
+
+        // allow drop only on empty slot
+        if (!occupied) {
+          cell2.classList.add("drop-target");
+          calDragState.target = cell2;
+        } else {
+          calDragState.target = null;
+        }
+      };
+
+      const onDragEnd = async (ev) => {
+        if (!calDragState || !calDragState.dragging) return;
+        try { ev.preventDefault(); } catch (_) {}
+
+        const src = calDragState.source;
+        const dst = calDragState.target;
+
+        const pid = calDragState.pid;
+        const fromDay = parseInt(calDragState.fromDay || "0", 10);
+        const fromTime = String(calDragState.fromTime || "");
+        endDragCleanup();
+
+        if (!src || !dst) return;
+
+        const toDay = parseInt(dst.dataset.day || "0", 10);
+        const toTime = String(dst.dataset.time || "");
+
+        if (!pid || !fromDay || !toDay || !fromTime || !toTime) return;
+        if (fromDay === toDay && fromTime === toTime) return;
+
+        // valida slot destinazione vuoto (ultimo controllo)
+        try {
+          const k2 = `${toDay}|${toTime}`;
+          const info2 = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(k2) : null;
+          if (info2 && info2.count) {
+            toast("Slot non disponibile");
+            return;
+          }
+        } catch (_) {}
+
+        const year = calSelectedDate.getFullYear();
+        const month0 = calSelectedDate.getMonth();
+        const from_date = isoYmdFromParts_(year, month0, fromDay);
+        const to_date = isoYmdFromParts_(year, month0, toDay);
+
+        try {
+          const user = getSession();
+          if (!user || !user.id) { toast("Devi accedere"); return; }
+          const ok = await ensureApiReady();
+          if (!ok) return;
+
+          await api("moveSession", {
+            userId: user.id,
+            paziente_id: String(pid),
+            from_date,
+            from_time: fromTime,
+            to_date,
+            to_time: toTime
+          });
+
+          toast("Spostato");
+          await updateCalendarUI();
+        } catch (err) {
+          if (apiHintIfUnknownAction(err)) return;
+          toast(String(err && err.message ? err.message : "Errore spostamento"));
+        }
+      };
+
+      cell.addEventListener("pointerdown", (ev) => {
+        // Non avviare drag su celle vuote o disabilitate
+        if (cell.classList.contains("disabled")) return;
+
+        lpFired = false;
+        clearLP();
+
+        lpTimer = setTimeout(async () => {
+          lpFired = true;
+
+          const slotKey = `${cell.dataset.day}|${cell.dataset.time}`;
+          const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
+          const ids = info && Array.isArray(info.ids) ? info.ids.filter((x) => x != null) : [];
+          if (ids.length !== 1) { toast("Slot non spostabile"); return; }
+
+          const pid = ids[0];
+
+          // Avvio drag
+          try { cell.dataset.suppressClick = "1"; } catch (_) {}
+          calDragState = {
+            dragging: true,
+            pid,
+            fromDay: cell.dataset.day,
+            fromTime: cell.dataset.time,
+            source: cell,
+            target: null,
+            ghost: null
+          };
+
+          try { document.body.classList.add("cal-dragging"); } catch (_) {}
+          try { cell.classList.add("drag-source"); } catch (_) {}
+
+          // Ghost
+          try {
+            const g = document.createElement("div");
+            g.className = "cal-drag-ghost";
+            g.textContent = "↔";
+            g.style.transform = `translate(${ev.clientX}px, ${ev.clientY}px)`;
+            document.body.appendChild(g);
+            calDragState.ghost = g;
+          } catch (_) {}
+
+          // listeners globali
+          try { document.addEventListener("pointermove", onDragMove, { passive: false }); } catch (_) {}
+          try { document.addEventListener("pointerup", onDragEnd, { passive: false }); } catch (_) {}
+          try { document.addEventListener("pointercancel", onDragEnd, { passive: false }); } catch (_) {}
+        }, 500);
+      });
+
+      cell.addEventListener("pointerup", (ev) => {
+        clearLP();
+      });
+      cell.addEventListener("pointercancel", (ev) => {
+        clearLP();
+        endDragCleanup();
+      });
+      cell.addEventListener("pointerleave", (ev) => {
+        clearLP();
       });
 
       frag.appendChild(cell);
@@ -2440,7 +2742,9 @@ function formatItMonth(dateObj) {
   clearCalendarCells();
   await loadSocietaCache();
   const patients = await ensurePatientsForCalendar();
-  fillCalendarFromPatients(patients);
+  const baseSlots = buildCalendarSlotsFromPatients(patients);
+  const effectiveSlots = await applyCalendarMoves_(baseSlots, patients);
+  paintCalendarSlots(effectiveSlots);
 }
 
 
