@@ -999,7 +999,6 @@ function moveSession_(userId, pazienteId, fromDate, fromTime, toDate, toTime) {
   return { paziente_id: String(pazienteId), from_date: fromDate, from_time: fromTime, to_date: toDate, to_time: toTime, data_fine: newEnd || "" };
 }
 
-}
 
 function sanitizeCallback_(cb) {
   cb = String(cb || "").trim();

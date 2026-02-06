@@ -1,7 +1,7 @@
-/* AMF_1.080 */
+/* AMF_1.081 */
 (() => {
-    const BUILD = "AMF_1.080";
-    const DISPLAY = "1.080";
+    const BUILD = "AMF_1.081";
+    const DISPLAY = "1.081";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -2207,9 +2207,9 @@ function normalizeMove_(m) {
     id: m.id || "",
     paziente_id: String(pid),
     from_date: String(fd).slice(0, 10),
-    from_time: normalizeTime(String(ft)),
+    from_time: normTime(ft),
     to_date: String(td).slice(0, 10),
-    to_time: normalizeTime(String(tt))
+    to_time: normTime(tt)
   };
 }
 
