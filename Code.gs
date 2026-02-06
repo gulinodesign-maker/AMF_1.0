@@ -1,4 +1,4 @@
-// Code_AMF_1.078
+// Code_AMF_1.084
 /**
  * AMF - Google Apps Script Web App API
  * Deploy as Web App (doGet) and paste /exec URL into config.js (API_URL).
@@ -620,6 +620,7 @@ function wipeAll_(userId) {
       sh.getRange(2, 1, last-1, lastCol).clearContent();
     }
   });
+}
 
 
 // -------------------------------
