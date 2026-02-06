@@ -1,4 +1,4 @@
-// Code_AMF_1.084
+// Code_AMF_1.085
 /**
  * AMF - Google Apps Script Web App API
  * Deploy as Web App (doGet) and paste /exec URL into config.js (API_URL).
@@ -903,6 +903,13 @@ function lastOccurrenceDateForPatient_(patient, movesForPatient) {
   }
   return dateToYmd_(start);
 }
+
+
+// Alias per compatibilità: alcuni client/deploy possono invocare moveSession senza underscore
+function moveSession(userId, paziente_id, from_date, from_time, to_date, to_time) {
+  return moveSession_(userId, paziente_id, from_date, from_time, to_date, to_time);
+}
+
 
 function moveSession_(userId, pazienteId, fromDate, fromTime, toDate, toTime) {
   if (!userId) throw new Error("UserId richiesto");

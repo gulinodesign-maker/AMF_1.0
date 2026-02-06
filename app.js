@@ -1,7 +1,7 @@
-/* AMF_1.084 */
+/* AMF_1.085 */
 (() => {
-    const BUILD = "AMF_1.084";
-    const DISPLAY = "1.084";
+    const BUILD = "AMF_1.085";
+    const DISPLAY = "1.085";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -18,10 +18,22 @@
 
   function apiHintIfUnknownAction(err) {
     const msg = String(err && err.message ? err.message : err);
-    if (msg.toLowerCase().includes("unknown action")) {
+    const low = msg.toLowerCase();
+
+    // Backend (GAS) non aggiornato o mismatch tra front-end e Code.gs deployato
+    if (low.includes("unknown action")) {
       toast("API non aggiornata: ridistribuisci Code.gs (Web App) e riprova");
       return true;
     }
+
+    // Alcuni deploy/ambienti restituiscono errori tipo: "moveSession is not defined" / "moveSession is no defined"
+    const looksLikeUndefined = low.includes("is not defined") || low.includes("is no defined") || low.includes("undefined");
+    const mentionsMove = low.includes("movesession") || low.includes("movesession_");
+    if (looksLikeUndefined && mentionsMove) {
+      toast("API non aggiornata: ridistribuisci Code.gs (Web App) e verifica l'API_URL in config.js");
+      return true;
+    }
+
     return false;
   }
 
