@@ -1,7 +1,7 @@
 /* AMF_1.081 */
 (() => {
-    const BUILD = "AMF_1.081";
-    const DISPLAY = "1.081";
+    const BUILD = "AMF_1.083";
+    const DISPLAY = "1.083";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -182,21 +182,22 @@
 
   // Migrazione build: se cambia build e config.js ha un URL valido, aggiorna l"API_URL locale
   // (evita che resti salvato un vecchio endpoint).
-  (function migrateApiUrlOnBuild() {
+  
+  // API URL: non sovrascrivere mai AMF_API_URL se già presente (contiene il riferimento agli account esistenti).
+  (function ensureApiUrlDefault() {
     try {
-      const last = (localStorage.getItem("AMF_LAST_BUILD") || "").trim();
       const cfg = (window.AMF_CONFIG && String(window.AMF_CONFIG.API_URL || "").trim()) || "";
       const cfgOk = cfg && cfg.startsWith("http") && !cfg.includes("PASTE_YOUR_GAS_WEBAPP_URL_HERE");
-      if (cfgOk && last && last != BUILD) {
+
+      const current = (localStorage.getItem("AMF_API_URL") || "").trim();
+      if (!current && cfgOk) {
         localStorage.setItem("AMF_API_URL", cfg);
       }
-      // se non esiste ancora, imposta comunque il default
-      if (cfgOk && !(localStorage.getItem("AMF_API_URL") || "").trim()) {
-        localStorage.setItem("AMF_API_URL", cfg);
-      }
+      // aggiorna solo il marker build (non tocca l'API_URL)
       localStorage.setItem("AMF_LAST_BUILD", BUILD);
     } catch (_) {}
   })();
+;
 
   // --- API URL config (config.js + localStorage override)
   function getApiUrl() {
@@ -223,15 +224,12 @@
 
   // Se la build cambia e nel pacchetto c'è un API_URL valido, aggiorna quello salvato in locale
   (() => {
-    const def = getDefaultApiUrl();
     const last = (localStorage.getItem("AMF_LAST_BUILD") || "").trim();
-    if (def && last !== BUILD) {
-      localStorage.setItem("AMF_API_URL", def);
-    }
     if (last !== BUILD) {
+      // Non toccare AMF_API_URL: potrebbe puntare agli account esistenti.
       localStorage.setItem("AMF_LAST_BUILD", BUILD);
     }
-  })();
+  })();;
 
   // Modal API
   const modalApi = $("#modalApi");
