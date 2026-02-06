@@ -1,7 +1,7 @@
-/* AMF_1.075 */
+/* AMF_1.076 */
 (() => {
-  const BUILD = "AMF_1.075";
-  const DISPLAY = "1.075";
+    const BUILD = "AMF_1.076";
+    const DISPLAY = "1.076";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -515,6 +515,13 @@
   const statsTotalAccessi = $("#statsTotalAccessi");
   const statsTotalImporto = $("#statsTotalImporto");
 
+  // Report (popup)
+  const modalReport = $("#modalReport");
+  const reportFrame = $("#reportFrame");
+  const btnReportClose = $("#btnReportClose");
+  const btnReportPrint = $("#btnReportPrint");
+  let reportModalData = null;
+
   const modalPickMonth = $("#modalPickMonth");
   const btnPickMonthClose = $("#btnPickMonthClose");
   const monthPickList = $("#monthPickList");
@@ -820,7 +827,7 @@
 
     const rows = (out.rows || []).map((r) => ({ cognome: r.cognome, nome: r.nome, accessi: r.accessi }));
     const total = out.totalAcc || 0;
-    openAccessReportPrint_(rows, total, { societaLabel, operatorName, monthIndex: out.monthIndex, year: out.year });
+    openAccessReportModal_(rows, total, { societaLabel, operatorName, monthIndex: out.monthIndex, year: out.year });
   }
 
   function bindStatsHandlersOnce_() {
@@ -1212,7 +1219,7 @@ function renderStatsMonthly_() {
         String(a.nome || "").localeCompare(String(b.nome || ""), "it", { sensitivity: "base" })
       );
 
-      openAccessReportPrint_(rows, total, { societaLabel, operatorName, monthIndex: i, year: yearLabel });
+      openAccessReportModal_(rows, total, { societaLabel, operatorName, monthIndex: i, year: yearLabel });
     } catch (e) {
       toast("Impossibile generare il report");
     }
@@ -1246,20 +1253,20 @@ function renderStatsMonthly_() {
 
 
 
-  function openAccessReportPrint_(rows, total, meta) {
+  function buildAccessReportHtml_(rows, total, meta, opts = {}) {
     const safe = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
     const mIdx = Number(meta?.monthIndex) || 0;
     const y = Number(meta?.year) || (new Date()).getFullYear();
     const monthName = MONTHS_IT[mIdx] || "";
     const societaLabel = safe(meta?.societaLabel || "");
     const operatorName = safe(meta?.operatorName || "");
+    const autoPrint = (opts && opts.autoPrint !== undefined) ? !!opts.autoPrint : true;
 
     const cs = getComputedStyle(document.documentElement);
     const primary = cs.getPropertyValue("--primary").trim() || "#2a74b8";
     const accent = cs.getPropertyValue("--accent").trim() || "#c57b2a";
     const text = cs.getPropertyValue("--text").trim() || "#1b1f23";
 
-    const now = new Date();
     const docTitle = `Report Accessi - ${monthName} ${y}`;
 
     const bodyRows = (Array.isArray(rows) ? rows : []).map((r) => {
@@ -1273,10 +1280,14 @@ function renderStatsMonthly_() {
       </tr>`;
     }).join("");
 
-    // righe vuote per dare "respiro" tipo modulo
     const minRows = 18;
     const emptyCount = Math.max(0, minRows - (Array.isArray(rows) ? rows.length : 0));
     const emptyRows = new Array(emptyCount).fill(0).map(() => `<tr class="empty"><td class="c1">&nbsp;</td><td class="c2"></td></tr>`).join("");
+
+    const autoPrintScript = autoPrint ? `
+<script>
+  window.addEventListener('load', () => { setTimeout(() => { try{ window.print(); }catch(e){} }, 250); });
+</script>` : "";
 
     const html = `<!doctype html>
 <html lang="it">
@@ -1308,80 +1319,71 @@ function renderStatsMonthly_() {
     font-size: 30px;
     font-weight: 900;
     letter-spacing: .3px;
-    margin: 4px 0 10px;
+    margin: 0 0 6px;
+    color: rgba(42,116,184,.98);
   }
-  .hr{
-    height: 2px;
-    background: rgba(42,116,184,.55);
-    margin: 8px 0 18px;
-  }
-  .top-grid{
+  .meta{
     display:flex;
-    gap: 18px;
-    justify-content: space-between;
-    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    font-weight: 700;
+    color: rgba(27,31,35,.72);
+    margin-bottom: 10px;
   }
-  .box{
-    flex: 1 1 0;
-    min-width: 0;
-    border: 2px solid rgba(42,116,184,.55);
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 14px;
-    font-weight: 800;
-  }
-  .box span{ font-weight: 900; }
-  .box .val{ display:block; margin-top: 6px; font-size: 18px; font-weight: 900; color: var(--primary); }
+  .meta b{ color: rgba(27,31,35,.92); }
   table{
-    width:100%;
+    width: 100%;
     border-collapse: collapse;
-    table-layout: fixed;
-    font-size: 14px;
+    margin-top: 10px;
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: 18px;
+    overflow: hidden;
   }
   thead th{
     text-align:left;
-    padding: 10px 10px;
-    border-bottom: 2px solid rgba(42,116,184,.35);
-    font-size: 14px;
-    font-weight: 900;
+    padding: 10px 12px;
+    font-size: 13px;
     letter-spacing: .2px;
+    background: rgba(42,116,184,.12);
+    border-bottom: 1px solid rgba(0,0,0,.10);
   }
   tbody td{
-    padding: 8px 10px;
-    border-bottom: 1px solid rgba(42,116,184,.18);
-    height: 28px;
-    vertical-align: middle;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(0,0,0,.08);
+    font-weight: 700;
+    font-size: 14px;
   }
-  .c1{ width: 70%; border-right: 2px solid rgba(42,116,184,.25); }
-  .c2{ width: 30%; text-align: right; font-weight: 900; }
+  tbody tr.empty td{
+    font-weight: 600;
+    color: rgba(27,31,35,.55);
+    height: 34px;
+  }
   tfoot td{
-    padding: 12px 10px 6px;
-    font-size: 18px;
+    padding: 11px 12px;
     font-weight: 900;
+    background: rgba(197,123,42,.10);
+    border-top: 1px solid rgba(0,0,0,.10);
   }
-  .tot-label{ text-transform: uppercase; letter-spacing: .2px; }
-  .tot-val{ text-align: right; color: var(--primary); }
-  @media print{
-    body{ padding:0; }
-    .sheet{ border:none; padding: 0; }
-  }
+  .c1{ width: 75%; }
+  .c2{ width: 25%; text-align:right; }
+  .tot-label{ text-transform: uppercase; letter-spacing: .5px; }
+  .tot-val{ text-align:right; }
 </style>
 </head>
 <body>
   <div class="sheet">
-    <div class="title">${societaLabel || "Nome società"}</div>
-    <div class="hr"></div>
-
-    <div class="top-grid">
-      <div class="box"><span>Nome operatore</span><div class="val">${operatorName || "&nbsp;"}</div></div>
-      <div class="box"><span>Mese / Anno</span><div class="val">${safe(monthName)} ${safe(String(y))}</div></div>
+    <div class="title">Report accessi</div>
+    <div class="meta">
+      <div><b>Mese:</b> ${safe(monthName)} ${safe(String(y))}</div>
+      <div><b>Società:</b> ${societaLabel || "—"}</div>
+      ${operatorName ? `<div><b>Operatore:</b> ${operatorName}</div>` : ``}
     </div>
 
     <table>
       <thead>
         <tr>
-          <th class="c1">PAZIENTE</th>
-          <th class="c2">TOTALI ACCESSI</th>
+          <th class="c1">Paziente</th>
+          <th class="c2">Accessi</th>
         </tr>
       </thead>
       <tbody>
@@ -1396,25 +1398,53 @@ function renderStatsMonthly_() {
       </tfoot>
     </table>
   </div>
-
-<script>
-  // auto print (iOS: apre stampa/condividi)
-  window.addEventListener('load', () => { setTimeout(() => { try{ window.print(); }catch(e){} }, 250); });
-</script>
+  ${autoPrintScript}
 </body>
 </html>`;
 
+    return html;
+  }
+
+  function openAccessReportPrint_(rows, total, meta) {
+    const html = buildAccessReportHtml_(rows, total, meta, { autoPrint: true });
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const w = window.open(url, "_blank");
     if (!w) {
-      // fallback: same tab
       window.location.href = url;
     } else {
-      // cleanup later
       setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 60000);
     }
   }
+
+  function openAccessReportModal_(rows, total, meta) {
+    if (!modalReport || !reportFrame) {
+      // fallback: print direttamente
+      openAccessReportPrint_(rows, total, meta);
+      return;
+    }
+    reportModalData = { rows: Array.isArray(rows) ? rows : [], total: total || 0, meta: meta || {} };
+    const html = buildAccessReportHtml_(reportModalData.rows, reportModalData.total, reportModalData.meta, { autoPrint: false });
+    try { reportFrame.srcdoc = html; } catch (_) {}
+    modalReport.classList.add("show");
+    modalReport.setAttribute("aria-hidden", "false");
+  }
+
+  function closeAccessReportModal_() {
+    if (!modalReport) return;
+    modalReport.classList.remove("show");
+    modalReport.setAttribute("aria-hidden", "true");
+    reportModalData = null;
+    try { if (reportFrame) reportFrame.srcdoc = ""; } catch (_) {}
+  }
+
+  btnReportClose?.addEventListener("click", closeAccessReportModal_);
+  modalReport?.addEventListener("click", (e) => { if (e.target === modalReport) closeAccessReportModal_(); });
+  btnReportPrint?.addEventListener("click", () => {
+    if (!reportModalData) return;
+    openAccessReportPrint_(reportModalData.rows, reportModalData.total, reportModalData.meta);
+  });
+
 async function openStatsFlow() {
     setCalendarControlsVisible(false);
     const titleEl = $("#topbarTitle");
@@ -2766,6 +2796,16 @@ function formatItMonth(dateObj) {
     return `${day} ${month} ${year}`;
   }
 
+
+  function fmtItDateLongCap(d) {
+    if (!d) return "";
+    const day = d.getDate();
+    const month = IT_MONTHS[d.getMonth()] || "";
+    const monthCap = month ? (month.charAt(0).toUpperCase() + month.slice(1)) : "";
+    const year = d.getFullYear();
+    return `${day} ${monthCap} ${year}`;
+  }
+
   function fmtTherapyPeriod(startStr, endStr) {
     const s = dateOnlyLocal(startStr);
     const e = dateOnlyLocal(endStr);
@@ -2981,16 +3021,21 @@ function formatItMonth(dateObj) {
       const name = patientDisplayName(p) || "—";
       const soc = getSocNameById(p.societa_id || "") || "—";
       const period = fmtTherapyPeriod(p.data_inizio || "", p.data_fine || "");
+      const endDateObj = (patientsSortMode === "date") ? dateOnlyLocal(p.data_fine || p.end || "") : null;
+      const lastTherapyDay = endDateObj ? fmtItDateLongCap(endDateObj) : "";
 
       // Background color from società tag (20% opacity)
       const tagIdx = getSocTagIndexById(p.societa_id || "");
-      const base = SOC_TAG_COLORS[tagIdx] || "";
-      const bg = base ? hexToRgba(base, 0.20) : "";
+      const base = (SOC_TAG_COLORS[tagIdx] !== undefined) ? SOC_TAG_COLORS[tagIdx] : SOC_TAG_COLORS[4];
+      const bg = hexToRgba(base, 0.20);
       if (bg) row.style.backgroundColor = bg;
 
       row.innerHTML = `
         <div class="patient-info">
-          <div class="patient-name"><span class="patient-name-text">${escapeHtml(name)}</span>${patientsSortMode === "today" && p.__todayTime ? '<span class="patient-name-time"> - ' + escapeHtml(p.__todayTime) + '</span>' : ""}</div>
+          <div class="patient-name">
+            <span class="patient-name-text">${escapeHtml(name)}</span>${patientsSortMode === "today" && p.__todayTime ? '<span class="patient-name-time"> - ' + escapeHtml(p.__todayTime) + '</span>' : ""}
+          </div>
+          ${patientsSortMode === "date" && lastTherapyDay ? `<div class="patient-lastdate">${escapeHtml(lastTherapyDay)}</div>` : ""}
           <div class="patient-sub">${escapeHtml(soc)}${period ? " • " + escapeHtml(period) : ""}</div>
         </div>
         <button class="patient-badge patient-geotag" type="button" aria-label="Naviga" title="Naviga">
@@ -2999,6 +3044,7 @@ function formatItMonth(dateObj) {
           </svg>
         </button>
       `;
+
       frag.appendChild(row);
     }
     patientsListEl.appendChild(frag);
