@@ -1,7 +1,7 @@
-/* AMF_1.088 */
+/* AMF_1.091 */
 (() => {
-    const BUILD = "AMF_1.088";
-    const DISPLAY = "1.088";
+    const BUILD = "AMF_1.091";
+    const DISPLAY = "1.091";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -532,6 +532,34 @@
 
   let statsHandlersBound = false;
 
+// Moves cache per statistiche (include spostamenti e cancellazioni sedute)
+let statsMovesCacheKey = "";
+let statsMovesCache = [];
+async function ensureStatsMovesCache_() {
+  const year = getStatsYear_();
+  const mi = statsSelectedMonthIndex;
+  const key = `${year}-${mi}`;
+  if (statsMovesCacheKey === key && Array.isArray(statsMovesCache)) return;
+
+  try {
+    const raw = await fetchCalendarMovesForMonth_(year, mi);
+    const moves0 = (raw || []).map(normalizeMove_).filter(Boolean);
+    statsMovesCache = collapseMoves_(moves0);
+    statsMovesCacheKey = key;
+  } catch (_) {
+    statsMovesCache = [];
+    statsMovesCacheKey = key;
+  }
+}
+function invalidateStatsMovesCache_() {
+  statsMovesCacheKey = "";
+  statsMovesCache = [];
+}
+function getStatsMovesCache_() {
+  return Array.isArray(statsMovesCache) ? statsMovesCache : [];
+}
+
+
   function openPickMonthModal_() {
     if (!modalPickMonth) return;
     modalPickMonth.classList.add("show");
@@ -586,9 +614,9 @@
         b.style.backgroundColor = bgColor;
       }
       b.classList.toggle("selected", statsSelectedSoc === id);
-      b.addEventListener("click", () => {
+      b.addEventListener("click", async () => {
         statsSelectedSoc = id;
-        renderStatsTable_();
+        await renderStatsTable_();
       });
       return b;
     };
@@ -723,7 +751,33 @@
       sessions += occ * perWeek;
     });
 
-    return sessions;
+    // Applica spostamenti/cancellazioni (moves) per questo mese
+try {
+  const moves = getStatsMovesCache_();
+  if (moves && moves.length) {
+    const pid0 = String(p.id != null ? p.id : (p.paziente_id || p.pazienteId || ""));
+    for (const mv of moves) {
+      if (!mv) continue;
+      if (String(mv.paziente_id || "") !== pid0) continue;
+
+      const fd2 = dateOnlyLocal(mv.from_date);
+      if (fd2 && fd2.getTime() >= monthStart.getTime() && fd2.getTime() <= monthEnd.getTime()) {
+        sessions -= 1;
+      }
+
+      if (!mv.isDelete && String(mv.to_date || "").trim()) {
+        const td2 = dateOnlyLocal(mv.to_date);
+        if (td2 && td2.getTime() >= monthStart.getTime() && td2.getTime() <= monthEnd.getTime()) {
+          sessions += 1;
+        }
+      }
+    }
+  }
+} catch (_) {}
+
+if (sessions < 0) sessions = 0;
+return sessions;
+
   }
 
   function calcAmountForPatientMonth_(p, year, monthIndex) {
@@ -789,7 +843,7 @@
     }
   }
 
-  function renderStatsTable_() {
+  async function renderStatsTable_() {
     if (!statsTableBody) return;
 
     renderStatsMonthLabel_();
@@ -797,6 +851,7 @@
     renderStatsSocDots_();
     applyStatsCardColor_();
 
+    await ensureStatsMovesCache_();
     const out = computeStatsRows_();
     statsTableBody.innerHTML = "";
 
@@ -844,7 +899,7 @@
         b.addEventListener("click", () => {
           statsSelectedMonthIndex = idx;
           closePickMonthModal_();
-          renderStatsTable_();
+          void renderStatsTable_();
         });
         monthPickList.appendChild(b);
       });
@@ -866,7 +921,7 @@
         b.addEventListener("click", () => {
           statsSelectedSoc = id;
           closePickSocModal();
-          renderStatsTable_();
+          void renderStatsTable_();
         });
         return b;
       };
@@ -1022,7 +1077,7 @@ function statsMonthColor_(idx, total) {
       b.addEventListener("click", () => {
         statsSelectedLevel = lv;
         renderStatsLevelDots_();
-        renderStatsTable_();
+        void renderStatsTable_();
       });
       statsLevelDots.appendChild(b);
     });
@@ -1454,7 +1509,7 @@ async function openStatsFlow() {
     bindStatsHandlersOnce_();
     renderStatsSocDots_();
     renderStatsLevelDots_();
-    renderStatsTable_();
+    await renderStatsTable_();
 
     showView("stats");
   }
@@ -2219,22 +2274,27 @@ function normalizeMove_(m) {
   const ft = m.from_time || m.fromTime || m.da_ora || m.daOra || m.from_hour || m.fromHour;
   const td = m.to_date || m.toDate || m.a_data || m.aData || m.to_day || m.toDay;
   const tt = m.to_time || m.toTime || m.a_ora || m.aOra || m.to_hour || m.toHour;
-  if (!pid || !fd || !ft || !td || !tt) return null;
+
+  if (!pid || !fd || !ft) return null;
 
   const createdAt = m.createdAt || m.created_at || m.created || "";
   const updatedAt = m.updatedAt || m.updated_at || m.updated || "";
+
+  const hasTo = !!(String(td || "").trim() && String(tt || "").trim());
 
   return {
     id: m.id || "",
     paziente_id: String(pid),
     from_date: String(fd).slice(0, 10),
     from_time: normTime(ft),
-    to_date: String(td).slice(0, 10),
-    to_time: normTime(tt),
+    to_date: hasTo ? String(td).slice(0, 10) : "",
+    to_time: hasTo ? normTime(tt) : "",
+    isDelete: !hasTo,
     createdAt: createdAt,
     updatedAt: updatedAt
   };
 }
+
 
 function moveTs_(mv) {
   const v = mv && (mv.updatedAt || mv.createdAt);
@@ -2302,8 +2362,9 @@ function collapseMoves_(moves) {
         paziente_id: pid,
         from_date: String(mv.from_date).slice(0,10),
         from_time: normTime(mv.from_time),
-        to_date: String(cur.to_date).slice(0,10),
-        to_time: normTime(cur.to_time),
+        to_date: String(cur.to_date || "").slice(0,10),
+        to_time: normTime(cur.to_time || ""),
+        isDelete: !!cur.isDelete || !(String(cur.to_date || "").trim() && String(cur.to_time || "").trim()),
         createdAt: mv.createdAt || "",
         updatedAt: mv.updatedAt || ""
       });
@@ -2311,6 +2372,7 @@ function collapseMoves_(moves) {
   });
 
   return out;
+
 }
 
 async function applyCalendarMoves_(baseSlots, patients) {
@@ -2546,7 +2608,110 @@ async function ensurePatientsForCalendar() {
       const c = calColorForDay(d);
       cell.style.backgroundColor = rgba(c, 0.25);
 
-      cell.addEventListener("click", async (e) => {
+      // Double-tap state
+      let tapTimer = null;
+
+      const resolveEffectiveFrom_ = (pid) => {
+        let effective_from_date = "";
+        let effective_from_time = "";
+        try {
+          const year = calSelectedDate.getFullYear();
+          const month = calSelectedDate.getMonth();
+          const dayNum = parseInt(cell.dataset.day || "0", 10);
+          const d = new Date(year, month, dayNum);
+          d.setHours(0, 0, 0, 0);
+          effective_from_date = ymdLocal(d);
+          effective_from_time = normTime(cell.dataset.time || "");
+        } catch (_) {}
+
+        try {
+          const ymd = effective_from_date;
+          const t = effective_from_time;
+          const mvPrev = Array.isArray(calMovesCache) ? calMovesCache.find((mv) =>
+            String(mv && mv.paziente_id) === String(pid) &&
+            String(mv && mv.to_date || "").slice(0, 10) === String(ymd || "").slice(0, 10) &&
+            normTime(mv && mv.to_time) === normTime(t)
+          ) : null;
+          if (mvPrev) {
+            effective_from_date = String(mvPrev.from_date || "").slice(0, 10) || effective_from_date;
+            effective_from_time = normTime(mvPrev.from_time || "") || effective_from_time;
+          }
+        } catch (_) {}
+
+        return { from_date: effective_from_date, from_time: effective_from_time };
+      };
+
+      const doDeleteSlot = async (pid) => {
+        const { from_date, from_time } = resolveEffectiveFrom_(pid);
+        if (!from_date || !from_time) { toast("Dati seduta non validi"); return; }
+
+        try { cell.dataset.suppressClick = "1"; } catch (_) {}
+
+        const sure = window.confirm("Cancellare questa terapia?");
+        if (!sure) return;
+
+        try {
+          const user = getSession();
+          if (!user || !user.id) { toast("Devi accedere"); return; }
+          const ok = await ensureApiReady();
+          if (!ok) return;
+
+          await api("deleteSession", {
+            userId: user.id,
+            paziente_id: String(pid),
+            from_date,
+            from_time
+          });
+
+          invalidateStatsMovesCache_();
+          toast("Cancellato");
+          await updateCalendarUI();
+        } catch (err) {
+          if (apiHintIfUnknownAction(err)) return;
+          toast(String(err && err.message ? err.message : "Errore cancellazione"));
+        }
+      };
+
+      cell.addEventListener("click", (e) => {
+        if (cell.dataset.suppressClick === "1") {
+          cell.dataset.suppressClick = "";
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
+        const slotKey = `${cell.dataset.day}|${cell.dataset.time}`;
+        const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
+        const ids = info && Array.isArray(info.ids) ? info.ids.filter((x) => x != null) : [];
+        if (ids.length === 0) return;
+
+        // Doppio tap: cancella. Singolo tap: apre scheda.
+        if (tapTimer) {
+          clearTimeout(tapTimer);
+          tapTimer = null;
+
+          if (ids.length !== 1) { toast("Più pazienti in questo slot"); return; }
+          void doDeleteSlot(ids[0]);
+          return;
+        }
+
+        tapTimer = setTimeout(async () => {
+          tapTimer = null;
+
+          if (ids.length !== 1) {
+            toast("Più pazienti in questo slot");
+            return;
+          }
+          const pid = ids[0];
+          const patients = await ensurePatientsForCalendar();
+          const p = (patients || []).find((x) => String(x.id) === String(pid));
+          if (!p) { toast("Paziente non trovato"); return; }
+          openPatientExisting(p);
+        }, 260);
+      });
+
+      // Desktop fallback
+      cell.addEventListener("dblclick", (e) => {
         if (cell.dataset.suppressClick === "1") {
           cell.dataset.suppressClick = "";
           e.preventDefault();
@@ -2556,16 +2721,8 @@ async function ensurePatientsForCalendar() {
         const slotKey = `${cell.dataset.day}|${cell.dataset.time}`;
         const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
         const ids = info && Array.isArray(info.ids) ? info.ids.filter((x) => x != null) : [];
-        if (ids.length === 0) return;
-        if (ids.length !== 1) {
-          toast("Più pazienti in questo slot");
-          return;
-        }
-        const pid = ids[0];
-        const patients = await ensurePatientsForCalendar();
-        const p = (patients || []).find((x) => String(x.id) === String(pid));
-        if (!p) { toast("Paziente non trovato"); return; }
-        openPatientExisting(p);
+        if (ids.length !== 1) return;
+        void doDeleteSlot(ids[0]);
       });
 
       // Long-press (0.5s) + drag&drop per spostare UNA seduta su uno slot vuoto
@@ -2595,7 +2752,9 @@ async function ensurePatientsForCalendar() {
         const y = ev.clientY;
 
         if (calDragState.ghost) {
-          calDragState.ghost.style.transform = `translate(${x}px, ${y}px)`;
+          const ox = calDragState.ghostOffsetX || 0;
+          const oy = calDragState.ghostOffsetY || 0;
+          calDragState.ghost.style.transform = `translate(${x - ox}px, ${y - oy}px)`;
         }
 
         let el = null;
@@ -2644,49 +2803,31 @@ async function ensurePatientsForCalendar() {
         try {
           const k2 = `${toDay}|${toTime}`;
           const info2 = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(k2) : null;
-          if (info2 && info2.count) {
-            toast("Slot non disponibile");
-            return;
-          }
+          if (info2 && info2.count) { toast("Slot occupato"); return; }
         } catch (_) {}
 
-        const year = calSelectedDate.getFullYear();
-        const month0 = calSelectedDate.getMonth();
-        const from_date = isoYmdFromParts_(year, month0, fromDay);
-        const to_date = isoYmdFromParts_(year, month0, toDay);
-
-        
-        // Se la cella che stai spostando è già il risultato di uno spostamento precedente,
-        // risali alla "from" originale così da sovrascrivere il record precedente (niente duplicati).
-        let effective_from_date = from_date;
-        let effective_from_time = fromTime;
         try {
-          const mvPrev = Array.isArray(calMovesCache) ? calMovesCache.find((mv) =>
-            mv && String(mv.paziente_id) === String(pid) &&
-            String(mv.to_date).slice(0,10) === String(from_date).slice(0,10) &&
-            normTime(mv.to_time) === normTime(fromTime)
-          ) : null;
-
-          if (mvPrev) {
-            effective_from_date = String(mvPrev.from_date).slice(0,10);
-            effective_from_time = normTime(mvPrev.from_time);
-          }
-        } catch (_) {}
-try {
           const user = getSession();
           if (!user || !user.id) { toast("Devi accedere"); return; }
           const ok = await ensureApiReady();
           if (!ok) return;
 
+          const year = calSelectedDate.getFullYear();
+          const month = calSelectedDate.getMonth();
+
+          const fromDate = ymdLocal(new Date(year, month, fromDay));
+          const toDate = ymdLocal(new Date(year, month, toDay));
+
           await api("moveSession", {
             userId: user.id,
             paziente_id: String(pid),
-            from_date: effective_from_date,
-            from_time: effective_from_time,
-            to_date,
-            to_time: toTime
+            from_date: fromDate,
+            from_time: normTime(fromTime),
+            to_date: toDate,
+            to_time: normTime(toTime)
           });
 
+          invalidateStatsMovesCache_();
           toast("Spostato");
           await updateCalendarUI();
         } catch (err) {
@@ -2702,45 +2843,67 @@ try {
         lpFired = false;
         clearLP();
 
-        lpTimer = setTimeout(async () => {
+        const startX = ev.clientX;
+        const startY = ev.clientY;
+        const pointerId = ev.pointerId;
+
+        lpTimer = setTimeout(() => {
           lpFired = true;
 
           const slotKey = `${cell.dataset.day}|${cell.dataset.time}`;
           const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
           const ids = info && Array.isArray(info.ids) ? info.ids.filter((x) => x != null) : [];
-          if (ids.length !== 1) { toast("Slot non spostabile"); return; }
+          if (!ids.length) return;
+
+          if (ids.length !== 1) { toast("Più pazienti in questo slot"); return; }
 
           const pid = ids[0];
 
-          // Avvio drag
+          // start drag
           try { cell.dataset.suppressClick = "1"; } catch (_) {}
+
           calDragState = {
             dragging: true,
-            pid,
-            fromDay: cell.dataset.day,
-            fromTime: cell.dataset.time,
             source: cell,
             target: null,
-            ghost: null
+            pid,
+            fromDay: String(cell.dataset.day || ""),
+            fromTime: String(cell.dataset.time || ""),
+            ghost: null,
+            ghostOffsetX: 0,
+            ghostOffsetY: 0
           };
 
           try { document.body.classList.add("cal-dragging"); } catch (_) {}
           try { cell.classList.add("drag-source"); } catch (_) {}
 
-          // Ghost
+          // ghost
           try {
+            const r = cell.getBoundingClientRect();
             const g = document.createElement("div");
             g.className = "cal-drag-ghost";
-            g.textContent = "↔";
-            g.style.transform = `translate(${ev.clientX}px, ${ev.clientY}px)`;
+            g.style.position = "fixed";
+            g.style.left = "0px";
+            g.style.top = "0px";
+            g.style.width = `${Math.max(10, r.width)}px`;
+            g.style.height = `${Math.max(10, r.height)}px`;
+            g.style.zIndex = "9999";
+            g.style.pointerEvents = "none";
+            g.style.borderRadius = "10px";
+            g.style.background = "rgba(255,255,255,0.8)";
+            g.style.outline = "2px solid rgba(0,160,255,0.9)";
+            g.style.transform = `translate(${startX}px, ${startY}px)`;
             document.body.appendChild(g);
             calDragState.ghost = g;
+            calDragState.ghostOffsetX = Math.min(r.width / 2, 18);
+            calDragState.ghostOffsetY = Math.min(r.height / 2, 18);
           } catch (_) {}
 
-          // listeners globali
           try { document.addEventListener("pointermove", onDragMove, { passive: false }); } catch (_) {}
           try { document.addEventListener("pointerup", onDragEnd, { passive: false }); } catch (_) {}
           try { document.addEventListener("pointercancel", onDragEnd, { passive: false }); } catch (_) {}
+
+          try { cell.setPointerCapture(pointerId); } catch (_) {}
         }, 500);
       });
 
@@ -2755,7 +2918,7 @@ try {
         clearLP();
       });
 
-      frag.appendChild(cell);
+frag.appendChild(cell);
     }
   }
   calBody.appendChild(frag);
@@ -4629,7 +4792,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.075").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.091").catch(() => {});
     });
   }
 })();

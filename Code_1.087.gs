@@ -63,7 +63,7 @@ function doGet(e) {
         return out_({ ok: true, t }, cb);
       case "listMoves":
         return out_({ ok: true, moves: listMoves_(e.parameter.userId, e.parameter.year, e.parameter.month) }, cb);
-      case "moveSession":
+            case "moveSession":
         return out_({ ok: true, move: moveSession_(
           e.parameter.userId,
           e.parameter.paziente_id,
@@ -72,8 +72,14 @@ function doGet(e) {
           e.parameter.to_date,
           e.parameter.to_time
         ) }, cb);
-      default:
-        return out_({ ok: false, error: "Unknown action" }, cb);
+      case "deleteSession":
+        return out_({ ok: true, move: deleteSession_(
+          e.parameter.userId,
+          e.parameter.paziente_id,
+          e.parameter.from_date,
+          e.parameter.from_time
+        ) }, cb);
+: "Unknown action" }, cb);
     }
   } catch (err) {
     const cb = sanitizeCallback_(e && e.parameter ? e.parameter.callback : "");
@@ -1079,6 +1085,112 @@ if (rowNum > 0) {
   return { paziente_id: String(pazienteId), from_date: fromDate, from_time: fromTime, to_date: toDate, to_time: toTime, data_fine: newEnd || "" };
 }
 
+
+
+function deleteSession_(userId, pazienteId, fromDate, fromTime) {
+  if (!userId) throw new Error("UserId richiesto");
+  if (!pazienteId) throw new Error("Paziente richiesto");
+
+  fromDate = normalizeYmd_(fromDate) || String(fromDate || "").slice(0, 10);
+  fromTime = normalizeTime_(fromTime);
+
+  if (!parseYmd_(fromDate)) throw new Error("Data non valida");
+  if (!fromTime) throw new Error("Ora non valida");
+
+  const sh = ensureSeduteSheet_();
+  const values = sh.getDataRange().getValues();
+  const headers = values[0] || [];
+  const col = (h) => headers.indexOf(h) + 1;
+
+  const idxUser = headers.indexOf("utente_id");
+  const idxPid = headers.indexOf("paziente_id");
+  const idxFromD = headers.indexOf("from_date");
+  const idxFromT = headers.indexOf("from_time");
+  const idxToD = headers.indexOf("to_date");
+  const idxToT = headers.indexOf("to_time");
+  const idxDel = headers.indexOf("isDeleted");
+
+  const now = now_();
+  let rowNum = -1;
+
+  // Se la cella eliminata è il risultato di uno spostamento precedente,
+  // allora riporta indietro la from al valore originale e sovrascrivi quel record.
+  try {
+    if (idxToD >= 0 && idxToT >= 0) {
+      for (let i = 1; i < values.length; i++) {
+        const r = values[i];
+        if (!r) continue;
+        if (idxDel >= 0 && String(r[idxDel] || "").toLowerCase() === "true") continue;
+        if (idxUser >= 0 && String(r[idxUser] || "") !== String(userId)) continue;
+        if (idxPid >= 0 && String(r[idxPid] || "") !== String(pazienteId)) continue;
+
+        const rToD = normalizeYmd_(r[idxToD]);
+        const rToT = normalizeTime_(r[idxToT]);
+        if (rToD === fromDate && rToT === fromTime) {
+          if (idxFromD >= 0) fromDate = normalizeYmd_(r[idxFromD]) || fromDate;
+          if (idxFromT >= 0) fromTime = normalizeTime_(r[idxFromT]) || fromTime;
+          rowNum = i + 1;
+          break;
+        }
+      }
+    }
+  } catch (e) {}
+
+  // upsert: stessa seduta (paziente + from_date + from_time)
+  if (rowNum < 0) {
+    for (let i = 1; i < values.length; i++) {
+      const r = values[i];
+      if (!r) continue;
+      if (idxDel >= 0 && String(r[idxDel] || "").toLowerCase() === "true") continue;
+      if (idxUser >= 0 && String(r[idxUser] || "") !== String(userId)) continue;
+      if (idxPid >= 0 && String(r[idxPid] || "") !== String(pazienteId)) continue;
+      if (idxFromD >= 0 && normalizeYmd_(r[idxFromD]) !== fromDate) continue;
+      if (idxFromT >= 0 && normalizeTime_(r[idxFromT]) !== fromTime) continue;
+      rowNum = i + 1;
+      break;
+    }
+  }
+
+  // Cleanup duplicati
+  try {
+    if (idxDel >= 0 && idxPid >= 0 && idxFromD >= 0 && idxFromT >= 0) {
+      for (let i = 1; i < values.length; i++) {
+        const r = values[i];
+        if (!r) continue;
+        const rn = i + 1;
+        if (rn === rowNum) continue;
+        if (idxUser >= 0 && String(r[idxUser] || "") !== String(userId)) continue;
+        if (String(r[idxPid] || "") !== String(pazienteId)) continue;
+        if (normalizeYmd_(r[idxFromD]) !== fromDate) continue;
+        if (normalizeTime_(r[idxFromT]) !== fromTime) continue;
+        sh.getRange(rn, col("isDeleted")).setValue(true);
+        if (col("updatedAt") > 0) sh.getRange(rn, col("updatedAt")).setValue(now);
+      }
+    }
+  } catch (e) {}
+
+  if (rowNum > 0) {
+    if (col("to_date") > 0) sh.getRange(rowNum, col("to_date")).setValue("");
+    if (col("to_time") > 0) sh.getRange(rowNum, col("to_time")).setValue("");
+    if (col("updatedAt") > 0) sh.getRange(rowNum, col("updatedAt")).setValue(now);
+  } else {
+    const row = new Array(headers.length).fill("");
+    const id = uuid_();
+    if (col("id") > 0) row[col("id") - 1] = id;
+    if (col("utente_id") > 0) row[col("utente_id") - 1] = String(userId);
+    if (col("paziente_id") > 0) row[col("paziente_id") - 1] = String(pazienteId);
+    if (col("from_date") > 0) row[col("from_date") - 1] = fromDate;
+    if (col("from_time") > 0) row[col("from_time") - 1] = fromTime;
+    if (col("to_date") > 0) row[col("to_date") - 1] = "";
+    if (col("to_time") > 0) row[col("to_time") - 1] = "";
+    if (col("isDeleted") > 0) row[col("isDeleted") - 1] = false;
+    if (col("createdAt") > 0) row[col("createdAt") - 1] = now;
+    if (col("updatedAt") > 0) row[col("updatedAt") - 1] = now;
+    sh.appendRow(row);
+  }
+
+  return { userId: String(userId), paziente_id: String(pazienteId), from_date: fromDate, from_time: fromTime, to_date: "", to_time: "", updatedAt: now };
+}
 
 function sanitizeCallback_(cb) {
   cb = String(cb || "").trim();
