@@ -1,7 +1,7 @@
-/* AMF_1.087 */
+/* AMF_1.088 */
 (() => {
-    const BUILD = "AMF_1.087";
-    const DISPLAY = "1.087";
+    const BUILD = "AMF_1.088";
+    const DISPLAY = "1.088";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -2490,13 +2490,24 @@ async function ensurePatientsForCalendar() {
   if (calBuilt) return;
   if (!calDaysCol || !calHoursRow || !calBody || !calScroll || !calDaysScroll || !calHoursScroll) return;
 
-  // --- Header: days 1..31
+  // --- Header: days 1..31 (lettera giorno + numero)
   calDaysCol.innerHTML = "";
   for (let d = 1; d <= 31; d++) {
     const el = document.createElement("div");
     el.className = "cal-day";
-    el.textContent = String(d);
     el.dataset.day = String(d);
+
+    const dow = document.createElement("div");
+    dow.className = "cal-dow";
+    dow.textContent = ""; // valorizzato in updateCalendarUI() in base a mese/anno
+
+    const dom = document.createElement("div");
+    dom.className = "cal-dom";
+    dom.textContent = String(d);
+
+    el.appendChild(dow);
+    el.appendChild(dom);
+
     const c = calColorForDay(d);
     el.style.backgroundColor = rgba(c, 0.80);
     el.style.color = "rgba(255,255,255,.95)";
@@ -2850,6 +2861,21 @@ function formatItMonth(dateObj) {
   calDaysCol.querySelectorAll(".cal-day").forEach((el) => {
     const d = parseInt(el.dataset.day || "0", 10);
     const valid = d >= 1 && d <= daysInThisMonth;
+
+    // Aggiorna lettera del giorno (L M M G V S D) + numero
+    const dowEl = el.querySelector(".cal-dow");
+    const domEl = el.querySelector(".cal-dom");
+    if (domEl) domEl.textContent = valid ? String(d) : String(d);
+    if (dowEl) {
+      if (valid) {
+        const map = ["D","L","M","M","G","V","S"]; // JS: 0=Dom ... 6=Sab
+        const wd = new Date(year, month, d).getDay();
+        dowEl.textContent = map[wd] || "";
+      } else {
+        dowEl.textContent = "";
+      }
+    }
+
     el.classList.toggle("disabled", !valid);
     el.classList.toggle("active", valid && d === calSelectedDate.getDate());
   });
