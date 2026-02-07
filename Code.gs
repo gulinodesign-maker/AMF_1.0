@@ -961,6 +961,34 @@ function moveSession_(userId, pazienteId, fromDate, fromTime, toDate, toTime) {
   const now = now_();
   let rowNum = -1;
 
+  // Se la cella che stai spostando è già il risultato di uno spostamento precedente,
+  // allora "riporta indietro" la from al valore originale e sovrascrivi quel record.
+  // Questo evita catene e duplicazioni (A->B, B->C).
+  try {
+    const idxToD = headers.indexOf("to_date");
+    const idxToT = headers.indexOf("to_time");
+    if (idxToD >= 0 && idxToT >= 0) {
+      for (let i = 1; i < values.length; i++) {
+        const r = values[i];
+        if (!r) continue;
+        if (idxDel >= 0 && String(r[idxDel] || "").toLowerCase() === "true") continue;
+        if (idxUser >= 0 && String(r[idxUser] || "") !== String(userId)) continue;
+        if (idxPid >= 0 && String(r[idxPid] || "") !== String(pazienteId)) continue;
+
+        const rToD = normalizeYmd_(r[idxToD]);
+        const rToT = normalizeTime_(r[idxToT]);
+        if (rToD === fromDate && rToT === fromTime) {
+          // questa è la mossa precedente che ha portato la seduta qui
+          if (idxFromD >= 0) fromDate = normalizeYmd_(r[idxFromD]) || fromDate;
+          if (idxFromT >= 0) fromTime = normalizeTime_(r[idxFromT]) || fromTime;
+          rowNum = i + 1; // aggiorna direttamente questa riga
+          break;
+        }
+      }
+    }
+  } catch (e) {}
+
+
   // upsert: stessa seduta (paziente + from_date + from_time)
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
@@ -974,7 +1002,28 @@ function moveSession_(userId, pazienteId, fromDate, fromTime, toDate, toTime) {
     break;
   }
 
-  if (rowNum > 0) {
+  
+  // Cleanup: se esistono duplicati per la stessa seduta (paziente + from_date + from_time),
+  // marca come deleted tutte le righe extra (mantieni solo rowNum).
+  try {
+    if (idxDel >= 0 && idxPid >= 0 && idxFromD >= 0 && idxFromT >= 0) {
+      for (let i = 1; i < values.length; i++) {
+        const r = values[i];
+        if (!r) continue;
+        const rn = i + 1;
+        if (rn === rowNum) continue;
+        if (idxUser >= 0 && String(r[idxUser] || "") !== String(userId)) continue;
+        if (String(r[idxPid] || "") !== String(pazienteId)) continue;
+        if (normalizeYmd_(r[idxFromD]) !== fromDate) continue;
+        if (normalizeTime_(r[idxFromT]) !== fromTime) continue;
+        // elimina duplicato
+        sh.getRange(rn, col("isDeleted")).setValue(true);
+        if (col("updatedAt") > 0) sh.getRange(rn, col("updatedAt")).setValue(now);
+      }
+    }
+  } catch (e) {}
+
+if (rowNum > 0) {
     if (col("to_date") > 0) sh.getRange(rowNum, col("to_date")).setValue(toDate);
     if (col("to_time") > 0) sh.getRange(rowNum, col("to_time")).setValue(toTime);
     if (col("updatedAt") > 0) sh.getRange(rowNum, col("updatedAt")).setValue(now);

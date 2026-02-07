@@ -1,7 +1,7 @@
-/* AMF_1.086 */
+/* AMF_1.087 */
 (() => {
-    const BUILD = "AMF_1.086";
-    const DISPLAY = "1.086";
+    const BUILD = "AMF_1.087";
+    const DISPLAY = "1.087";
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
@@ -2157,12 +2157,31 @@ function slotRemovePatient_(slots, slotKey, pid) {
 
 function slotAddPatient_(slots, slotKey, p) {
   if (!p) return;
+  const pid = (p.id != null ? String(p.id) : "");
+  if (!pid) return;
+
   const info = slots.get(slotKey) || { count: 0, names: [], ids: [], tags: [] };
-  info.count += 1;
+
+  // Dedup: non permettere lo stesso paziente due volte nello stesso slot
+  const exists = Array.isArray(info.ids) && info.ids.some((x) => String(x) === pid);
+  if (exists) {
+    // riallinea count in caso di dati incoerenti
+    info.count = Array.isArray(info.ids) ? info.ids.length : Math.max(0, info.count || 0);
+    slots.set(slotKey, info);
+    return;
+  }
+
+  info.names = Array.isArray(info.names) ? info.names : [];
+  info.ids = Array.isArray(info.ids) ? info.ids : [];
+  info.tags = Array.isArray(info.tags) ? info.tags : [];
+
   info.names.push(patientDisplayName(p) || "Paziente");
-  info.ids.push(p.id);
+  info.ids.push(pid);
   info.tags.push(getSocTagIndexById(p.societa_id || ""));
-  slots.set(slotKey, info);
+  info.count = info.ids.length;
+
+  if (!info.count) slots.delete(slotKey);
+  else slots.set(slotKey, info);
 }
 
 function isoYmdFromParts_(y, m0, d) {
@@ -2201,14 +2220,97 @@ function normalizeMove_(m) {
   const td = m.to_date || m.toDate || m.a_data || m.aData || m.to_day || m.toDay;
   const tt = m.to_time || m.toTime || m.a_ora || m.aOra || m.to_hour || m.toHour;
   if (!pid || !fd || !ft || !td || !tt) return null;
+
+  const createdAt = m.createdAt || m.created_at || m.created || "";
+  const updatedAt = m.updatedAt || m.updated_at || m.updated || "";
+
   return {
     id: m.id || "",
     paziente_id: String(pid),
     from_date: String(fd).slice(0, 10),
     from_time: normTime(ft),
     to_date: String(td).slice(0, 10),
-    to_time: normTime(tt)
+    to_time: normTime(tt),
+    createdAt: createdAt,
+    updatedAt: updatedAt
   };
+}
+
+function moveTs_(mv) {
+  const v = mv && (mv.updatedAt || mv.createdAt);
+  if (!v) return 0;
+  const d = new Date(v);
+  if (!isNaN(d.getTime())) return d.getTime();
+  // try parse "YYYY-MM-DD HH:MM:SS" etc.
+  const s = String(v).replace(" ", "T");
+  const d2 = new Date(s);
+  if (!isNaN(d2.getTime())) return d2.getTime();
+  return 0;
+}
+
+function collapseMoves_(moves) {
+  const list = Array.isArray(moves) ? moves.filter(Boolean) : [];
+  if (!list.length) return [];
+
+  // group by paziente
+  const byPid = new Map();
+  list.forEach((mv) => {
+    const pid = mv && mv.paziente_id != null ? String(mv.paziente_id) : "";
+    if (!pid) return;
+    if (!byPid.has(pid)) byPid.set(pid, []);
+    byPid.get(pid).push(mv);
+  });
+
+  const out = [];
+
+  byPid.forEach((arr, pid) => {
+    // keep latest per fromKey
+    const byFrom = new Map(); // fromKey -> mv
+    arr.forEach((mv) => {
+      const fk = `${String(mv.from_date).slice(0,10)}|${normTime(mv.from_time)}`;
+      const cur = byFrom.get(fk);
+      if (!cur) { byFrom.set(fk, mv); return; }
+      if (moveTs_(mv) >= moveTs_(cur)) byFrom.set(fk, mv);
+    });
+
+    // resolve chains: follow fromKey -> toKey if toKey is also a fromKey
+    const fromKeys = new Set(Array.from(byFrom.keys()));
+    const visitedGlobal = new Set();
+
+    byFrom.forEach((mv, fk) => {
+      if (visitedGlobal.has(fk)) return;
+
+      let cur = mv;
+      let steps = 0;
+      let tk = `${String(cur.to_date).slice(0,10)}|${normTime(cur.to_time)}`;
+      const seen = new Set([fk]);
+
+      while (fromKeys.has(tk) && steps < 12) {
+        if (seen.has(tk)) break; // cycle guard
+        seen.add(tk);
+        const next = byFrom.get(tk);
+        if (!next) break;
+        // mark intermediate as visited
+        visitedGlobal.add(tk);
+        cur = next;
+        tk = `${String(cur.to_date).slice(0,10)}|${normTime(cur.to_time)}`;
+        steps++;
+      }
+
+      out.push({
+        id: mv.id || "",
+        paziente_id: pid,
+        from_date: String(mv.from_date).slice(0,10),
+        from_time: normTime(mv.from_time),
+        to_date: String(cur.to_date).slice(0,10),
+        to_time: normTime(cur.to_time),
+        createdAt: mv.createdAt || "",
+        updatedAt: mv.updatedAt || ""
+      });
+    });
+  });
+
+  return out;
 }
 
 async function applyCalendarMoves_(baseSlots, patients) {
@@ -2216,7 +2318,10 @@ async function applyCalendarMoves_(baseSlots, patients) {
   const month0 = calSelectedDate.getMonth();
 
   const movesRaw = await fetchCalendarMovesForMonth_(year, month0);
-  const moves = (movesRaw || []).map(normalizeMove_).filter(Boolean);
+  const moves0 = (movesRaw || []).map(normalizeMove_).filter(Boolean);
+
+  // Dedup/collapse moves per paziente: evita catene A->B, B->C e duplicazioni nello stesso slot
+  const moves = collapseMoves_(moves0);
 
   // clone base slots
   const slots = new Map();
@@ -2231,6 +2336,7 @@ async function applyCalendarMoves_(baseSlots, patients) {
 
     const from = parseYmd_(mv.from_date);
     const to = parseYmd_(mv.to_date);
+
     if (from && from.y === year && from.m === month0) {
       const kFrom = `${from.d}|${mv.from_time}`;
       slotRemovePatient_(slots, kFrom, mv.paziente_id);
@@ -2538,7 +2644,24 @@ async function ensurePatientsForCalendar() {
         const from_date = isoYmdFromParts_(year, month0, fromDay);
         const to_date = isoYmdFromParts_(year, month0, toDay);
 
+        
+        // Se la cella che stai spostando è già il risultato di uno spostamento precedente,
+        // risali alla "from" originale così da sovrascrivere il record precedente (niente duplicati).
+        let effective_from_date = from_date;
+        let effective_from_time = fromTime;
         try {
+          const mvPrev = Array.isArray(calMovesCache) ? calMovesCache.find((mv) =>
+            mv && String(mv.paziente_id) === String(pid) &&
+            String(mv.to_date).slice(0,10) === String(from_date).slice(0,10) &&
+            normTime(mv.to_time) === normTime(fromTime)
+          ) : null;
+
+          if (mvPrev) {
+            effective_from_date = String(mvPrev.from_date).slice(0,10);
+            effective_from_time = normTime(mvPrev.from_time);
+          }
+        } catch (_) {}
+try {
           const user = getSession();
           if (!user || !user.id) { toast("Devi accedere"); return; }
           const ok = await ensureApiReady();
@@ -2547,8 +2670,8 @@ async function ensurePatientsForCalendar() {
           await api("moveSession", {
             userId: user.id,
             paziente_id: String(pid),
-            from_date,
-            from_time: fromTime,
+            from_date: effective_from_date,
+            from_time: effective_from_time,
             to_date,
             to_time: toTime
           });
