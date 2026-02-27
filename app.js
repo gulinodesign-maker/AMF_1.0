@@ -1,7 +1,7 @@
-/* AMF_1.135 */
+/* AMF_1.136 */
 (async () => {
-    const BUILD = "AMF_1.135";
-    const DISPLAY = "1.135";
+    const BUILD = "AMF_1.136";
+    const DISPLAY = "1.136";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -13,6 +13,36 @@
   const __K_CIPHER = "cipher";
   const __SCHEMA_VERSION = 1;
   const __PBKDF2_ITER = 210000;
+
+
+  // --- Storage fallback (iOS/private-mode hardening)
+  // Some WebKit contexts can fail IndexedDB (quota/private mode). We fall back to localStorage
+  // to ensure the very first account can be created and persisted.
+  const __LS_PREFIX = "AMF_LS_STORE_V1:";
+  function __lsKey(k){ return __LS_PREFIX + String(k||""); }
+  function __lsGet(k){
+    try{
+      const raw = localStorage.getItem(__lsKey(k));
+      if (!raw) return null;
+      return JSON.parse(raw);
+    }catch(_){ return null; }
+  }
+  function __lsSet(k,v){
+    try{
+      localStorage.setItem(__lsKey(k), JSON.stringify(v));
+      return true;
+    }catch(_){ return false; }
+  }
+  function __lsClearAll(){
+    try{
+      const keys=[];
+      for (let i=0;i<localStorage.length;i++){
+        const kk = localStorage.key(i);
+        if (kk && kk.startsWith(__LS_PREFIX)) keys.push(kk);
+      }
+      keys.forEach((kk)=>{ try{ localStorage.removeItem(kk);}catch(_){} });
+    }catch(_){}
+  }
 
   let __cryptoKey = null;      // CryptoKey in RAM (sbloccato)
   let __dbPlain = null;        // Oggetto DB in chiaro in RAM (sbloccato)
@@ -61,30 +91,46 @@
   }
 
   async function __idbGet(k) {
-    const db = await __idb();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(__DB_STORE, "readonly");
-      const st = tx.objectStore(__DB_STORE);
-      const req = st.get(k);
-      req.onsuccess = () => resolve(req.result ? req.result.v : null);
-      req.onerror = () => reject(req.error || new Error("IDB_GET_ERROR"));
-      tx.oncomplete = () => db.close();
-    });
+    try {
+      const db = await __idb();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(__DB_STORE, "readonly");
+        const st = tx.objectStore(__DB_STORE);
+        const req = st.get(k);
+        req.onsuccess = () => resolve(req.result ? req.result.v : null);
+        req.onerror = () => reject(req.error || new Error("IDB_GET_ERROR"));
+        tx.oncomplete = () => db.close();
+        tx.onabort = () => { const e = tx.error || new Error("IDB_GET_ABORT"); try{db.close();}catch(_){} reject(e); };
+        tx.onerror = () => { const e = tx.error || new Error("IDB_GET_ERROR"); try{db.close();}catch(_){} reject(e); };
+      });
+    } catch (_) {
+      // Fallback
+      return __lsGet(k);
+    }
   }
 
   async function __idbSet(k, v) {
-    const db = await __idb();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(__DB_STORE, "readwrite");
-      const st = tx.objectStore(__DB_STORE);
-      st.put({ k, v });
-      tx.oncomplete = () => { db.close(); resolve(true); };
-      tx.onerror = () => { const e = tx.error || new Error("IDB_SET_ERROR"); db.close(); reject(e); };
-    });
+    try {
+      const db = await __idb();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(__DB_STORE, "readwrite");
+        const st = tx.objectStore(__DB_STORE);
+        st.put({ k, v });
+        tx.oncomplete = () => { try{db.close();}catch(_){} resolve(true); };
+        tx.onerror = () => { const e = tx.error || new Error("IDB_SET_ERROR"); try{db.close();}catch(_){} reject(e); };
+        tx.onabort = () => { const e = tx.error || new Error("IDB_SET_ABORT"); try{db.close();}catch(_){} reject(e); };
+      });
+    } catch (_) {
+      // Fallback
+      const ok = __lsSet(k, v);
+      if (!ok) throw new Error("STORAGE_UNAVAILABLE");
+      return true;
+    }
   }
 
   async function __idbClearAll() {
     try { indexedDB.deleteDatabase(__DB_NAME); } catch (_) {}
+    try { __lsClearAll(); } catch (_) {}
     __cryptoKey = null;
     __dbPlain = null;
   }
