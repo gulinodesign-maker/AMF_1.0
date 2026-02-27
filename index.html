@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Montalto PMS</title>
-  <link rel="stylesheet" href="./styles.css?v=1.138" />
+  <link rel="stylesheet" href="./styles.css?v=1.139" />
   <link rel="manifest" href="./manifest.json" />
   <meta name="theme-color" content="#2a74b8" />
   <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
@@ -40,7 +40,7 @@
 
   <main class="main">
     <!-- HOME -->
-    <section class="view" id="viewHome" aria-label="Home">
+    <section class="view active" id="viewHome" aria-label="Home">
       <div class="home-layout">
         <div class="home-center" aria-label="Home">
           <section class="grid" aria-label="Home">
@@ -83,72 +83,14 @@
       </section>
         </div>
         <div class="home-footer" aria-label="Build">
-          <div class="build" id="buildLabel">1.138</div>
+          <div class="build" id="buildLabel">1.139</div>
         </div>
       </div>
     </section>
 
-    <!-- AUTH: landing con 3 tasti verticali -->
-    <section class="view active" id="viewAuth" aria-label="Accesso">
-      <div class="card">
-        <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <div class="stack">
-          <button class="pill-btn pill-blue" id="btnGoCreate">crea account</button>
-          <button class="pill-btn pill-gray" id="btnGoModify">modifica account</button>
-          <button class="pill-btn pill-green" id="btnGoLogin">login</button>
-        </div>
-      </div>
-    </section>
+    
 
-    <!-- CREA ACCOUNT -->
-    <section class="view" id="viewCreate" aria-label="Crea account">
-      <div class="card card-form">
-        <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <form class="form" id="formCreate" autocomplete="off">
-          <input class="field" id="createNome" type="text" placeholder="Nome fisioterapista" autocomplete="off" required autocapitalize="none" autocorrect="off" spellcheck="false" />
-          <input class="field" id="createPass" type="password" placeholder="Password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-          <input class="field" id="createPass2" type="password" placeholder="Conferma password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-          <div class="row2">
-            <button class="pill-btn pill-gray" type="button" id="btnCreateBack">indietro</button>
-            <button class="pill-btn pill-blue" type="submit">crea account</button>
-          </div>
-        </form>
-      </div>
-    </section>
-
-    <!-- LOGIN -->
-    <section class="view" id="viewLogin" aria-label="Login">
-      <div class="card card-form">
-        <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <form class="form" id="formLogin" autocomplete="off">
-          <input class="field" id="loginNome" type="text" placeholder="Nome" autocomplete="off" required autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" data-lpignore="true" data-1p-ignore="true" readonly />
-          <input class="field" id="loginPass" type="password" placeholder="Password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-          <div class="row2">
-            <button class="pill-btn pill-gray" type="button" id="btnLoginBack">indietro</button>
-            <button class="pill-btn pill-green" type="submit">login</button>
-          </div>
-        </form>
-      </div>
-    </section>
-
-    <!-- MODIFICA ACCOUNT -->
-    <section class="view" id="viewModify" aria-label="Modifica account">
-      <div class="card card-form">
-        <img class="card-logo" src="./assets/logo.jpg" alt="Logo" />
-        <form class="form" id="formModify" autocomplete="off">
-          <input class="field" id="modNome" type="text" placeholder="Nome" autocomplete="off" required autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" data-lpignore="true" data-1p-ignore="true" readonly />
-          <input class="field" id="modOld" type="password" placeholder="Password attuale" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-          <input class="field" id="modNew" type="password" placeholder="Nuova password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-          <input class="field" id="modNew2" type="password" placeholder="Conferma nuova password" autocomplete="new-password" required autocapitalize="none" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
-          <div class="row2">
-            <button class="pill-btn pill-gray" type="button" id="btnModBack">indietro</button>
-            <button class="pill-btn pill-blue" type="submit">salva</button>
-          </div>
-        </form>
-      </div>
-    </section>
-
-    <!-- IMPOSTAZIONI -->
+<!-- IMPOSTAZIONI -->
     <section class="view" id="viewSettings" aria-label="Impostazioni">
       <div class="page">
         <div class="page-header">
@@ -534,7 +476,7 @@
     </div>
 
   <script src="./config.js"></script>
-  <script src="./app.js?v=1.138"></script>
+  <script src="./app.js?v=1.139"></script>
 
     <!-- DB IMPORT/EXPORT -->
     <div class="modal" id="modalDbIO" aria-hidden="true">

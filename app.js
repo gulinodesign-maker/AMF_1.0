@@ -1,7 +1,7 @@
-/* AMF_1.138 */
+/* AMF_1.139 */
 (async () => {
-    const BUILD = "AMF_1.138";
-    const DISPLAY = "1.138";
+    const BUILD = "AMF_1.139";
+    const DISPLAY = "1.139";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -6207,12 +6207,14 @@ async function renderSocietaDeleteList() {
 
   // --- Boot (Standalone protetto)
   if (STANDALONE) {
+    // Standalone: niente account/login. Auto-initialize + auto-unlock DB locale e vai in Home.
     try { clearSession(); } catch (_) {}
-    const hasAcc = await __hasAccount();
-    if (hasAcc) {
-      // Richiedi password ad ogni avvio
-      showView("auth");
-    } else {
+    const ok = await __ensureUnlockedAuto();
+    if (!ok) {
+      try { toast("Errore inizializzazione"); } catch (_) {}
+    }
+    showView("home");
+  } else {
       showView("create");
     }
   } else {
@@ -6223,7 +6225,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.138").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.139").catch(() => {});
     });
   }
 })();
