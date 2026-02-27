@@ -1,4 +1,4 @@
-/* AMF_1.137 */
+/* AMF_1.132 */
 /**
  * Standalone protetto: nessuna API remota.
  * Questo oggetto resta solo per compatibilità con codice legacy.

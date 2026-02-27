@@ -1,7 +1,7 @@
-/* AMF_1.140 */
+/* AMF_1.132 */
 (async () => {
-    const BUILD = "AMF_1.140";
-    const DISPLAY = "1.140";
+    const BUILD = "AMF_1.132";
+    const DISPLAY = "1.132";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -13,62 +13,6 @@
   const __K_CIPHER = "cipher";
   const __SCHEMA_VERSION = 1;
   const __PBKDF2_ITER = 210000;
-
-  // --- Standalone NO-ACCOUNT mode: auto-initialize and auto-unlock local DB
-  const __AUTO_PASS = "AMF_STANDALONE_KEY_V1";
-  async function __ensureUnlockedAuto() {
-    if (__dbPlain) return true;
-    try {
-      const has = await __hasAccount();
-      if (!has) {
-        await __createAccount("Locale", __AUTO_PASS);
-      }
-      await __unlock(__AUTO_PASS);
-      return true;
-    } catch (e) {
-      // last resort: reset and recreate
-      try { await __idbDel(__K_META); } catch (_) {}
-      try { await __idbDel(__K_CIPHER); } catch (_) {}
-      try {
-        await __createAccount("Locale", __AUTO_PASS);
-        await __unlock(__AUTO_PASS);
-        return true;
-      } catch (_) {
-        return false;
-      }
-    }
-  }
-
-
-
-  // --- Storage fallback (iOS/private-mode hardening)
-  // Some WebKit contexts can fail IndexedDB (quota/private mode). We fall back to localStorage
-  // to ensure the very first account can be created and persisted.
-  const __LS_PREFIX = "AMF_LS_STORE_V1:";
-  function __lsKey(k){ return __LS_PREFIX + String(k||""); }
-  function __lsGet(k){
-    try{
-      const raw = localStorage.getItem(__lsKey(k));
-      if (!raw) return null;
-      return JSON.parse(raw);
-    }catch(_){ return null; }
-  }
-  function __lsSet(k,v){
-    try{
-      localStorage.setItem(__lsKey(k), JSON.stringify(v));
-      return true;
-    }catch(_){ return false; }
-  }
-  function __lsClearAll(){
-    try{
-      const keys=[];
-      for (let i=0;i<localStorage.length;i++){
-        const kk = localStorage.key(i);
-        if (kk && kk.startsWith(__LS_PREFIX)) keys.push(kk);
-      }
-      keys.forEach((kk)=>{ try{ localStorage.removeItem(kk);}catch(_){} });
-    }catch(_){}
-  }
 
   let __cryptoKey = null;      // CryptoKey in RAM (sbloccato)
   let __dbPlain = null;        // Oggetto DB in chiaro in RAM (sbloccato)
@@ -117,46 +61,30 @@
   }
 
   async function __idbGet(k) {
-    try {
-      const db = await __idb();
-      return await new Promise((resolve, reject) => {
-        const tx = db.transaction(__DB_STORE, "readonly");
-        const st = tx.objectStore(__DB_STORE);
-        const req = st.get(k);
-        req.onsuccess = () => resolve(req.result ? req.result.v : null);
-        req.onerror = () => reject(req.error || new Error("IDB_GET_ERROR"));
-        tx.oncomplete = () => db.close();
-        tx.onabort = () => { const e = tx.error || new Error("IDB_GET_ABORT"); try{db.close();}catch(_){} reject(e); };
-        tx.onerror = () => { const e = tx.error || new Error("IDB_GET_ERROR"); try{db.close();}catch(_){} reject(e); };
-      });
-    } catch (_) {
-      // Fallback
-      return __lsGet(k);
-    }
+    const db = await __idb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(__DB_STORE, "readonly");
+      const st = tx.objectStore(__DB_STORE);
+      const req = st.get(k);
+      req.onsuccess = () => resolve(req.result ? req.result.v : null);
+      req.onerror = () => reject(req.error || new Error("IDB_GET_ERROR"));
+      tx.oncomplete = () => db.close();
+    });
   }
 
   async function __idbSet(k, v) {
-    try {
-      const db = await __idb();
-      return await new Promise((resolve, reject) => {
-        const tx = db.transaction(__DB_STORE, "readwrite");
-        const st = tx.objectStore(__DB_STORE);
-        st.put({ k, v });
-        tx.oncomplete = () => { try{db.close();}catch(_){} resolve(true); };
-        tx.onerror = () => { const e = tx.error || new Error("IDB_SET_ERROR"); try{db.close();}catch(_){} reject(e); };
-        tx.onabort = () => { const e = tx.error || new Error("IDB_SET_ABORT"); try{db.close();}catch(_){} reject(e); };
-      });
-    } catch (_) {
-      // Fallback
-      const ok = __lsSet(k, v);
-      if (!ok) throw new Error("STORAGE_UNAVAILABLE");
-      return true;
-    }
+    const db = await __idb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(__DB_STORE, "readwrite");
+      const st = tx.objectStore(__DB_STORE);
+      st.put({ k, v });
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => { const e = tx.error || new Error("IDB_SET_ERROR"); db.close(); reject(e); };
+    });
   }
 
   async function __idbClearAll() {
     try { indexedDB.deleteDatabase(__DB_NAME); } catch (_) {}
-    try { __lsClearAll(); } catch (_) {}
     __cryptoKey = null;
     __dbPlain = null;
   }
@@ -686,29 +614,32 @@
 
   // --- Local API (standalone encrypted)
   async function localApi_(action, params) {
-    // Actions return
-    const __act = String(action || "");
-    if (__act !== "ping") { await __ensureUnlockedAuto(); }
-    switch (__act) {
+    // Actions return {ok:true, ...} to match remote
+    switch (String(action || "")) {
       case "ping": {
         return { ok: true };
       }
-            case "createUser": {
-        // NO-ACCOUNT mode: not used
-        return { ok: true, user: { id: "1", nome: (__dbPlain && __dbPlain.user && __dbPlain.user.nome) ? __dbPlain.user.nome : "Locale" } };
+      case "createUser": {
+        const nome = String(params.nome || "").trim();
+        const password = String(params.password || "");
+        if (!nome) throw new Error("Nome mancante");
+        if (!password) throw new Error("Password mancante");
+        const exists = await __hasAccount();
+        if (exists) throw new Error("Account già esistente");
+        const res = await __createAccount(nome, password);
+        return { ok: true, user: res.user };
       }
-
-            case "login": {
-        // NO-ACCOUNT mode: always ok
-        return { ok: true, user: { id: "1", nome: (__dbPlain && __dbPlain.user && __dbPlain.user.nome) ? __dbPlain.user.nome : "Locale" } };
+      case "login": {
+        const password = String(params.password || "");
+        if (!password) throw new Error("Password mancante");
+        const res = await __unlock(password);
+        return { ok: true, user: res.user };
       }
-
-            case "listUsers": {
-        if (!__dbPlain) await __ensureUnlockedAuto();
-        const nome = (__dbPlain && __dbPlain.user && __dbPlain.user.nome) ? __dbPlain.user.nome : "Locale";
-        return { ok: true, users: [{ id: "1", nome }] };
+      case "listUsers": {
+        const meta = await __idbGet(__K_META);
+        if (!meta || !meta.userNome) return { ok: true, users: [] };
+        return { ok: true, users: [{ id: "1", nome: meta.userNome }] };
       }
-
       case "getSettings": {
         if (!__dbPlain) throw new Error("LOCKED");
         return { ok: true, settings: Object.assign({}, __dbPlain.settings || {}) };
@@ -740,9 +671,7 @@
       }
       case "createPatient": {
         if (!__dbPlain) throw new Error("LOCKED");
-        let __pIn = params.paziente;
-        if (!__pIn && params.payload) { try { __pIn = JSON.parse(params.payload); } catch (_) {} }
-        const p = Object.assign({}, __pIn || {});
+        const p = Object.assign({}, params.paziente || {});
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
         const maxId = arr.reduce((m, x) => Math.max(m, parseInt(String(x.id||0),10)||0), 0);
         p.id = String(maxId + 1);
@@ -755,9 +684,7 @@
       }
       case "updatePatient": {
         if (!__dbPlain) throw new Error("LOCKED");
-        let __pIn = params.paziente;
-        if (!__pIn && params.payload) { try { __pIn = JSON.parse(params.payload); } catch (_) {} }
-        const p = Object.assign({}, __pIn || {});
+        const p = Object.assign({}, params.paziente || {});
         const id = String(p.id || "");
         if (!id) throw new Error("ID mancante");
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
@@ -771,7 +698,7 @@
       }
       case "deletePatient": {
         if (!__dbPlain) throw new Error("LOCKED");
-        const id = String(params.paziente_id || params.id || "");
+        const id = String(params.paziente_id || "");
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
         const idx = arr.findIndex(x => String(x.id) === id);
         if (idx >= 0) {
@@ -3878,6 +3805,7 @@ const therapyEl = $("#moveSessionTherapyName");
     });
   })();
 
+})();
 
 function scrollCalendarToNow() {
   // Back-compat: usa il focus robusto su giorno+ora correnti
@@ -4010,17 +3938,12 @@ function formatItMonth(dateObj) {
   let postLoginTarget = "settings";
 
   // --- Users cache
-    // --- Users cache
   let usersCache = null;
   async function fetchUsers() {
-    // NO-ACCOUNT mode: single local user
-    if (usersCache && Array.isArray(usersCache) && usersCache.length) return usersCache;
-    await __ensureUnlockedAuto();
-    const nome = (__dbPlain && __dbPlain.user && __dbPlain.user.nome) ? __dbPlain.user.nome : "Locale";
-    usersCache = [{ id: "1", nome }];
+    const data = await apiCached("listUsers", {}, 15000);
+    usersCache = Array.isArray(data.users) ? data.users : [];
     return usersCache;
   }
-
 
   function fillUserSelect(selectEl, users) {
     if (!selectEl) return;
@@ -4042,18 +3965,13 @@ function formatItMonth(dateObj) {
       showView("create");
       return;
     }
-    const el = $("#loginNome");
-    if (el) {
-      // iOS: evita suggerimenti/autofill ma permette sempre l'inserimento
-      try { bindReadonlyUnlock(el); } catch (_) {}
-      const only = (users.length === 1) ? (users[0] && users[0].nome ? String(users[0].nome) : "") : "";
-      if (only) {
-        el.value = only;
-        el.setAttribute("readonly", "readonly");
-      } else {
-        el.value = "";
-        try { el.removeAttribute("readonly"); } catch (_) {}
-      }
+    const loginNome = $("#loginNome");
+    if (loginNome) {
+      // Assicura che lo sblocco readonly sia sempre bindato anche dopo riaperture view
+      try { bindReadonlyUnlock(loginNome); } catch (_) {}
+      // Non mostrare mai liste/suggerimenti di account: inserimento manuale
+      loginNome.value = "";
+      loginNome.setAttribute("readonly", "readonly");
     }
     showView("login");
   }
@@ -4067,18 +3985,11 @@ function formatItMonth(dateObj) {
       showView("create");
       return;
     }
-    const el = $("#modNome");
-    if (el) {
-      // iOS: evita suggerimenti/autofill ma permette sempre l'inserimento
-      try { bindReadonlyUnlock(el); } catch (_) {}
-      const only = (users.length === 1) ? (users[0] && users[0].nome ? String(users[0].nome) : "") : "";
-      if (only) {
-        el.value = only;
-        el.setAttribute("readonly", "readonly");
-      } else {
-        el.value = "";
-        try { el.removeAttribute("readonly"); } catch (_) {}
-      }
+    const modNome = $("#modNome");
+    if (modNome) {
+      try { bindReadonlyUnlock(modNome); } catch (_) {}
+      modNome.value = "";
+      modNome.setAttribute("readonly", "readonly");
     }
     showView("modify");
   }
@@ -4098,9 +4009,6 @@ function formatItMonth(dateObj) {
 
     try {
       const data = await api("createUser", { nome, password: p1 });
-      // appena creato: invalida cache utenti per evitare loop "Crea il primo account"
-      try { invalidateApiCache("listUsers"); } catch (_) {}
-      try { usersCache = [{ id: "1", nome: (data.user && data.user.nome) ? data.user.nome : nome }]; } catch (_) {}
       setSession(data.user);
       toast("Account creato");
       await goAfterLogin();
@@ -4123,9 +4031,6 @@ function formatItMonth(dateObj) {
 
     try {
       const data = await api("login", { nome, password: pass });
-      // dopo login: assicura cache utenti coerente
-      try { invalidateApiCache("listUsers"); } catch (_) {}
-      try { usersCache = [{ id: "1", nome: (data.user && data.user.nome) ? data.user.nome : nome }]; } catch (_) {}
       setSession(data.user);
       toast("Accesso OK");
       await goAfterLogin();
@@ -6132,7 +6037,7 @@ async function renderSocietaDeleteList() {
       if (apiHintIfUnknownAction(err)) return;
       toast(String(err && err.message ? err.message : "Errore"));
     }
-  });
+
 
   // --- DB Import/Export (standalone)
   function openDbIOModal_() {
@@ -6159,6 +6064,8 @@ async function renderSocietaDeleteList() {
 
   $("#btnDbExport")?.addEventListener("click", async () => {
     try {
+      const user = getSession();
+      if (!user) { toast("Accesso richiesto"); return; }
       await __exportDbFile();
       toast("Esportato");
       closeDbIOModal_();
@@ -6169,6 +6076,8 @@ async function renderSocietaDeleteList() {
 
   $("#btnDbImport")?.addEventListener("click", () => {
     try {
+      const user = getSession();
+      if (!user) { toast("Accesso richiesto"); return; }
       const inp = $("#fileDbImport");
       if (inp) inp.click();
     } catch (_) {}
@@ -6187,9 +6096,8 @@ async function renderSocietaDeleteList() {
       clearSession();
       closeDbIOModal_();
       toast("Database importato");
-      // Standalone: dopo import, inizializza/ri-sblocca e torna alla Home
-      try { await __ensureUnlockedAuto(); } catch (_) {}
-      showView("home");
+      // Richiedi password per sbloccare
+      showView("auth");
     } catch (err) {
       toast(String(err && err.message ? err.message : "Errore"));
     } finally {
@@ -6203,22 +6111,23 @@ async function renderSocietaDeleteList() {
 
   // --- Boot (Standalone protetto)
   if (STANDALONE) {
-    // Standalone: niente account/login. Auto-initialize + auto-unlock DB locale e vai in Home.
     try { clearSession(); } catch (_) {}
-    const ok = await __ensureUnlockedAuto();
-    if (!ok) {
-      try { toast("Errore inizializzazione"); } catch (_) {}
+    const hasAcc = await __hasAccount();
+    if (hasAcc) {
+      // Richiedi password ad ogni avvio
+      showView("auth");
+    } else {
+      showView("create");
     }
-    showView("home");
   } else {
-    // Fallback (legacy): avvio in Home
+    // Default view: home
     showView("home");
   }
 
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.140").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.132").catch(() => {});
     });
   }
 })();
