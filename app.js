@@ -1,7 +1,7 @@
-/* AMF_1.136 */
+/* AMF_1.137 */
 (async () => {
-    const BUILD = "AMF_1.136";
-    const DISPLAY = "1.136";
+    const BUILD = "AMF_1.137";
+    const DISPLAY = "1.137";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -4014,13 +4014,18 @@ function formatItMonth(dateObj) {
       showView("create");
       return;
     }
-    const loginNome = $("#loginNome");
-    if (loginNome) {
-      // Assicura che lo sblocco readonly sia sempre bindato anche dopo riaperture view
-      try { bindReadonlyUnlock(loginNome); } catch (_) {}
-      // Non mostrare mai liste/suggerimenti di account: inserimento manuale
-      loginNome.value = "";
-      loginNome.setAttribute("readonly", "readonly");
+    const el = $("#loginNome");
+    if (el) {
+      // iOS: evita suggerimenti/autofill ma permette sempre l'inserimento
+      try { bindReadonlyUnlock(el); } catch (_) {}
+      const only = (users.length === 1) ? (users[0] && users[0].nome ? String(users[0].nome) : "") : "";
+      if (only) {
+        el.value = only;
+        el.setAttribute("readonly", "readonly");
+      } else {
+        el.value = "";
+        try { el.removeAttribute("readonly"); } catch (_) {}
+      }
     }
     showView("login");
   }
@@ -4034,11 +4039,18 @@ function formatItMonth(dateObj) {
       showView("create");
       return;
     }
-    const modNome = $("#modNome");
-    if (modNome) {
-      try { bindReadonlyUnlock(modNome); } catch (_) {}
-      modNome.value = "";
-      modNome.setAttribute("readonly", "readonly");
+    const el = $("#modNome");
+    if (el) {
+      // iOS: evita suggerimenti/autofill ma permette sempre l'inserimento
+      try { bindReadonlyUnlock(el); } catch (_) {}
+      const only = (users.length === 1) ? (users[0] && users[0].nome ? String(users[0].nome) : "") : "";
+      if (only) {
+        el.value = only;
+        el.setAttribute("readonly", "readonly");
+      } else {
+        el.value = "";
+        try { el.removeAttribute("readonly"); } catch (_) {}
+      }
     }
     showView("modify");
   }
@@ -4058,6 +4070,9 @@ function formatItMonth(dateObj) {
 
     try {
       const data = await api("createUser", { nome, password: p1 });
+      // appena creato: invalida cache utenti per evitare loop "Crea il primo account"
+      try { invalidateApiCache("listUsers"); } catch (_) {}
+      try { usersCache = [{ id: "1", nome: (data.user && data.user.nome) ? data.user.nome : nome }]; } catch (_) {}
       setSession(data.user);
       toast("Account creato");
       await goAfterLogin();
@@ -4080,6 +4095,9 @@ function formatItMonth(dateObj) {
 
     try {
       const data = await api("login", { nome, password: pass });
+      // dopo login: assicura cache utenti coerente
+      try { invalidateApiCache("listUsers"); } catch (_) {}
+      try { usersCache = [{ id: "1", nome: (data.user && data.user.nome) ? data.user.nome : nome }]; } catch (_) {}
       setSession(data.user);
       toast("Accesso OK");
       await goAfterLogin();
