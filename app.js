@@ -1,7 +1,7 @@
-/* AMF_1.133 */
+/* AMF_1.134 */
 (async () => {
-    const BUILD = "AMF_1.133";
-    const DISPLAY = "1.133";
+    const BUILD = "AMF_1.134";
+    const DISPLAY = "1.134";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -671,7 +671,9 @@
       }
       case "createPatient": {
         if (!__dbPlain) throw new Error("LOCKED");
-        const p = Object.assign({}, params.paziente || {});
+        let __pIn = params.paziente;
+        if (!__pIn && params.payload) { try { __pIn = JSON.parse(params.payload); } catch (_) {} }
+        const p = Object.assign({}, __pIn || {});
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
         const maxId = arr.reduce((m, x) => Math.max(m, parseInt(String(x.id||0),10)||0), 0);
         p.id = String(maxId + 1);
@@ -684,7 +686,9 @@
       }
       case "updatePatient": {
         if (!__dbPlain) throw new Error("LOCKED");
-        const p = Object.assign({}, params.paziente || {});
+        let __pIn = params.paziente;
+        if (!__pIn && params.payload) { try { __pIn = JSON.parse(params.payload); } catch (_) {} }
+        const p = Object.assign({}, __pIn || {});
         const id = String(p.id || "");
         if (!id) throw new Error("ID mancante");
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
@@ -698,7 +702,7 @@
       }
       case "deletePatient": {
         if (!__dbPlain) throw new Error("LOCKED");
-        const id = String(params.paziente_id || "");
+        const id = String(params.paziente_id || params.id || "");
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
         const idx = arr.findIndex(x => String(x.id) === id);
         if (idx >= 0) {
@@ -6037,7 +6041,7 @@ async function renderSocietaDeleteList() {
       if (apiHintIfUnknownAction(err)) return;
       toast(String(err && err.message ? err.message : "Errore"));
     }
-
+  });
 
   // --- DB Import/Export (standalone)
   function openDbIOModal_() {
