@@ -1,7 +1,7 @@
-/* AMF_1.132 */
+/* AMF_1.133 */
 (async () => {
-    const BUILD = "AMF_1.132";
-    const DISPLAY = "1.132";
+    const BUILD = "AMF_1.133";
+    const DISPLAY = "1.133";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -671,7 +671,8 @@
       }
       case "createPatient": {
         if (!__dbPlain) throw new Error("LOCKED");
-        const p = Object.assign({}, params.paziente || {});
+        const raw = (params && params.paziente) ? params.paziente : (params && params.payload ? (() => { try { return JSON.parse(params.payload); } catch(e){ return {}; } })() : {});
+        const p = Object.assign({}, raw || {});
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
         const maxId = arr.reduce((m, x) => Math.max(m, parseInt(String(x.id||0),10)||0), 0);
         p.id = String(maxId + 1);
@@ -684,7 +685,8 @@
       }
       case "updatePatient": {
         if (!__dbPlain) throw new Error("LOCKED");
-        const p = Object.assign({}, params.paziente || {});
+        const raw = (params && params.paziente) ? params.paziente : (params && params.payload ? (() => { try { return JSON.parse(params.payload); } catch(e){ return {}; } })() : {});
+        const p = Object.assign({}, raw || {});
         const id = String(p.id || "");
         if (!id) throw new Error("ID mancante");
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
@@ -6127,7 +6129,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.132").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.133").catch(() => {});
     });
   }
 })();
