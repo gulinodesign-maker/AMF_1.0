@@ -1,7 +1,7 @@
-/* AMF_1.132 */
+/* AMF_1.133 */
 (async () => {
-    const BUILD = "AMF_1.132";
-    const DISPLAY = "1.132";
+    const BUILD = "AMF_1.133";
+    const DISPLAY = "1.133";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
