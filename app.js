@@ -1,7 +1,7 @@
-/* AMF_1.137 */
+/* AMF_1.138 */
 (async () => {
-    const BUILD = "AMF_1.137";
-    const DISPLAY = "1.137";
+    const BUILD = "AMF_1.138";
+    const DISPLAY = "1.138";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -13,6 +13,32 @@
   const __K_CIPHER = "cipher";
   const __SCHEMA_VERSION = 1;
   const __PBKDF2_ITER = 210000;
+
+  // --- Standalone NO-ACCOUNT mode: auto-initialize and auto-unlock local DB
+  const __AUTO_PASS = "AMF_STANDALONE_KEY_V1";
+  async function __ensureUnlockedAuto() {
+    if (__dbPlain) return true;
+    try {
+      const has = await __hasAccount();
+      if (!has) {
+        await __createAccount("Locale", __AUTO_PASS);
+      }
+      await __unlock(__AUTO_PASS);
+      return true;
+    } catch (e) {
+      // last resort: reset and recreate
+      try { await __idbDel(__K_META); } catch (_) {}
+      try { await __idbDel(__K_CIPHER); } catch (_) {}
+      try {
+        await __createAccount("Locale", __AUTO_PASS);
+        await __unlock(__AUTO_PASS);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
 
 
   // --- Storage fallback (iOS/private-mode hardening)
@@ -660,32 +686,30 @@
 
   // --- Local API (standalone encrypted)
   async function localApi_(action, params) {
-    // Actions return {ok:true, ...} to match remote
-    switch (String(action || "")) {
+    // Actions return
+    const __act = String(action || "");
+    if (__act !== "ping") { await __ensureUnlockedAuto(); }
+ {ok:true, ...} to match remote
+    switch (__act) {
       case "ping": {
         return { ok: true };
       }
-      case "createUser": {
-        const nome = String(params.nome || "").trim();
-        const password = String(params.password || "");
-        if (!nome) throw new Error("Nome mancante");
-        if (!password) throw new Error("Password mancante");
-        const exists = await __hasAccount();
-        if (exists) throw new Error("Account già esistente");
-        const res = await __createAccount(nome, password);
-        return { ok: true, user: res.user };
+            case "createUser": {
+        // NO-ACCOUNT mode: not used
+        return { ok: true, user: { id: "1", nome: (__dbPlain && __dbPlain.user && __dbPlain.user.nome) ? __dbPlain.user.nome : "Locale" } };
       }
-      case "login": {
-        const password = String(params.password || "");
-        if (!password) throw new Error("Password mancante");
-        const res = await __unlock(password);
-        return { ok: true, user: res.user };
+
+            case "login": {
+        // NO-ACCOUNT mode: always ok
+        return { ok: true, user: { id: "1", nome: (__dbPlain && __dbPlain.user && __dbPlain.user.nome) ? __dbPlain.user.nome : "Locale" } };
       }
-      case "listUsers": {
-        const meta = await __idbGet(__K_META);
-        if (!meta || !meta.userNome) return { ok: true, users: [] };
-        return { ok: true, users: [{ id: "1", nome: meta.userNome }] };
+
+            case "listUsers": {
+        if (!__dbPlain) await __ensureUnlockedAuto();
+        const nome = (__dbPlain && __dbPlain.user && __dbPlain.user.nome) ? __dbPlain.user.nome : "Locale";
+        return { ok: true, users: [{ id: "1", nome }] };
       }
+
       case "getSettings": {
         if (!__dbPlain) throw new Error("LOCKED");
         return { ok: true, settings: Object.assign({}, __dbPlain.settings || {}) };
@@ -3987,12 +4011,17 @@ function formatItMonth(dateObj) {
   let postLoginTarget = "settings";
 
   // --- Users cache
+    // --- Users cache
   let usersCache = null;
   async function fetchUsers() {
-    const data = await apiCached("listUsers", {}, 15000);
-    usersCache = Array.isArray(data.users) ? data.users : [];
+    // NO-ACCOUNT mode: single local user
+    if (usersCache && Array.isArray(usersCache) && usersCache.length) return usersCache;
+    await __ensureUnlockedAuto();
+    const nome = (__dbPlain && __dbPlain.user && __dbPlain.user.nome) ? __dbPlain.user.nome : "Locale";
+    usersCache = [{ id: "1", nome }];
     return usersCache;
   }
+
 
   function fillUserSelect(selectEl, users) {
     if (!selectEl) return;
@@ -6194,7 +6223,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.135").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.138").catch(() => {});
     });
   }
 })();
