@@ -1,7 +1,7 @@
-/* AMF_1.141 */
+/* AMF_1.142 */
 (async () => {
-    const BUILD = "AMF_1.141";
-    const DISPLAY = "1.141";
+    const BUILD = "AMF_1.142";
+    const DISPLAY = "1.142";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -4208,7 +4208,23 @@ function formatItMonth(dateObj) {
     } catch (_) {}
   }
 
-  function getSettingsPayloadFromUI() {
+  
+  function getExerciseYearStorageKey_(user){
+    const uid = user?.id ? String(user.id) : "anon";
+    return "amf_exercise_year_" + uid;
+  }
+  function getLocalExerciseYear_(user){
+    try{ return (localStorage.getItem(getExerciseYearStorageKey_(user)) || "").trim(); }catch(_){ return ""; }
+  }
+  function setLocalExerciseYear_(user, yearStr){
+    try{
+      const v = (yearStr || "").trim();
+      if (!v) localStorage.removeItem(getExerciseYearStorageKey_(user));
+      else localStorage.setItem(getExerciseYearStorageKey_(user), v);
+    }catch(_){}
+  }
+
+function getSettingsPayloadFromUI() {
     return {
       anno_esercizio: ($("#setAnno")?.value || "").trim()
     };
@@ -4216,11 +4232,20 @@ function formatItMonth(dateObj) {
 
   function applySettingsToUI(settings) {
     const s = settings || {};
-    if ($("#setAnno")) $("#setAnno").value = s.anno_esercizio ?? "";
-    const yearStr = (s.anno_esercizio || "").trim();
+    const user = getSession();
+    // Prefer server value; if missing, fall back to localStorage; if still missing keep current UI value.
+    let yearStr = (s.anno_esercizio ?? "").toString().trim();
+    if (!yearStr) yearStr = getLocalExerciseYear_(user);
+    if (!yearStr) yearStr = ($("#setAnno")?.value || "").trim();
+
+    if ($("#setAnno")) $("#setAnno").value = yearStr || "";
     const n = parseInt(yearStr, 10);
     exerciseYearSelected = (isFinite(n) && n >= 2000 && n <= 2100) ? n : null;
-    setPills(getSession(), yearStr);
+
+    // Persist locally so the selection always sticks even if backend settings are unavailable
+    setLocalExerciseYear_(user, yearStr);
+
+    setPills(user, yearStr);
     try { onExerciseYearChanged_(); } catch (_) {}
   }
 
@@ -6320,7 +6345,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.141").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.142").catch(() => {});
     });
   }
 })();
