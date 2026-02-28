@@ -2239,6 +2239,7 @@ body.cal-dragging { touch-action: none; }
 /* --- Società page --- */
 .soc-list{display:flex;flex-direction:column;gap:12px;margin-top:12px;}
 .soc-item{
+  position:relative;
   display:flex;
   flex-direction:column;
   justify-content:flex-start;
@@ -2256,6 +2257,26 @@ body.cal-dragging { touch-action: none; }
 /* Società: testi sempre neri */
 .soc-item,
 .soc-item *{ color:#000000 !important; }
+
+/* Società: bottone elimina (X) in alto a destra */
+.soc-x{
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(255,255,255,.80);
+  color: rgba(42,116,184,1) !important;
+  font-size:20px;
+  font-weight:900;
+  line-height:1;
+  user-select:none;
+}
+.soc-x:active{ transform: scale(.96); }
 
 /* Società cards: colore tag con opacità 35% */
 .soc-item.t1{ background: rgba(229,57,53,.35); background-color: rgba(229,57,53,.35); }

@@ -6070,6 +6070,7 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
       const l2Show = l2 ? (escapeHtml(l2) + " €") : "—";
       const l3Show = l3 ? (escapeHtml(l3) + " €") : "—";
       b.innerHTML = `
+        <span class="soc-x" role="button" aria-label="Elimina società" title="Elimina">×</span>
         <div class="soc-left">
           <div class="soc-name">${escapeHtml(nome || "—")}</div>
         </div>
@@ -6079,7 +6080,48 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
           <div class="soc-col"><div class="soc-lab">L3</div><div class="soc-val">${l3Show}</div></div>
         </div>
       `;
-      b.addEventListener("click", () => openSocModalEditFromSoc_(s));
+      b.addEventListener("click", async (e) => {
+        const x = e && e.target && e.target.closest ? e.target.closest(".soc-x") : null;
+        if (x && b.contains(x)) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const sure = confirm(`Eliminare la società "${(nome || id)}"?`);
+          if (!sure) return;
+
+          const user = getSession();
+          if (!user) { toast("Accesso richiesto"); return; }
+
+          try {
+            await apiTry(
+              ["deleteSocieta", "delSocieta", "removeSocieta", "deleteSociety"],
+              {
+                userId: user.id,
+                id: id || undefined,
+                societa_id: id || undefined,
+                societaId: id || undefined,
+                societyId: id || undefined,
+                nome: nome || undefined,
+                name: nome || undefined,
+                oldNome: nome || undefined,
+                nome_old: nome || undefined,
+                old_name: nome || undefined
+              }
+            );
+            // pulizia fallback locale tag/colore
+            deleteSocTagForName(nome, id);
+            await refreshSocietaEverywhere_({ rerenderDeleteList: false });
+            renderSocietaPageList_();
+            toast("Società eliminata");
+          } catch (err) {
+            if (apiHintIfUnknownAction(err)) return;
+            toast(String(err && err.message ? err.message : "Errore"));
+          }
+          return;
+        }
+
+        openSocModalEditFromSoc_(s);
+      });
       socList.appendChild(b);
     });
   }
