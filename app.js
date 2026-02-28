@@ -1,7 +1,7 @@
-/* AMF_1.140 */
+/* AMF_1.141 */
 (async () => {
-    const BUILD = "AMF_1.140";
-    const DISPLAY = "1.140";
+    const BUILD = "AMF_1.141";
+    const DISPLAY = "1.141";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -4135,6 +4135,79 @@ function formatItMonth(dateObj) {
     if (pillYear) pillYear.textContent = year ? String(year) : "—";
   }
 
+
+  let exerciseYearSelected = null;
+
+  function getExerciseYearSelected_(opts = {}) {
+    const { allowNull = true } = (opts || {});
+    const yUI = ($("#setAnno")?.value || "").trim();
+    const yPill = ($("#pillYear")?.textContent || "").trim();
+    const cand = yUI || (exerciseYearSelected ? String(exerciseYearSelected) : "") || yPill;
+    const n = parseInt(cand, 10);
+    if (isFinite(n) && n >= 2000 && n <= 2100) return n;
+    return allowNull ? null : (new Date()).getFullYear();
+  }
+
+  function __parseISODate_(s) {
+    if (!s) return null;
+    const t = String(s).trim();
+    if (!t) return null;
+    const d = new Date(t);
+    return isFinite(d.getTime()) ? d : null;
+  }
+
+  function therapyOverlapsYear_(th, year) {
+    if (!year) return true;
+    if (!th) return false;
+    const ds = __parseISODate_(th.data_inizio || th.start || "");
+    const de = __parseISODate_(th.data_fine || th.end || "");
+    if (!ds && !de) return false; // con filtro attivo, terapie senza date non sono attribuibili ad alcun anno
+    const ys = ds ? ds.getFullYear() : null;
+    const ye = de ? de.getFullYear() : null;
+    if (ys !== null && ye !== null) return (year >= ys && year <= ye);
+    if (ys !== null) return year === ys;
+    if (ye !== null) return year === ye;
+    return false;
+  }
+
+  function filterTherapiesByYear_(arr, year) {
+    const a = Array.isArray(arr) ? arr : [];
+    if (!year) return a.slice();
+    return a.filter(th => therapyOverlapsYear_(th, year));
+  }
+
+  function patientHasExerciseYear_(p, year) {
+    if (!year) return true;
+    if (!p || p.isDeleted) return false;
+    let arr = null;
+    if (Array.isArray(p.terapie_arr)) arr = p.terapie_arr;
+    else arr = parseTherapiesFromPatient_(p);
+    arr = Array.isArray(arr) ? arr.map(normalizeTherapy_) : [];
+    for (const th of arr) {
+      if (therapyOverlapsYear_(th, year)) return true;
+    }
+    return false;
+  }
+
+  function onExerciseYearChanged_() {
+    // Aggiorna pill in impostazioni (se visibile)
+    try { setPills(getSession(), exerciseYearSelected ? String(exerciseYearSelected) : ($("#setAnno")?.value || "").trim()); } catch (_) {}
+
+    // Rerender viste principali
+    try {
+      if (patientsLoaded) renderPatients();
+      if (currentView === "patient") {
+        try { renderTherapiesUI_(); } catch (_) {}
+      }
+      if (currentView === "stats") {
+        try { renderStatsSocDots_(); } catch (_) {}
+        try { renderStatsLevelDots_(); } catch (_) {}
+        try { renderStatsMonthly_(); } catch (_) {}
+        try { renderStatsTable_(); } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
   function getSettingsPayloadFromUI() {
     return {
       anno_esercizio: ($("#setAnno")?.value || "").trim()
@@ -4144,8 +4217,11 @@ function formatItMonth(dateObj) {
   function applySettingsToUI(settings) {
     const s = settings || {};
     if ($("#setAnno")) $("#setAnno").value = s.anno_esercizio ?? "";
-    const year = s.anno_esercizio || "";
-    setPills(getSession(), year);
+    const yearStr = (s.anno_esercizio || "").trim();
+    const n = parseInt(yearStr, 10);
+    exerciseYearSelected = (isFinite(n) && n >= 2000 && n <= 2100) ? n : null;
+    setPills(getSession(), yearStr);
+    try { onExerciseYearChanged_(); } catch (_) {}
   }
 
   async function loadSettings() {
@@ -4154,6 +4230,18 @@ function formatItMonth(dateObj) {
     const data = await api("getSettings", { userId: user.id });
     applySettingsToUI(data.settings || {});
   }
+
+
+  // Cambio anno di esercizio: salva e applica filtro su tutta l'app
+  $("#setAnno")?.addEventListener("change", async () => {
+    const raw = ($("#setAnno")?.value || "").trim();
+    const n = parseInt(raw, 10);
+    exerciseYearSelected = (isFinite(n) && n >= 2000 && n <= 2100) ? n : null;
+    // aggiorna pill subito (anche se il salvataggio fallisce)
+    try { setPills(getSession(), raw); } catch (_) {}
+    try { await saveSettings(); } catch (e) { /* non bloccare UI */ }
+    try { onExerciseYearChanged_(); } catch (_) {}
+  });
 
   async function saveSettings() {
     const user = getSession();
@@ -4479,6 +4567,11 @@ function formatItMonth(dateObj) {
     if (!patientsListEl) return;
 
     let arr = (patientsCache || []).slice();
+    const ySel = getExerciseYearSelected_({ allowNull: true });
+    if (ySel) {
+      arr = arr.filter(p => patientHasExerciseYear_(p, ySel));
+    }
+
 
     if (patientsSortMode === "today") {
       const filtered = [];
@@ -5198,7 +5291,8 @@ function formatItMonth(dateObj) {
     ensureCurrentTherapies_();
     therapiesWrap.replaceChildren();
 
-    const arr = currentPatient.terapie_arr;
+    const ySel = getExerciseYearSelected_({ allowNull: true });
+    const arr = filterTherapiesByYear_(currentPatient.terapie_arr, ySel);
 
     const frag = document.createDocumentFragment();
 
@@ -6226,7 +6320,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.140").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.141").catch(() => {});
     });
   }
 })();
