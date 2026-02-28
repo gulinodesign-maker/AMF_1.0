@@ -1,7 +1,7 @@
-/* AMF_1.156 */
+/* AMF_1.162 */
 (async () => {
-    const BUILD = "AMF_1.156";
-    const DISPLAY = "1.156";
+    const BUILD = "AMF_1.162";
+    const DISPLAY = "1.162";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -6710,7 +6710,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.154").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.162").catch(() => {});
     });
   }
 })();
