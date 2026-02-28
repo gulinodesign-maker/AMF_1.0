@@ -1,4 +1,4 @@
-/* AMF_1.138 */
+/* AMF_1.131 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -2160,25 +2160,15 @@ body.cal-dragging { touch-action: none; }
 .cal-action-red{ background: #c62828; }
 
 
-/* DB Import/Export modal actions */
-.dbio-actions{
-  display:flex;
-  gap: 12px;
-  margin-top: 14px;
-}
-.dbio-actions .pill-btn{
-  flex:1;
-  height: 56px;
-}
-.pill-red{
-  background: rgba(220, 53, 69, .80);
-  background-color: rgba(220, 53, 69, .80);
-  color: rgba(255,255,255, .98);
-  border: 1px solid rgba(0,0,0,.06);
-}
-.pill-green{
-  background: rgba(40, 167, 69, .80);
-  background-color: rgba(40, 167, 69, .80);
-  color: rgba(255,255,255, .98);
-  border: 1px solid rgba(0,0,0,.06);
+/* Icone nei pulsanti del modal Database */
+.pill-btn .btn-ico{
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -3px;
 }

@@ -1,7 +1,7 @@
-/* AMF_1.138 */
+/* AMF_1.135 */
 (async () => {
-    const BUILD = "AMF_1.138";
-    const DISPLAY = "1.138";
+    const BUILD = "AMF_1.135";
+    const DISPLAY = "1.135";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -6076,17 +6076,6 @@ async function renderSocietaDeleteList() {
     modal.setAttribute("aria-hidden", "true");
   }
 
-  // Delegated handler: Settings buttons may be rendered after initial load (SPA navigation)
-  document.addEventListener("click", (e) => {
-    const t = e && e.target;
-    const btn = t && t.closest ? t.closest("#btnDbIO") : null;
-    if (btn) {
-      try { openDbIOModal_(); } catch (_) {}
-    }
-  });
-
-
-
   $("#btnDbIO")?.addEventListener("click", () => {
     try { openDbIOModal_(); } catch (_) {}
   });
@@ -6161,7 +6150,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.138").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.136").catch(() => {});
     });
   }
 })();
