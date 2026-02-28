@@ -926,6 +926,7 @@
   const btnCalNext = $("#btnCalNext");
   const btnCalPatients = $("#btnCalPatients");
   const topbarTitle = $("#topbarTitle");
+  const topbarMonth = $("#topbarMonth");
 
   function setTopRight(mode) {
     if (!btnTopRight || !iconTopRight) return;
@@ -969,6 +970,7 @@
     else { setTopPlusVisible(false); }
     setCalendarControlsVisible(name === "calendar");
     updateTopbarTitle();
+    try { syncCalendarTopbarMonth(); } catch (_) {}
 
   }
 
@@ -2296,6 +2298,27 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
 
   // --- Calendario
   const calDateTitle = $("#calDateTitle");
+
+  function _isLandscape_() {
+    try { return window.matchMedia && window.matchMedia("(orientation: landscape)").matches; } catch (_) { return false; }
+  }
+
+  function syncCalendarTopbarMonth() {
+    const on = (currentView === "calendar") && _isLandscape_();
+    try { document.body.classList.toggle("cal-landscape", !!on); } catch (_) {}
+    if (topbarMonth) {
+      topbarMonth.hidden = !on;
+      if (on) {
+        const t = (calDateTitle && typeof calDateTitle.textContent === "string") ? calDateTitle.textContent : "";
+        topbarMonth.textContent = t;
+      }
+    }
+  }
+
+  try {
+    window.addEventListener("resize", () => { try { syncCalendarTopbarMonth(); } catch (_) {} }, { passive: true });
+  } catch (_) {}
+
   const calNowInfo = $("#calNowInfo");
   const calDaysCol = $("#calDaysCol");      // header row: days 1..31
   const calHoursRow = $("#calHoursRow");    // first column: hours 07:30..21:00
@@ -4068,6 +4091,7 @@ function formatItMonth(dateObj) {
   let title = fmt.format(new Date(year, month, 1));
   title = title.charAt(0).toUpperCase() + title.slice(1);
   calDateTitle.textContent = title;
+  try { syncCalendarTopbarMonth(); } catch (_) {}
 
   calDaysCol.querySelectorAll(".cal-day").forEach((el) => {
     const d = parseInt(el.dataset.day || "0", 10);

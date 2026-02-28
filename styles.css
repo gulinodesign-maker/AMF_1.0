@@ -2338,3 +2338,28 @@ body.cal-dragging { touch-action: none; }
 .soc-delete-list{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
 
 #setAnno{ text-align:center; text-align-last:center; }
+
+/* --- Calendar landscape: move month title into topbar (only in calendar + landscape) --- */
+.topbar-month{
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  color: #2a74b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42vw;
+}
+
+body.cal-landscape #calDateTitle{ display:none; }
+
+body.cal-landscape #viewCalendar .calendar-wrap{
+  padding-top: 6px;
+  padding-bottom: 14px;
+}
+
+body.cal-landscape #viewCalendar .calendar-nav{
+  margin-top: -10px;
+  margin-bottom: 8px;
+}
+
