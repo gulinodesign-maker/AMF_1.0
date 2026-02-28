@@ -1,7 +1,7 @@
-/* AMF_1.153 */
+/* AMF_1.154 */
 (async () => {
-    const BUILD = "AMF_1.153";
-    const DISPLAY = "1.153";
+    const BUILD = "AMF_1.154";
+    const DISPLAY = "1.154";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -4266,7 +4266,13 @@ function formatItMonth(dateObj) {
   const pillYear = $("#pillYear");
 
   function setPills(user, year) {
-    if (pillUser) pillUser.textContent = user?.nome || "—";
+    if (pillUser) {
+      let nm = (user?.nome || "").toString();
+      // UI: evita suffissi tipo "dal 2024" accanto al nome
+      nm = nm.replace(/\s+(?:dal|dall'?)\s*\d{4}\s*$/i, "").trim();
+      nm = nm || "—";
+      pillUser.textContent = nm;
+    }
     if (pillYear) pillYear.textContent = year ? String(year) : "—";
   }
 
@@ -6565,7 +6571,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.153").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.154").catch(() => {});
     });
   }
 })();
