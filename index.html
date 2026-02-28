@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Montalto PMS</title>
-  <link rel="stylesheet" href="./styles.css?v=1.137" />
+  <link rel="stylesheet" href="./styles.css?v=1.138" />
   <link rel="manifest" href="./manifest.json" />
   <meta name="theme-color" content="#2a74b8" />
   <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
@@ -83,7 +83,7 @@
       </section>
         </div>
         <div class="home-footer" aria-label="Build">
-          <div class="build" id="buildLabel">1.137</div>
+          <div class="build" id="buildLabel">1.138</div>
         </div>
       </div>
     </section>
@@ -233,7 +233,7 @@
           
           <div class="row-address" id="rowPatAddress">
             <input class="field" id="patAddress" type="text" placeholder="Indirizzo" autocomplete="street-address" required />
-            <button class="geo-btn" id="btnPatGeotag" type="button" aria-label="Geotag" hidden style="display:none">
+            <button class="geo-btn" id="btnPatGeotag" type="button" aria-label="Geotag" hidden style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-4.5 7-10a7 7 0 1 0-14 0c0 5.5 7 10 7 10Z"></path><circle cx="12" cy="11" r="2.5"></circle></svg>
             </button>
           </div>
@@ -534,14 +534,12 @@
     </div>
 
   <script src="./config.js"></script>
-  <script src="./app.js?v=1.137"></script>
-
-    <!-- DB IMPORT/EXPORT -->
+<!-- DB IMPORT/EXPORT -->
     <div class="modal" id="modalDbIO" aria-hidden="true">
       <div class="modal-card">
         <div class="modal-title">Database</div>
         <div class="modal-actions2">
-          <button class="pill-btn pill-blue" id="btnDbImport">carica</button>
+          <button class="pill-btn pill-red" id="btnDbImport">carica</button>
           <button class="pill-btn pill-green" id="btnDbExport">esporta</button>
         </div>
         <div class="modal-actions1" style="margin-top:12px;">
@@ -549,7 +547,11 @@
         </div>
       </div>
     </div>
-    <input type="file" id="fileDbImport" accept="application/json" style="display:none" />
+    <input type="file" id="fileDbImport" accept="application/json" style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;" />
 
+
+  <script src="./app.js?v=1.138"></script>
+
+    
 </body>
 </html>

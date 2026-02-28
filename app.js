@@ -6150,7 +6150,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.137").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.138").catch(() => {});
     });
   }
 })();
