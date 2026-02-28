@@ -1,7 +1,7 @@
-/* AMF_1.134 */
+/* AMF_1.135 */
 (async () => {
-    const BUILD = "AMF_1.134";
-    const DISPLAY = "1.134";
+    const BUILD = "AMF_1.135";
+    const DISPLAY = "1.135";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -202,6 +202,20 @@
 
   // --- Helpers
   const $ = (sel) => document.querySelector(sel);
+
+  const bindTap = (el, fn) => {
+    if (!el) return;
+    let busy = false;
+    const run = async (ev) => {
+      try { if (ev) { ev.preventDefault(); ev.stopPropagation(); } } catch (_) {}
+      if (busy) return;
+      busy = true;
+      try { await fn(); }
+      finally { setTimeout(() => { busy = false; }, 300); }
+    };
+    el.addEventListener("click", run);
+    el.addEventListener("touchend", run, { passive: false });
+  };
 
   const toastEl = $("#toast");
   let toastTimer = null;
@@ -693,7 +707,8 @@
         if (!__dbPlain) throw new Error("LOCKED");
         const raw = (params && params.paziente) ? params.paziente : (params && params.payload ? (() => { try { return JSON.parse(params.payload); } catch(e){ return {}; } })() : {});
         const p = Object.assign({}, raw || {});
-        const id = String(p.id || "");
+        const id = String(p.id || (params && (params.id || params.paziente_id)) || "");
+        if (!p.id && id) p.id = id;
         if (!id) throw new Error("ID mancante");
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
         const idx = arr.findIndex(x => String(x.id) === id);
@@ -5399,7 +5414,7 @@ levelRow.querySelectorAll(".therapy-level-btn").forEach((b) => {
   $("#btnPatCalendar")?.addEventListener("click", () => openCalendarFlow());
   $("#btnPatBackList")?.addEventListener("click", () => showView("patients"));
 $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
-  $("#btnPatDelete")?.addEventListener("click", async () => {
+  bindTap($("#btnPatDelete"), async () => {
     // In modifica: chiudi scheda
     if (patientEditEnabled) {
       const session = getSession();
@@ -6135,7 +6150,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.134").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.135").catch(() => {});
     });
   }
 })();
