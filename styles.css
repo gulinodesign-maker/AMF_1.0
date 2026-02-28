@@ -172,12 +172,13 @@ body{
 .grid{
   width: min(900px, 100%);
   display:grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
   align-items: start;
   justify-items: center;
 }
 .nav-btn{
+  width: 100%;
   appearance:none;
   border: 0;
   background: transparent;

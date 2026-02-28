@@ -1,7 +1,7 @@
-/* AMF_1.151 */
+/* AMF_1.152 */
 (async () => {
-    const BUILD = "AMF_1.151";
-    const DISPLAY = "1.151";
+    const BUILD = "AMF_1.152";
+    const DISPLAY = "1.152";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -1029,7 +1029,8 @@
     
     pazienti: () => openPatientsFlow(),
     calendario: () => openCalendarFlow(),
-    statistiche: () => openStatsFlow()
+    statistiche: () => openStatsFlow(),
+    societa: () => openSocietaFlow()
   };
   
 
@@ -6558,7 +6559,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.151").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.152").catch(() => {});
     });
   }
 })();
