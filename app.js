@@ -1,7 +1,7 @@
-/* AMF_1.133 */
+/* AMF_1.134 */
 (async () => {
-    const BUILD = "AMF_1.133";
-    const DISPLAY = "1.133";
+    const BUILD = "AMF_1.134";
+    const DISPLAY = "1.134";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -558,6 +558,10 @@
   }
 
   async function api(action, params) {
+    // Normalizza parametri per compatibilità tra API remota e modalità standalone
+    if (action === "deletePatient" && params && params.id && !params.paziente_id) {
+      try { params.paziente_id = params.id; } catch (_) {}
+    }
     if (STANDALONE) {
       return await localApi_(action, params || {});
     }
@@ -667,7 +671,9 @@
       }
       case "listPatients": {
         if (!__dbPlain) throw new Error("LOCKED");
-        return { ok: true, pazienti: Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [] };
+        const all = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
+        const pazienti = all.filter(p => !(p && p.isDeleted));
+        return { ok: true, pazienti };
       }
       case "createPatient": {
         if (!__dbPlain) throw new Error("LOCKED");
@@ -700,7 +706,7 @@
       }
       case "deletePatient": {
         if (!__dbPlain) throw new Error("LOCKED");
-        const id = String(params.paziente_id || "");
+        const id = String((params && (params.paziente_id || params.id)) || "");
         const arr = Array.isArray(__dbPlain.pazienti) ? __dbPlain.pazienti : [];
         const idx = arr.findIndex(x => String(x.id) === id);
         if (idx >= 0) {
@@ -6129,7 +6135,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.133").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.134").catch(() => {});
     });
   }
 })();
