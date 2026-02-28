@@ -1,7 +1,7 @@
-/* AMF_1.152 */
+/* AMF_1.153 */
 (async () => {
-    const BUILD = "AMF_1.152";
-    const DISPLAY = "1.152";
+    const BUILD = "AMF_1.153";
+    const DISPLAY = "1.153";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -6053,18 +6053,24 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
       const b = document.createElement("button");
       b.type = "button";
       b.className = "soc-item";
-      const _tag = parseInt(s.tag ?? s.tagIndex ?? s.tag_index ?? s.soc_tag ?? s.socTag ?? "", 10);
+      const _rawTag = parseInt(s.tag ?? s.tagIndex ?? s.tag_index ?? s.soc_tag ?? s.socTag ?? "", 10);
+      let _tag = Number.isNaN(_rawTag) ? NaN : _rawTag;
+      // Compat: alcuni DB salvano tag 0-5 (UI), altri 1-6 (CSS)
+      if (!Number.isNaN(_tag) && _tag >= 0 && _tag <= 5) _tag = _tag + 1;
       if (!Number.isNaN(_tag) && _tag >= 1 && _tag <= 6) b.classList.add("t" + _tag);
       b.dataset.id = id;
       b.setAttribute("aria-label", "Società " + (nome || ""));
+      const l1Show = l1 ? (escapeHtml(l1) + " €") : "—";
+      const l2Show = l2 ? (escapeHtml(l2) + " €") : "—";
+      const l3Show = l3 ? (escapeHtml(l3) + " €") : "—";
       b.innerHTML = `
         <div class="soc-left">
           <div class="soc-name">${escapeHtml(nome || "—")}</div>
         </div>
         <div class="soc-right">
-          <div class="soc-rate">L1 ${escapeHtml(l1 || "—")}</div>
-          <div class="soc-rate">L2 ${escapeHtml(l2 || "—")}</div>
-          <div class="soc-rate">L3 ${escapeHtml(l3 || "—")}</div>
+          <div class="soc-col"><div class="soc-lab">L1</div><div class="soc-val">${l1Show}</div></div>
+          <div class="soc-col"><div class="soc-lab">L2</div><div class="soc-val">${l2Show}</div></div>
+          <div class="soc-col"><div class="soc-lab">L3</div><div class="soc-val">${l3Show}</div></div>
         </div>
       `;
       b.addEventListener("click", () => openSocModalEditFromSoc_(s));
@@ -6559,7 +6565,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.152").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.153").catch(() => {});
     });
   }
 })();

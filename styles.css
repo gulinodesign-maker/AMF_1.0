@@ -423,8 +423,11 @@ select.field{ appearance: none; }
 
 .settings-form{
   width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
   background: transparent;
 }
+
 .label{
   display:block;
   margin: 10px 0 6px;
@@ -433,11 +436,15 @@ select.field{ appearance: none; }
 }
 
 .actions5{
-  margin-top: 18px;
-  display:grid;
-  grid-template-columns: repeat(4, 1fr);
+  margin: 18px auto 0;
+  display:flex;
+  justify-content:space-between;
   gap: 12px;
+  width:100%;
+  max-width: 380px;
 }
+.actions5 .action-btn{ flex: 1 1 0; }
+
 .action-btn{
   height: 60px;
   border-radius: 18px;
@@ -1567,8 +1574,8 @@ select.field{ appearance: none; }
 .month-card{
   width: 100%;
   border-radius: 20px;
-  background: rgba(255,255,255,.70);
-  background-color: rgba(255,255,255,.70);
+  background: rgba(255,255,255,.35);
+  background-color: rgba(255,255,255,.35);
   border: 1px solid rgba(0,0,0,.06);
   padding: 14px 16px 12px;
   box-shadow: none;
@@ -2240,31 +2247,62 @@ body.cal-dragging { touch-action: none; }
   text-align:left;
 }
 
-/* Società cards: colore tag con opacità 70% */
-.soc-item.t1{ background: rgba(229,57,53,.70); background-color: rgba(229,57,53,.70); color:#ffffff; }
-.soc-item.t2{ background: rgba(251,140,0,.70); background-color: rgba(251,140,0,.70); color:#ffffff; }
-.soc-item.t3{ background: rgba(253,216,53,.70); background-color: rgba(253,216,53,.70); color:#000000; }
-.soc-item.t4{ background: rgba(67,160,71,.70); background-color: rgba(67,160,71,.70); color:#ffffff; }
-.soc-item.t5{ background: rgba(30,136,229,.70); background-color: rgba(30,136,229,.70); color:#ffffff; }
-.soc-item.t6{ background: rgba(57,73,171,.70); background-color: rgba(57,73,171,.70); color:#ffffff; }
+/* Società cards: colore tag con opacità 35% */
+.soc-item.t1{ background: rgba(229,57,53,.35); background-color: rgba(229,57,53,.35); color:#ffffff; }
+.soc-item.t2{ background: rgba(251,140,0,.35); background-color: rgba(251,140,0,.35); color:#ffffff; }
+.soc-item.t3{ background: rgba(253,216,53,.35); background-color: rgba(253,216,53,.35); color:#000000; }
+.soc-item.t4{ background: rgba(67,160,71,.35); background-color: rgba(67,160,71,.35); color:#ffffff; }
+.soc-item.t5{ background: rgba(30,136,229,.35); background-color: rgba(30,136,229,.35); color:#ffffff; }
+.soc-item.t6{ background: rgba(57,73,171,.35); background-color: rgba(57,73,171,.35); color:#ffffff; }
 .soc-item.t1 .soc-rate,
 .soc-item.t2 .soc-rate,
 .soc-item.t4 .soc-rate,
 .soc-item.t5 .soc-rate,
 .soc-item.t6 .soc-rate{ color: rgba(255,255,255,.95); }
 .soc-item.t3 .soc-rate{ color: rgba(0,0,0,.85); }
-.soc-left{display:flex;flex-direction:column;gap:4px;min-width:0;}
-.soc-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.soc-right{display:flex;gap:10px;align-items:center;flex-shrink:0;}
-.soc-rate{
-  padding:8px 10px;
-  border-radius:999px;
+
+.soc-left{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;width:100%;}
+.soc-name{
+  font-weight:900;
+  font-size:20px;
+  line-height:1.15;
+  text-align:center;
+  width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.soc-right{
+  display:flex;
+  gap:12px;
+  align-items:stretch;
+  justify-content:space-between;
+  width:100%;
+  margin-top:12px;
+}
+.soc-col{
+  flex:1 1 0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:10px 8px;
+  border-radius:14px;
   border:1px solid rgba(0,0,0,.10);
   background: var(--white80);
-  font-weight:700;
-  font-size:13px;
-  white-space:nowrap;
 }
+.soc-lab{
+  font-weight:900;
+  font-size:13px;
+  letter-spacing:.02em;
+  opacity:.85;
+}
+.soc-val{
+  margin-top:6px;
+  font-weight:900;
+  font-size:15px;
+}
+
 .empty-hint{margin-top:12px;opacity:.7;font-size:14px;}
 /* modal actions 3 buttons */
 .modal-actions3{display:flex;gap:12px;justify-content:space-between;margin-top:14px;}
@@ -2273,3 +2311,5 @@ body.cal-dragging { touch-action: none; }
 .soc-tag-dots{display:flex;gap:10px;}
 .soc-delete-panel{margin-top:12px;}
 .soc-delete-list{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
+
+#setAnno{ text-align:center; text-align-last:center; }
