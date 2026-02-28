@@ -1,7 +1,7 @@
-/* AMF_1.162 */
+/* AMF_1.163 */
 (async () => {
-    const BUILD = "AMF_1.162";
-    const DISPLAY = "1.162";
+    const BUILD = "AMF_1.163";
+    const DISPLAY = "1.163";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -1129,7 +1129,8 @@ function getStatsMovesCache_() {
   function renderStatsMonthLabel_() {
     if (!lblStatsMonth) return;
     if (statsSelectedMonthIndex === -1) {
-      lblStatsMonth.textContent = (`ANNO ${getStatsYear_()}`).toUpperCase();
+      // UI: nel filtro statistiche mostra solo l'anno (es. "2026"), senza prefissi tipo "ANNO"
+      lblStatsMonth.textContent = String(getStatsYear_());
       return;
     }
     lblStatsMonth.textContent = (MONTHS_IT[statsSelectedMonthIndex] || "Mese").toUpperCase();
@@ -1200,10 +1201,8 @@ function getStatsMovesCache_() {
 
   function getStatsYear_() {
     if (isFinite(statsYearOverride) && statsYearOverride >= 2000 && statsYearOverride <= 2100) return statsYearOverride;
-    const y1 = ($("#setAnno")?.value || "").trim();
-    const cand = y1;
-    const n = parseInt(cand, 10);
-    return (isFinite(n) && n >= 2000 && n <= 2100) ? n : (new Date()).getFullYear();
+    // Deve seguire sempre l'anno di riferimento impostato in Impostazioni
+    return getExerciseYearSelected_({ allowNull: false });
   }
 
   function getPatientLevel_(p) {
@@ -1658,10 +1657,12 @@ function getStatsMovesCache_() {
       yearBtn.type = "button";
       yearBtn.className = "pill-btn";
       if (statsSelectedMonthIndex === -1) yearBtn.classList.add("selected");
-      const cy = (new Date()).getFullYear();
-      yearBtn.textContent = `ANNO ${cy}`;
+      const cy = getStatsYear_();
+      // UI: mostra solo l'anno (es. "2026"), senza prefissi tipo "ANNO"
+      yearBtn.textContent = String(cy);
       yearBtn.addEventListener("click", () => {
-        statsYearOverride = cy;
+        // segue sempre l'anno di riferimento impostato
+        statsYearOverride = null;
         statsSelectedMonthIndex = -1;
         closePickMonthModal_();
         void renderStatsTable_();
@@ -6710,7 +6711,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.162").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.163").catch(() => {});
     });
   }
 })();
