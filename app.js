@@ -1,7 +1,7 @@
-/* AMF_1.154 */
+/* AMF_1.156 */
 (async () => {
-    const BUILD = "AMF_1.154";
-    const DISPLAY = "1.154";
+    const BUILD = "AMF_1.156";
+    const DISPLAY = "1.156";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -4798,9 +4798,26 @@ function getSettingsPayloadFromUI() {
 } else if (patientsSortMode === "date") {
   const spanOf = (p) => {
     try {
-      if (p && p.___amfSpan && typeof p.___amfSpan === "object") return p.___amfSpan;
+      // Cache sicura: riusa solo se la firma delle terapie/campi non è cambiata.
+      const raw = (p && (p.terapie ?? p.terapia)) ?? "";
+      let sig = "";
+      try {
+        if (typeof raw === "string") sig = raw;
+        else sig = JSON.stringify(raw);
+      } catch (_) { sig = String(raw || ""); }
+      // include anche i campi legacy (fallback) perché influiscono sul calcolo
+      const legacySig = `${String(p?.data_inizio ?? p?.start ?? "")}|${String(p?.data_fine ?? p?.end ?? "")}`;
+      sig = `${sig}||${legacySig}`;
+
+      if (p && p.___amfSpan && typeof p.___amfSpan === "object" && p.___amfSpanSig === sig) {
+        return p.___amfSpan;
+      }
+
       const sp = getPatientTherapySpan_(p);
-      if (p && typeof p === "object") p.___amfSpan = sp;
+      if (p && typeof p === "object") {
+        p.___amfSpan = sp;
+        p.___amfSpanSig = sig;
+      }
       return sp;
     } catch (_) {
       return { start: null, end: null, startTs: Infinity, endTs: Infinity };

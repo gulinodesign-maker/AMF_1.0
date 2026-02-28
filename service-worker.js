@@ -1,11 +1,11 @@
-/* AMF_1.155 */
-const CACHE_NAME='AMF_1.155';
+/* AMF_1.156 */
+const CACHE_NAME='AMF_1.156';
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=1.155",
+  "./styles.css?v=1.156",
   "./config.js",
-  "./app.js?v=1.155",
+  "./app.js?v=1.156",
   "./assets/logo.jpg",
   "./assets/apple-touch-icon.png",
   "./assets/icon-192.png",
