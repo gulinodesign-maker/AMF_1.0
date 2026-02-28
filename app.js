@@ -1060,6 +1060,7 @@
   let statsSelectedSoc = "ALL"; // "ALL" = Tutte
   let statsSelectedLevel = "T"; // L1/L2/L3/T
   let statsSelectedMonthIndex = (new Date()).getMonth(); // 0..11
+  let statsYearOverride = null; // number | null (quando selezionato filtro ANNO corrente)
 
   const MONTHS_IT = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 
@@ -1075,8 +1076,17 @@ async function ensureStatsMovesCache_() {
   if (statsMovesCacheKey === key && Array.isArray(statsMovesCache)) return;
 
   try {
-    const raw = await fetchCalendarMovesForMonth_(year, mi);
-    const moves0 = (raw || []).map(normalizeMove_).filter(Boolean);
+    let raws = [];
+    if (mi === -1) {
+      const all = [];
+      for (let m0 = 0; m0 < 12; m0++) {
+        try { all.push(...(await fetchCalendarMovesForMonth_(year, m0))); } catch (_) {}
+      }
+      raws = all;
+    } else {
+      raws = await fetchCalendarMovesForMonth_(year, mi);
+    }
+    const moves0 = (raws || []).map(normalizeMove_).filter(Boolean);
     statsMovesCache = collapseMoves_(moves0);
     statsMovesCacheKey = key;
   } catch (_) {
@@ -1108,6 +1118,10 @@ function getStatsMovesCache_() {
 
   function renderStatsMonthLabel_() {
     if (!lblStatsMonth) return;
+    if (statsSelectedMonthIndex === -1) {
+      lblStatsMonth.textContent = (`ANNO ${getStatsYear_()}`).toUpperCase();
+      return;
+    }
     lblStatsMonth.textContent = (MONTHS_IT[statsSelectedMonthIndex] || "Mese").toUpperCase();
   }
 
@@ -1175,6 +1189,7 @@ function getStatsMovesCache_() {
   }
 
   function getStatsYear_() {
+    if (isFinite(statsYearOverride) && statsYearOverride >= 2000 && statsYearOverride <= 2100) return statsYearOverride;
     const y1 = ($("#setAnno")?.value || "").trim();
     const y2 = ($("#pillYear")?.textContent || "").trim();
     const cand = y1 || y2;
@@ -1300,8 +1315,15 @@ function getStatsMovesCache_() {
     const therapies = getPatientTherapiesForStats_(p);
     if (!therapies.length) return 0;
 
-    const monthStart = new Date(year, monthIndex, 1); monthStart.setHours(0,0,0,0);
-    const monthEnd = new Date(year, monthIndex + 1, 0); monthEnd.setHours(0,0,0,0);
+    let periodStart, periodEnd;
+
+    if (monthIndex === -1) {
+      periodStart = new Date(year, 0, 1); periodStart.setHours(0,0,0,0);
+      periodEnd = new Date(year, 11, 31); periodEnd.setHours(0,0,0,0);
+    } else {
+      periodStart = new Date(year, monthIndex, 1); periodStart.setHours(0,0,0,0);
+      periodEnd = new Date(year, monthIndex + 1, 0); periodEnd.setHours(0,0,0,0);
+    }
 
     let sessions = 0;
 
@@ -1312,8 +1334,8 @@ function getStatsMovesCache_() {
       const range = getPatientRangeWithinYear_({ data_inizio: t?.data_inizio, data_fine: t?.data_fine }, year);
       if (!range) continue;
 
-      const start = new Date(Math.max(range.start.getTime(), monthStart.getTime()));
-      const end = new Date(Math.min(range.end.getTime(), monthEnd.getTime()));
+      const start = new Date(Math.max(range.start.getTime(), periodStart.getTime()));
+      const end = new Date(Math.min(range.end.getTime(), periodEnd.getTime()));
       if (start.getTime() > end.getTime()) continue;
 
       const map = parseGiorniMap(t?.giorni_settimana || t?.giorni_map || {});
@@ -1349,13 +1371,13 @@ function getStatsMovesCache_() {
           if (String(mv.paziente_id || "") !== pid0) continue;
 
           const fd2 = dateOnlyLocal(mv.from_date);
-          if (fd2 && fd2.getTime() >= monthStart.getTime() && fd2.getTime() <= monthEnd.getTime()) {
+          if (fd2 && fd2.getTime() >= periodStart.getTime() && fd2.getTime() <= periodEnd.getTime()) {
             sessions -= 1;
           }
 
           if (!mv.isDelete && String(mv.to_date || "").trim()) {
             const td2 = dateOnlyLocal(mv.to_date);
-            if (td2 && td2.getTime() >= monthStart.getTime() && td2.getTime() <= monthEnd.getTime()) {
+            if (td2 && td2.getTime() >= periodStart.getTime() && td2.getTime() <= periodEnd.getTime()) {
               sessions += 1;
             }
           }
@@ -1384,8 +1406,15 @@ function getStatsMovesCache_() {
     yearRange.start.setHours(0,0,0,0);
     yearRange.end.setHours(0,0,0,0);
 
-    const monthStart = new Date(year, monthIndex, 1); monthStart.setHours(0,0,0,0);
-    const monthEnd = new Date(year, monthIndex + 1, 0); monthEnd.setHours(0,0,0,0);
+    let periodStart, periodEnd;
+
+    if (monthIndex === -1) {
+      periodStart = new Date(year, 0, 1); periodStart.setHours(0,0,0,0);
+      periodEnd = new Date(year, 11, 31); periodEnd.setHours(0,0,0,0);
+    } else {
+      periodStart = new Date(year, monthIndex, 1); periodStart.setHours(0,0,0,0);
+      periodEnd = new Date(year, monthIndex + 1, 0); periodEnd.setHours(0,0,0,0);
+    }
 
     // Calcolo base per terapia (senza moves)
     const baseSessionsByT = new Array(therapies.length).fill(0);
@@ -1395,8 +1424,8 @@ function getStatsMovesCache_() {
       const range = getPatientRangeWithinYear_({ data_inizio: t?.data_inizio, data_fine: t?.data_fine }, year);
       if (!range) continue;
 
-      const start = new Date(Math.max(range.start.getTime(), monthStart.getTime()));
-      const end = new Date(Math.min(range.end.getTime(), monthEnd.getTime()));
+      const start = new Date(Math.max(range.start.getTime(), periodStart.getTime()));
+      const end = new Date(Math.min(range.end.getTime(), periodEnd.getTime()));
       if (start.getTime() > end.getTime()) continue;
 
       const map = parseGiorniMap(t?.giorni_settimana || t?.giorni_map || {});
@@ -1483,14 +1512,14 @@ function getStatsMovesCache_() {
           if (String(mv.paziente_id || "") !== pid0) continue;
 
           const fd2 = dateOnlyLocal(mv.from_date);
-          if (fd2 && fd2.getTime() >= monthStart.getTime() && fd2.getTime() <= monthEnd.getTime()) {
+          if (fd2 && fd2.getTime() >= periodStart.getTime() && fd2.getTime() <= periodEnd.getTime()) {
             const ti = findTherapyIndexForSession_(mv.from_date, mv.from_time);
             if (ti >= 0) sessionsByT[ti] -= 1;
           }
 
           if (!mv.isDelete && String(mv.to_date || "").trim()) {
             const td2 = dateOnlyLocal(mv.to_date);
-            if (td2 && td2.getTime() >= monthStart.getTime() && td2.getTime() <= monthEnd.getTime()) {
+            if (td2 && td2.getTime() >= periodStart.getTime() && td2.getTime() <= periodEnd.getTime()) {
               const ti = findTherapyIndexForSession_(mv.to_date, mv.to_time);
               if (ti >= 0) sessionsByT[ti] += 1;
             }
@@ -1614,6 +1643,22 @@ function getStatsMovesCache_() {
     btnStatsMonth?.addEventListener("click", () => {
       if (!monthPickList) return;
       monthPickList.innerHTML = "";
+
+      // Filtro ANNO corrente
+      const yearBtn = document.createElement("button");
+      yearBtn.type = "button";
+      yearBtn.className = "pill-btn";
+      if (statsSelectedMonthIndex === -1) yearBtn.classList.add("selected");
+      const cy = (new Date()).getFullYear();
+      yearBtn.textContent = `ANNO ${cy}`;
+      yearBtn.addEventListener("click", () => {
+        statsYearOverride = cy;
+        statsSelectedMonthIndex = -1;
+        closePickMonthModal_();
+        void renderStatsTable_();
+      });
+      monthPickList.appendChild(yearBtn);
+
       MONTHS_IT.forEach((m, idx) => {
         const b = document.createElement("button");
         b.type = "button";
@@ -1621,6 +1666,7 @@ function getStatsMovesCache_() {
         if (idx === statsSelectedMonthIndex) b.classList.add("selected");
         b.textContent = m;
         b.addEventListener("click", () => {
+          statsYearOverride = null;
           statsSelectedMonthIndex = idx;
           closePickMonthModal_();
           void renderStatsTable_();
