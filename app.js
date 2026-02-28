@@ -1,7 +1,7 @@
-/* AMF_1.148 */
+/* AMF_1.149 */
 (async () => {
-    const BUILD = "AMF_1.148";
-    const DISPLAY = "1.148";
+    const BUILD = "AMF_1.149";
+    const DISPLAY = "1.149";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -909,8 +909,14 @@
     patients: $("#viewPatients"),
     patientForm: $("#viewPatientForm"),
     calendar: $("#viewCalendar"),
-    stats: $("#viewStats")
+    stats: $("#viewStats"),
+    societa: $("#viewSocieta")
   };
+
+
+  // Società page
+  const socList = $("#socList");
+  const socEmptyHint = $("#socEmptyHint");
 
   const btnTopRight = $("#btnTopRight");
   const iconTopRight = $("#iconTopRight");
@@ -959,6 +965,7 @@
 
     if (name === "patients") { setTopPlusMode_("add"); }
     else if (name === "stats") { setTopPlusMode_("print"); }
+    else if (name === "societa") { setTopPlusMode_("soc_add"); }
     else { setTopPlusVisible(false); }
     setCalendarControlsVisible(name === "calendar");
     updateTopbarTitle();
@@ -983,6 +990,12 @@
       btnTopPlus.hidden = false;
       btnTopPlus.setAttribute("aria-label", "Stampa report");
       btnTopPlus.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l3 3v17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"></path><path d="M15 2v4h4"></path><path d="M8 11h8"></path><path d="M8 15h8"></path><path d="M8 19h5"></path></svg>';
+      return;
+    }
+    if (mode === "soc_add") {
+      btnTopPlus.hidden = false;
+      btnTopPlus.setAttribute("aria-label", "Aggiungi società");
+      btnTopPlus.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>';
       return;
     }
     // default: add
@@ -5985,6 +5998,82 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     modalSoc.setAttribute("aria-hidden", "true");
   }
 
+
+  // --- Società page flow (lista + tariffe)
+  function openSocModalNew_() { openSocModal(); }
+
+  function openSocModalEditFromSoc_(s) {
+    if (!s) return;
+    if (!modalSoc) return;
+    const nome = String(s.nome || "").trim();
+    const id = String(s.id || "").trim();
+
+    if (socModalTitle) socModalTitle.textContent = "Modifica società";
+    editingSocId = id || "";
+    editingSocOldName = nome || "";
+
+    if (socNomeInput) socNomeInput.value = nome || "";
+    if (socL1Input) socL1Input.value = toEuro2String_(s.l1 ?? s.L1 ?? s.liv1 ?? s.livello1 ?? s.tariffa_livello_1 ?? "");
+    if (socL2Input) socL2Input.value = toEuro2String_(s.l2 ?? s.L2 ?? s.liv2 ?? s.livello2 ?? s.tariffa_livello_2 ?? "");
+    if (socL3Input) socL3Input.value = toEuro2String_(s.l3 ?? s.L3 ?? s.liv3 ?? s.livello3 ?? s.tariffa_livello_3 ?? "");
+    setSelectedSocTag(s.tag ?? s.tagIndex ?? s.tag_index ?? 0);
+
+    if (socDeletePanel) socDeletePanel.hidden = true;
+    socSaveInFlight = false;
+    if (btnSocSave) btnSocSave.disabled = false;
+
+    modalSoc.classList.add("show");
+    modalSoc.setAttribute("aria-hidden", "false");
+    if (socL1Input) socL1Input.focus();
+  }
+
+  function renderSocietaPageList_() {
+    if (!socList) return;
+    const arr = Array.isArray(societaCache) ? societaCache : [];
+    socList.innerHTML = "";
+    if (!arr.length) {
+      if (socEmptyHint) socEmptyHint.hidden = false;
+      return;
+    }
+    if (socEmptyHint) socEmptyHint.hidden = true;
+
+    arr.forEach((s) => {
+      if (!s) return;
+      const id = String(s.id || "").trim();
+      const nome = String(s.nome || "").trim();
+      const l1 = toEuro2String_(s.l1 ?? s.L1 ?? s.liv1 ?? s.livello1 ?? s.tariffa_livello_1 ?? "");
+      const l2 = toEuro2String_(s.l2 ?? s.L2 ?? s.liv2 ?? s.livello2 ?? s.tariffa_livello_2 ?? "");
+      const l3 = toEuro2String_(s.l3 ?? s.L3 ?? s.liv3 ?? s.livello3 ?? s.tariffa_livello_3 ?? "");
+
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "soc-item";
+      b.dataset.id = id;
+      b.setAttribute("aria-label", "Società " + (nome || ""));
+      b.innerHTML = `
+        <div class="soc-left">
+          <div class="soc-name">${escapeHtml(nome || "—")}</div>
+        </div>
+        <div class="soc-right">
+          <div class="soc-rate">L1 ${escapeHtml(l1 || "—")}</div>
+          <div class="soc-rate">L2 ${escapeHtml(l2 || "—")}</div>
+          <div class="soc-rate">L3 ${escapeHtml(l3 || "—")}</div>
+        </div>
+      `;
+      b.addEventListener("click", () => openSocModalEditFromSoc_(s));
+      socList.appendChild(b);
+    });
+  }
+
+  async function openSocietaFlow() {
+    setCalendarControlsVisible(false);
+    const titleEl = $("#topbarTitle");
+    if (titleEl) titleEl.textContent = "Società";
+    try { await loadSocietaCache(true); } catch (_) {}
+    renderSocietaPageList_();
+    showView("societa");
+  }
+
   async function apiTry(actions, params) {
     const list = Array.isArray(actions) ? actions : [actions];
     let lastErr = null;
@@ -6320,7 +6409,7 @@ async function renderSocietaDeleteList() {
     if (willOpen) await renderSocietaDeleteList();
   });
 
-  $("#btnAddSoc")?.addEventListener("click", openSocModal);
+  $("#btnAddSoc")?.addEventListener("click", openSocietaFlow);
 
   $("#btnWipe")?.addEventListener("click", async () => {
     const user = getSession();
@@ -6463,7 +6552,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.148").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.149").catch(() => {});
     });
   }
 })();

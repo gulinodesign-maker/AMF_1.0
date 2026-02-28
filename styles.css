@@ -2221,3 +2221,40 @@ body.cal-dragging { touch-action: none; }
   stroke-linejoin:round;
 }
 
+
+
+/* --- Società page --- */
+.soc-list{display:flex;flex-direction:column;gap:12px;margin-top:12px;}
+.soc-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:14px 14px;
+  border-radius:16px;
+  border:1px solid rgba(0,0,0,.10);
+  background: rgba(255,255,255,.20);
+  cursor:pointer;
+  width:100%;
+  text-align:left;
+}
+.soc-left{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.soc-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.soc-right{display:flex;gap:10px;align-items:center;flex-shrink:0;}
+.soc-rate{
+  padding:8px 10px;
+  border-radius:999px;
+  border:1px solid rgba(0,0,0,.10);
+  background: var(--white80);
+  font-weight:700;
+  font-size:13px;
+  white-space:nowrap;
+}
+.empty-hint{margin-top:12px;opacity:.7;font-size:14px;}
+/* modal actions 3 buttons */
+.modal-actions3{display:flex;gap:12px;justify-content:space-between;margin-top:14px;}
+.modal-actions3 .pill-btn{flex:1;}
+.soc-tag-row{margin-top:10px;display:flex;justify-content:center;}
+.soc-tag-dots{display:flex;gap:10px;}
+.soc-delete-panel{margin-top:12px;}
+.soc-delete-list{display:flex;flex-direction:column;gap:10px;margin-top:8px;}

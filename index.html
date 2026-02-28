@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Montalto PMS</title>
-  <link rel="stylesheet" href="./styles.css?v=1.148" />
+  <link rel="stylesheet" href="./styles.css?v=1.149" />
   <link rel="manifest" href="./manifest.json" />
   <meta name="theme-color" content="#2a74b8" />
   <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
@@ -83,7 +83,7 @@
       </section>
         </div>
         <div class="home-footer" aria-label="Build">
-          <div class="build" id="buildLabel">1.148</div>
+          <div class="build" id="buildLabel">1.149</div>
         </div>
       </div>
     </section>
@@ -534,6 +534,19 @@
       </div>
     </section>
 
+
+    <section class="view" id="viewSocieta" aria-label="Società">
+      <div class="page">
+        <div class="page-header">
+          <div class="page-title">Società</div>
+        </div>
+
+        <div class="soc-list" id="socList" aria-label="Elenco società"></div>
+        <div class="empty-hint" id="socEmptyHint" hidden>Nessuna società. Premi + per aggiungerne una.</div>
+      </div>
+    </section>
+
+
 </main>
 
 
@@ -596,8 +609,52 @@
 
 
 
-  <script src="./app.js?v=1.148"></script>
+  <script src="./app.js?v=1.149"></script>
 
     
+
+    <!-- MODAL: Società -->
+    <div class="modal" id="modalSoc" aria-hidden="true">
+      <div class="modal-card">
+        <button class="dot-close" id="btnSocClose" type="button" aria-label="Chiudi"></button>
+        <div class="modal-title">Società</div>
+
+        <div class="form-grid">
+          <label class="label">Nome società</label>
+          <input class="field" id="socNomeInput" type="text" inputmode="text" autocomplete="off" />
+
+          <label class="label">Tariffa L1 (€)</label>
+          <input class="field" id="socL1Input" type="text" inputmode="decimal" autocomplete="off" />
+
+          <label class="label">Tariffa L2 (€)</label>
+          <input class="field" id="socL2Input" type="text" inputmode="decimal" autocomplete="off" />
+
+          <label class="label">Tariffa L3 (€)</label>
+          <input class="field" id="socL3Input" type="text" inputmode="decimal" autocomplete="off" />
+        </div>
+
+        <div class="soc-tag-row" aria-label="Colore società">
+          <div class="soc-tag-dots" id="socTagDots"></div>
+        </div>
+
+        <div class="modal-actions3">
+          <button type="button" class="pill-btn pill-white" id="btnSocCancel" aria-label="Annulla">
+            <svg viewBox="0 0 24 24"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
+          </button>
+          <button type="button" class="pill-btn pill-red" id="btnSocDelete" aria-label="Elimina">
+            <svg viewBox="0 0 24 24"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M6 6l1 16h10l1-16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+          </button>
+          <button type="button" class="pill-btn pill-green" id="btnSocSave" aria-label="Salva">
+            <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"></path></svg>
+          </button>
+        </div>
+
+        <div class="soc-delete-panel" id="socDeletePanel" hidden>
+          <div class="label">Seleziona una società da eliminare</div>
+          <div class="soc-delete-list" id="socDeleteList"></div>
+        </div>
+      </div>
+    </div>
+
 </body>
 </html>
