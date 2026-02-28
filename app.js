@@ -946,11 +946,19 @@
 
   function updateTopbarTitle() {
     if (!topbarTitle) return;
+
+    // Mostra il nome fisioterapista SOLO in Home.
+    const isHome = (currentView === "home");
     const u = getSession();
-    const name = (u && typeof u.nome === "string" && u.nome.trim()) ? u.nome.trim() : "Montalto PMS";
-    topbarTitle.textContent = name;
+
+    const physioName = (u && typeof u.nome === "string" && u.nome.trim()) ? u.nome.trim() : "";
+    const baseTitle = "Montalto PMS";
+    const title = (isHome && physioName) ? physioName : baseTitle;
+
+    topbarTitle.textContent = title;
+
     // aggiorna anche il titolo del documento
-    try { document.title = name; } catch (_) {}
+    try { document.title = title; } catch (_) {}
   }
 
   function showView(name) {
