@@ -1,7 +1,7 @@
-/* AMF_1.145 */
+/* AMF_1.146 */
 (async () => {
-    const BUILD = "AMF_1.145";
-    const DISPLAY = "1.145";
+    const BUILD = "AMF_1.146";
+    const DISPLAY = "1.146";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -1080,6 +1080,23 @@ function getStatsMovesCache_() {
     return normalizeLevel_(p?.livello ?? p?.level ?? p?.liv ?? p?.livello_id ?? p?.lvl);
   }
 
+  function resolveTherapyLevel_(patient, therapy, societaId) {
+    // 1) livello sulla terapia (vari campi)
+    const direct = normalizeLevel_(therapy?.livello ?? therapy?.level ?? therapy?.liv ?? therapy?.livello_id ?? therapy?.lvl);
+    if (direct && direct !== "T") return direct;
+    // 2) livello sul paziente
+    const pl = getPatientLevel_(patient);
+    if (pl && pl !== "T") return pl;
+    // 3) fallback: tag della società (1..3 -> L1..L3)
+    const sid = String(societaId || patient?.societa_id || patient?.societaId || patient?.soc || "").trim();
+    const s = sid ? getSocietaById(sid) : null;
+    const t = s ? parseInt(s.tag, 10) : 0;
+    if (t === 1) return "L1";
+    if (t === 2) return "L2";
+    if (t === 3) return "L3";
+    return null;
+  }
+
   function getRateForPatient_(p) {
     const lv = getPatientLevel_(p);
     if (!lv || lv === "T") return 0;
@@ -1183,7 +1200,7 @@ function getStatsMovesCache_() {
     let sessions = 0;
 
     for (const t of therapies) {
-      const lv = normalizeLevel_(t?.livello);
+      const lv = resolveTherapyLevel_(p, t, sid);
       if (statsSelectedLevel !== "T" && lv !== statsSelectedLevel) continue;
 
       const range = getPatientRangeWithinYear_({ data_inizio: t?.data_inizio, data_fine: t?.data_fine }, year);
@@ -1381,7 +1398,7 @@ function getStatsMovesCache_() {
     for (let ti = 0; ti < therapies.length; ti++) {
       const cnt = Math.max(0, sessionsByT[ti] || 0);
       if (!cnt) continue;
-      const lv = normalizeLevel_(therapies[ti]?.livello);
+      const lv = resolveTherapyLevel_(p, therapies[ti], sid);
       const rate = getRateForPatient_({ societa_id: sid, livello: lv });
       total += cnt * (rate || 0);
     }
@@ -6358,7 +6375,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.145").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.146").catch(() => {});
     });
   }
 })();
