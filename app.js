@@ -1,7 +1,7 @@
-/* AMF_1.146 */
+/* AMF_1.147 */
 (async () => {
-    const BUILD = "AMF_1.146";
-    const DISPLAY = "1.146";
+    const BUILD = "AMF_1.147";
+    const DISPLAY = "1.147";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -696,11 +696,99 @@
         const nome = String(params.nome || "").trim();
         if (!nome) throw new Error("Nome società mancante");
         const arr = Array.isArray(__dbPlain.societa) ? __dbPlain.societa : [];
-        const id = String(Date.now());
-        arr.push({ id, nome });
+        const id = String(params.id || params.societa_id || params.societaId || params.societyId || Date.now());
+
+        // Accetta tariffe e tag da diversi nomi campo (compat con UI/remote)
+        const tag = (params.tag ?? params.tagIndex ?? params.tag_index ?? params.soc_tag ?? params.socTag ?? null);
+        const l1 = (params.l1 ?? params.L1 ?? params.livello1 ?? params.liv1 ?? params.tariffa_livello_1 ?? null);
+        const l2 = (params.l2 ?? params.L2 ?? params.livello2 ?? params.liv2 ?? params.tariffa_livello_2 ?? null);
+        const l3 = (params.l3 ?? params.L3 ?? params.livello3 ?? params.liv3 ?? params.tariffa_livello_3 ?? null);
+
+        // Se arriva un payload JSON, merge anche quello
+        let payloadObj = null;
+        try {
+          if (params && typeof params.payload === "string" && params.payload.trim()) payloadObj = JSON.parse(params.payload);
+        } catch (_) { payloadObj = null; }
+
+        const row = Object.assign(
+          { id, nome },
+          (payloadObj && typeof payloadObj === "object") ? payloadObj : {},
+          {
+            id,
+            nome,
+            tag: (payloadObj && payloadObj.tag !== undefined) ? payloadObj.tag : tag,
+            l1: (payloadObj && payloadObj.l1 !== undefined) ? payloadObj.l1 : l1,
+            l2: (payloadObj && payloadObj.l2 !== undefined) ? payloadObj.l2 : l2,
+            l3: (payloadObj && payloadObj.l3 !== undefined) ? payloadObj.l3 : l3,
+            tariffa_livello_1: (payloadObj && payloadObj.tariffa_livello_1 !== undefined) ? payloadObj.tariffa_livello_1 : l1,
+            tariffa_livello_2: (payloadObj && payloadObj.tariffa_livello_2 !== undefined) ? payloadObj.tariffa_livello_2 : l2,
+            tariffa_livello_3: (payloadObj && payloadObj.tariffa_livello_3 !== undefined) ? payloadObj.tariffa_livello_3 : l3,
+            // copie per compat
+            L1: (payloadObj && payloadObj.L1 !== undefined) ? payloadObj.L1 : l1,
+            L2: (payloadObj && payloadObj.L2 !== undefined) ? payloadObj.L2 : l2,
+            L3: (payloadObj && payloadObj.L3 !== undefined) ? payloadObj.L3 : l3,
+            livello1: (payloadObj && payloadObj.livello1 !== undefined) ? payloadObj.livello1 : l1,
+            livello2: (payloadObj && payloadObj.livello2 !== undefined) ? payloadObj.livello2 : l2,
+            livello3: (payloadObj && payloadObj.livello3 !== undefined) ? payloadObj.livello3 : l3,
+            liv1: (payloadObj && payloadObj.liv1 !== undefined) ? payloadObj.liv1 : l1,
+            liv2: (payloadObj && payloadObj.liv2 !== undefined) ? payloadObj.liv2 : l2,
+            liv3: (payloadObj && payloadObj.liv3 !== undefined) ? payloadObj.liv3 : l3
+          }
+        );
+
+        // Se esiste già stessa id, sovrascrivi (comportamento tipo upsert)
+        const idx = arr.findIndex(x => String(x && x.id) === String(id));
+        if (idx >= 0) arr[idx] = Object.assign({}, arr[idx], row);
+        else arr.push(row);
         __dbPlain.societa = arr;
         await __saveDb();
         return { ok: true, societa: arr };
+      }
+
+      case "updateSocieta":
+      case "editSocieta":
+      case "setSocieta":
+      case "updateSociety":
+      case "editSociety": {
+        if (!__dbPlain) throw new Error("LOCKED");
+        const arr = Array.isArray(__dbPlain.societa) ? __dbPlain.societa : [];
+        const id = String(params.id || params.societa_id || params.societaId || params.societyId || "").trim();
+        const nome = String(params.nome || params.name || "").trim();
+        if (!id && !nome) throw new Error("ID/Nome società mancante");
+
+        let payloadObj = null;
+        try {
+          if (params && typeof params.payload === "string" && params.payload.trim()) payloadObj = JSON.parse(params.payload);
+        } catch (_) { payloadObj = null; }
+
+        const idx = arr.findIndex(x => (id && String(x && x.id) === id) || (!id && nome && String(x && x.nome || "").trim().toLowerCase() === nome.toLowerCase()));
+        if (idx < 0) throw new Error("Società non trovata");
+        const merged = Object.assign({}, arr[idx], payloadObj || {}, params || {});
+        // normalizza campi principali
+        if (id) merged.id = id;
+        if (nome) merged.nome = nome;
+        arr[idx] = merged;
+        __dbPlain.societa = arr;
+        await __saveDb();
+        return { ok: true, societa: arr };
+      }
+
+      case "deleteSocieta":
+      case "delSocieta":
+      case "removeSocieta":
+      case "deleteSociety": {
+        if (!__dbPlain) throw new Error("LOCKED");
+        const arr = Array.isArray(__dbPlain.societa) ? __dbPlain.societa : [];
+        const id = String(params.id || params.societa_id || params.societaId || params.societyId || "").trim();
+        const nome = String(params.nome || params.name || "").trim();
+        const out = arr.filter(x => {
+          if (id) return String(x && x.id) !== id;
+          if (nome) return String(x && x.nome || "").trim().toLowerCase() !== nome.toLowerCase();
+          return true;
+        });
+        __dbPlain.societa = out;
+        await __saveDb();
+        return { ok: true, societa: out };
       }
       case "listPatients": {
         if (!__dbPlain) throw new Error("LOCKED");
@@ -6375,7 +6463,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.146").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.147").catch(() => {});
     });
   }
 })();
