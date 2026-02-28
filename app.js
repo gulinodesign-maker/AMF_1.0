@@ -6060,6 +6060,8 @@ async function renderSocietaDeleteList() {
       if (apiHintIfUnknownAction(err)) return;
       toast(String(err && err.message ? err.message : "Errore"));
     }
+  });
+
 
 
   // --- DB Import/Export (standalone)
@@ -6128,8 +6130,6 @@ async function renderSocietaDeleteList() {
     }
   });
 
-  });
-
   // btnLogout rimosso (standalone)
 
   // --- Boot (Standalone protetto)
@@ -6150,7 +6150,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.136").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.137").catch(() => {});
     });
   }
 })();
