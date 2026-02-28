@@ -953,12 +953,12 @@
 
     const physioName = (u && typeof u.nome === "string" && u.nome.trim()) ? u.nome.trim() : "";
     const baseTitle = "Montalto PMS";
-    const title = (isHome && physioName) ? physioName : baseTitle;
+    const titleTopbar = (isHome && physioName) ? physioName : "";
 
-    topbarTitle.textContent = title;
+    topbarTitle.textContent = titleTopbar;
 
-    // aggiorna anche il titolo del documento
-    try { document.title = title; } catch (_) {}
+    // titolo del documento: mantieni il nome app (utile su iOS / tab)
+    try { document.title = baseTitle; } catch (_) {}
   }
 
   function showView(name) {
@@ -1201,8 +1201,7 @@ function getStatsMovesCache_() {
   function getStatsYear_() {
     if (isFinite(statsYearOverride) && statsYearOverride >= 2000 && statsYearOverride <= 2100) return statsYearOverride;
     const y1 = ($("#setAnno")?.value || "").trim();
-    const y2 = ($("#pillYear")?.textContent || "").trim();
-    const cand = y1 || y2;
+    const cand = y1;
     const n = parseInt(cand, 10);
     return (isFinite(n) && n >= 2000 && n <= 2100) ? n : (new Date()).getFullYear();
   }
@@ -1868,7 +1867,6 @@ function renderStatsMonthly_() {
 
     const readExerciseYear = () => {
       const y1 = ($("#setAnno")?.value || "").trim();
-      const y2 = ($("#pillYear")?.textContent || "").trim();
       const cand = y1 || y2;
       const n = parseInt(cand, 10);
       return (isFinite(n) && n >= 2000 && n <= 2100) ? n : (new Date()).getFullYear();
@@ -4348,7 +4346,6 @@ function formatItMonth(dateObj) {
 
   // --- Settings view logic
   const pillUser = $("#pillUser");
-  const pillYear = $("#pillYear");
 
   function setPills(user, year) {
     if (pillUser) {
@@ -4358,7 +4355,6 @@ function formatItMonth(dateObj) {
       nm = nm || "—";
       pillUser.textContent = nm;
     }
-    if (pillYear) pillYear.textContent = year ? String(year) : "—";
   }
 
 
@@ -4367,7 +4363,6 @@ function formatItMonth(dateObj) {
   function getExerciseYearSelected_(opts = {}) {
     const { allowNull = true } = (opts || {});
     const yUI = ($("#setAnno")?.value || "").trim();
-    const yPill = ($("#pillYear")?.textContent || "").trim();
     const cand = yUI || (exerciseYearSelected ? String(exerciseYearSelected) : "") || yPill;
     const n = parseInt(cand, 10);
     if (isFinite(n) && n >= 2000 && n <= 2100) return n;
