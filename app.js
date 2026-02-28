@@ -1,7 +1,7 @@
-/* AMF_1.147 */
+/* AMF_1.148 */
 (async () => {
-    const BUILD = "AMF_1.147";
-    const DISPLAY = "1.147";
+    const BUILD = "AMF_1.148";
+    const DISPLAY = "1.148";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -1192,9 +1192,9 @@ function getStatsMovesCache_() {
     const s = sid ? getSocietaById(sid) : null;
     if (!s) return 0;
 
-    const l1 = coerceNumber_(s.l1 ?? s.L1 ?? s.liv1 ?? s.livello1);
-    const l2 = coerceNumber_(s.l2 ?? s.L2 ?? s.liv2 ?? s.livello2);
-    const l3 = coerceNumber_(s.l3 ?? s.L3 ?? s.liv3 ?? s.livello3);
+    const l1 = coerceNumber_(s.l1 ?? s.L1 ?? s.liv1 ?? s.livello1 ?? s.tariffa_livello_1 ?? s.tariffa1 ?? s.rate_l1 ?? s.rate1);
+    const l2 = coerceNumber_(s.l2 ?? s.L2 ?? s.liv2 ?? s.livello2 ?? s.tariffa_livello_2 ?? s.tariffa2 ?? s.rate_l2 ?? s.rate2);
+    const l3 = coerceNumber_(s.l3 ?? s.L3 ?? s.liv3 ?? s.livello3 ?? s.tariffa_livello_3 ?? s.tariffa3 ?? s.rate_l3 ?? s.rate3);
 
     if (lv === "L1") return l1 ?? 0;
     if (lv === "L2") return l2 ?? 0;
@@ -6463,7 +6463,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.147").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.148").catch(() => {});
     });
   }
 })();
