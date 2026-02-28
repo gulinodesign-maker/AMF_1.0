@@ -2304,13 +2304,20 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
   }
 
   function syncCalendarTopbarMonth() {
-    const on = (currentView === "calendar") && _isLandscape_();
-    try { document.body.classList.toggle("cal-landscape", !!on); } catch (_) {}
+    const inCal = (currentView === "calendar");
+    const isLand = _isLandscape_();
+    // classe per spostare mese nella topbar quando siamo in Calendario (portrait + landscape)
+    try { document.body.classList.toggle("cal-month-topbar", !!inCal); } catch (_) {}
+    // classe per micro-spacing aggiuntivo solo in landscape (come da richiesta precedente)
+    try { document.body.classList.toggle("cal-landscape", !!(inCal && isLand)); } catch (_) {}
+
     if (topbarMonth) {
-      topbarMonth.hidden = !on;
-      if (on) {
+      topbarMonth.hidden = !inCal;
+      if (inCal) {
         const t = (calDateTitle && typeof calDateTitle.textContent === "string") ? calDateTitle.textContent : "";
         topbarMonth.textContent = t;
+      } else {
+        topbarMonth.textContent = "";
       }
     }
   }

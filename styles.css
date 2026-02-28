@@ -2351,7 +2351,19 @@ body.cal-dragging { touch-action: none; }
   max-width: 42vw;
 }
 
-body.cal-landscape #calDateTitle{ display:none; }
+body.cal-month-topbar .topbar-month{
+  position:absolute;
+  left:50%;
+  transform: translateX(-50%);
+  text-align:center;
+  pointer-events:none;
+  max-width: 60vw;
+}
+
+body.cal-month-topbar .topbar-left{ padding-right: 8px; }
+body.cal-month-topbar .topbar-right{ padding-left: 8px; }
+
+body.cal-month-topbar #calDateTitle{ display:none; }
 
 body.cal-landscape #viewCalendar .calendar-wrap{
   padding-top: 6px;
