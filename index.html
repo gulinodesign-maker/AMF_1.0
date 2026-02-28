@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Montalto PMS</title>
-  <link rel="stylesheet" href="./styles.css?v=1.139" />
+  <link rel="stylesheet" href="./styles.css?v=1.140" />
   <link rel="manifest" href="./manifest.json" />
   <meta name="theme-color" content="#2a74b8" />
   <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
@@ -83,7 +83,7 @@
       </section>
         </div>
         <div class="home-footer" aria-label="Build">
-          <div class="build" id="buildLabel">1.139</div>
+          <div class="build" id="buildLabel">1.140</div>
         </div>
       </div>
     </section>
@@ -166,17 +166,22 @@
 
         <div class="settings-form">
           <label class="label">Anno di esercizio</label>
-          <input class="field" id="setAnno" type="number" inputmode="numeric" placeholder="Anno di esercizio" />
+          <select class="field" id="setAnno" aria-label="Anno di esercizio">
+            <option value="">Seleziona anno</option>
+            <option value="2022">2022</option>
+            <option value="2023">2023</option>
+            <option value="2024">2024</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+            <option value="2028">2028</option>
+            <option value="2029">2029</option>
+            <option value="2030">2030</option>
+          </select>
 </div>
 
         <div class="actions5" aria-label="Azioni impostazioni">
-          <button class="action-btn a1" id="btnSave" aria-label="Salva dati">
-            <svg viewBox="0 0 24 24"><path d="M4 4h13l3 3v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Z"></path><path d="M8 4v6h8V4"></path><path d="M8 20v-6h8v6"></path></svg>
-          </button>
-          <button class="action-btn a2" id="btnLoad" aria-label="Richiama dati">
-            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"></path><path d="M21 3v6h-6"></path></svg>
-          </button>
-          <button class="action-btn a3" id="btnAddSoc" aria-label="Aggiungi società">
+<button class="action-btn a3" id="btnAddSoc" aria-label="Aggiungi società">
             <svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
           </button>
           <button class="action-btn a4" id="btnWipe" aria-label="Cancella account e dati">
@@ -565,22 +570,35 @@
 
 <!-- QUICK LOGIN -->
     <div class="modal" id="modalQuickLogin" aria-hidden="true">
-      <div class="modal-card">
-        <div class="modal-title">Login</div>
+      <div class="modal-card">        <div class="modal-title">Login</div>
         <div class="modal-subtitle">Utente: <span id="quickLoginName">—</span></div>
-        <form id="formQuickLogin" class="stack" style="margin-top:12px;">
-          <input class="input" id="quickLoginPass" type="password" autocomplete="current-password" placeholder="Password" />
-          <button class="pill-btn pill-blue" id="btnQuickLogin" type="submit">accedi</button>
-        </form>
-        <div class="modal-actions1" style="margin-top:12px;">
-          <button class="pill-btn pill-gray" id="btnQuickLoginOther" type="button">cambia account</button>
-        </div>
+
+        <form id="formQuickLogin" class="quicklogin-form" style="margin-top:12px;">
+          <input class="quicklogin-pass" id="quickLoginPass" type="password" autocomplete="current-password" placeholder="Password" />
+          <div class="quicklogin-actions" style="margin-top:12px;">
+            <button class="pill-btn pill-blue quicklogin-btn" id="btnQuickLogin" type="submit" aria-label="Accedi">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M10 17l5-5-5-5"></path>
+                <path d="M15 12H3"></path>
+                <path d="M21 12a9 9 0 1 0-9 9"></path>
+              </svg>
+            </button>
+            <button class="pill-btn pill-gray quicklogin-btn" id="btnQuickLoginOther" type="button" aria-label="Cambia account">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M16 3h5v5"></path>
+                <path d="M21 3l-6 6"></path>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <path d="M12 7a4 4 0 1 0 0 8a4 4 0 0 0 0-8"></path>
+              </svg>
+            </button>
+          </div>
+        </form></div>
       </div>
     </div>
 
 
 
-  <script src="./app.js?v=1.139"></script>
+  <script src="./app.js?v=1.140"></script>
 
     
 </body>

@@ -434,7 +434,7 @@ select.field{ appearance: none; }
 .actions5{
   margin-top: 18px;
   display:grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 .action-btn{
@@ -2182,3 +2182,42 @@ body.cal-dragging { touch-action: none; }
   stroke-linejoin: round;
   vertical-align: -3px;
 }
+
+
+/* --- AMF_1.140: Quick Login popup layout --- */
+.quicklogin-form{display:flex;flex-direction:column;gap:0}
+.quicklogin-pass{
+  width:100%;
+  height:58px;
+  border-radius:18px;
+  border:1px solid rgba(0,0,0,.12);
+  background: rgba(255,255,255,.80);
+  background-color: rgba(255,255,255,.80);
+  padding: 0 16px;
+  font-size:18px;
+  outline:none;
+  -webkit-appearance:none;
+  appearance:none;
+}
+.quicklogin-actions{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+.quicklogin-btn{
+  width:100%;
+  display:grid;
+  place-items:center;
+  padding:0;
+  font-size:0;
+}
+.quicklogin-btn svg{
+  width:26px;
+  height:26px;
+  fill:none;
+  stroke:#ffffff;
+  stroke-width:2.6;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
