@@ -1,7 +1,7 @@
-/* AMF_1.149 */
+/* AMF_1.150 */
 (async () => {
-    const BUILD = "AMF_1.149";
-    const DISPLAY = "1.149";
+    const BUILD = "AMF_1.150";
+    const DISPLAY = "1.150";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -1016,6 +1016,10 @@
   btnTopPlus?.addEventListener("click", () => {
     if (currentView === "stats") {
       try { statsPrintReport_(); } catch (_) {}
+      return;
+    }
+    if (currentView === "societa") {
+      try { openSocModalNew_(); } catch (_) {}
       return;
     }
     openPatientCreate();
@@ -6048,6 +6052,8 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
       const b = document.createElement("button");
       b.type = "button";
       b.className = "soc-item";
+      const _tag = parseInt(s.tag ?? s.tagIndex ?? s.tag_index ?? s.soc_tag ?? s.socTag ?? "", 10);
+      if (!Number.isNaN(_tag) && _tag >= 1 && _tag <= 6) b.classList.add("t" + _tag);
       b.dataset.id = id;
       b.setAttribute("aria-label", "Società " + (nome || ""));
       b.innerHTML = `
@@ -6552,7 +6558,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.149").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.150").catch(() => {});
     });
   }
 })();

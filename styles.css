@@ -2238,6 +2238,20 @@ body.cal-dragging { touch-action: none; }
   width:100%;
   text-align:left;
 }
+
+/* Società cards: colore tag con opacità 70% */
+.soc-item.t1{ background: rgba(229,57,53,.70); background-color: rgba(229,57,53,.70); color:#ffffff; }
+.soc-item.t2{ background: rgba(251,140,0,.70); background-color: rgba(251,140,0,.70); color:#ffffff; }
+.soc-item.t3{ background: rgba(253,216,53,.70); background-color: rgba(253,216,53,.70); color:#000000; }
+.soc-item.t4{ background: rgba(67,160,71,.70); background-color: rgba(67,160,71,.70); color:#ffffff; }
+.soc-item.t5{ background: rgba(30,136,229,.70); background-color: rgba(30,136,229,.70); color:#ffffff; }
+.soc-item.t6{ background: rgba(57,73,171,.70); background-color: rgba(57,73,171,.70); color:#ffffff; }
+.soc-item.t1 .soc-rate,
+.soc-item.t2 .soc-rate,
+.soc-item.t4 .soc-rate,
+.soc-item.t5 .soc-rate,
+.soc-item.t6 .soc-rate{ color: rgba(255,255,255,.95); }
+.soc-item.t3 .soc-rate{ color: rgba(0,0,0,.85); }
 .soc-left{display:flex;flex-direction:column;gap:4px;min-width:0;}
 .soc-name{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .soc-right{display:flex;gap:10px;align-items:center;flex-shrink:0;}
