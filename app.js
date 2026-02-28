@@ -1,7 +1,7 @@
-/* AMF_1.143 */
+/* AMF_1.142 */
 (async () => {
-    const BUILD = "AMF_1.143";
-    const DISPLAY = "1.143";
+    const BUILD = "AMF_1.142";
+    const DISPLAY = "1.142";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -671,21 +671,9 @@
       }
       case "saveSettings": {
         if (!__dbPlain) throw new Error("LOCKED");
-        // Compat: la UI invia {payload: JSON.stringify({anno_esercizio: ...})}
-        let incoming = {};
-        try {
-          if (params && typeof params.payload === "string" && params.payload.trim()) {
-            incoming = JSON.parse(params.payload);
-          } else if (params && typeof params.payload === "object" && params.payload) {
-            incoming = params.payload;
-          } else if (params && params.settings) {
-            incoming = params.settings;
-          }
-        } catch (_) { incoming = {}; }
-
-        __dbPlain.settings = Object.assign({}, __dbPlain.settings || {}, incoming || {});
+        __dbPlain.settings = Object.assign({}, __dbPlain.settings || {}, params.settings || {});
         await __saveDb();
-        return { ok: true, settings: Object.assign({}, __dbPlain.settings || {}) };
+        return { ok: true };
       }
       case "listSocieta": {
         if (!__dbPlain) throw new Error("LOCKED");
@@ -6357,7 +6345,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.143").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.142").catch(() => {});
     });
   }
 })();
