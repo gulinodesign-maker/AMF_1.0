@@ -1,7 +1,7 @@
-/* AMF_1.135 */
+/* AMF_1.139 */
 (async () => {
-    const BUILD = "AMF_1.135";
-    const DISPLAY = "1.135";
+    const BUILD = "AMF_1.139";
+    const DISPLAY = "1.139";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -401,6 +401,13 @@
     try { resetCoreDataCaches_("logout"); } catch (_) {}
   }
 
+
+  function setLastLoginName_(name) {
+    try { if (name) localStorage.setItem("AMF_LAST_LOGIN", String(name)); } catch (_) {}
+  }
+  function getLastLoginName_() {
+    try { return (localStorage.getItem("AMF_LAST_LOGIN") || "").trim(); } catch (_) { return ""; }
+  }
   // Migrazione build: se cambia build e config.js ha un URL valido, aggiorna l"API_URL locale
   // (evita che resti salvato un vecchio endpoint).
   
@@ -794,6 +801,7 @@
   const views = {
     home: $("#viewHome"),
     auth: $("#viewAuth"),
+    quick: $("#viewQuick"),
     create: $("#viewCreate"),
     login: $("#viewLogin"),
     modify: $("#viewModify"),
@@ -4041,7 +4049,37 @@ function formatItMonth(dateObj) {
     }
   });
 
-  // --- Login submit
+  
+  // --- Quick Login (solo password)
+  $("#btnQuickLoginOther")?.addEventListener("click", () => {
+    try { closeQuickLoginModal_(); } catch (_) {}
+    showView("auth");
+  });
+
+  $("#formQuickLogin")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nome = getLastLoginName_();
+    const pass = ($("#quickLoginPass")?.value || "");
+    if (!nome) { toast("Seleziona un account"); showView("auth"); return; }
+    if (!pass) { toast("Inserisci la password"); return; }
+
+    const ok = await ensureApiReady();
+    if (!ok) return;
+
+    try {
+      const data = await api("login", { nome, password: pass });
+      setSession(data.user);
+      setLastLoginName_(nome);
+      closeQuickLoginModal_();
+      toast("Accesso OK");
+      await goAfterLogin();
+    } catch (err) {
+      if (apiHintIfUnknownAction(err)) return;
+      toast(String(err && err.message ? err.message : "Errore"));
+    }
+  });
+
+// --- Login submit
   $("#formLogin")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const nome = ($("#loginNome")?.value || "").trim();
@@ -4055,6 +4093,7 @@ function formatItMonth(dateObj) {
     try {
       const data = await api("login", { nome, password: pass });
       setSession(data.user);
+      setLastLoginName_(nome);
       toast("Accesso OK");
       await goAfterLogin();
     } catch (err) {
@@ -6065,7 +6104,23 @@ async function renderSocietaDeleteList() {
 
 
   // --- DB Import/Export (standalone)
-  function openDbIOModal_() {
+  
+  function openQuickLoginModal_(username) {
+    const modal = $("#modalQuickLogin");
+    if (!modal) return;
+    try { $("#quickLoginName").textContent = username || "—"; } catch (_) {}
+    try { const p = $("#quickLoginPass"); if (p) p.value = ""; } catch (_) {}
+    modal.classList.add("show");
+    modal.setAttribute("aria-hidden", "false");
+    try { const p = $("#quickLoginPass"); if (p) setTimeout(() => p.focus(), 50); } catch (_) {}
+  }
+  function closeQuickLoginModal_() {
+    const modal = $("#modalQuickLogin");
+    if (!modal) return;
+    modal.classList.remove("show");
+    modal.setAttribute("aria-hidden", "true");
+  }
+function openDbIOModal_() {
     const modal = $("#modalDbIO");
     if (!modal) return;
     modal.classList.add("show");
@@ -6130,15 +6185,36 @@ async function renderSocietaDeleteList() {
     }
   });
 
-  // btnLogout rimosso (standalone)
+  
+  // --- Logout (standalone)
+  $("#btnLogout")?.addEventListener("click", () => {
+    try { clearSession(); } catch (_) {}
+    toast("Logout");
+    const last = getLastLoginName_();
+    if (last) {
+      showView("quick");
+      openQuickLoginModal_(last);
+    } else {
+      showView("auth");
+    }
+  });
+
+
 
   // --- Boot (Standalone protetto)
   if (STANDALONE) {
     try { clearSession(); } catch (_) {}
     const hasAcc = await __hasAccount();
     if (hasAcc) {
-      // Richiedi password ad ogni avvio
-      showView("auth");
+      // Accesso rapido: mostra solo popup con ultimo utente
+      const last = getLastLoginName_();
+      if (last) {
+        showView("quick");
+        openQuickLoginModal_(last);
+      } else {
+        // Fallback: schermata accesso completa
+        showView("auth");
+      }
     } else {
       showView("create");
     }
@@ -6150,7 +6226,7 @@ async function renderSocietaDeleteList() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.138").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.139").catch(() => {});
     });
   }
 })();
