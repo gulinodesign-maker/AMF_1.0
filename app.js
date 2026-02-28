@@ -1,7 +1,7 @@
-/* AMF_1.141 */
+/* AMF_1.145 */
 (async () => {
-    const BUILD = "AMF_1.141";
-    const DISPLAY = "1.141";
+    const BUILD = "AMF_1.145";
+    const DISPLAY = "1.145";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -671,9 +671,21 @@
       }
       case "saveSettings": {
         if (!__dbPlain) throw new Error("LOCKED");
-        __dbPlain.settings = Object.assign({}, __dbPlain.settings || {}, params.settings || {});
+        // Compat: la UI invia {payload: JSON.stringify({anno_esercizio: ...})}
+        let incoming = {};
+        try {
+          if (params && typeof params.payload === "string" && params.payload.trim()) {
+            incoming = JSON.parse(params.payload);
+          } else if (params && typeof params.payload === "object" && params.payload) {
+            incoming = params.payload;
+          } else if (params && params.settings) {
+            incoming = params.settings;
+          }
+        } catch (_) { incoming = {}; }
+
+        __dbPlain.settings = Object.assign({}, __dbPlain.settings || {}, incoming || {});
         await __saveDb();
-        return { ok: true };
+        return { ok: true, settings: Object.assign({}, __dbPlain.settings || {}) };
       }
       case "listSocieta": {
         if (!__dbPlain) throw new Error("LOCKED");
@@ -4208,7 +4220,23 @@ function formatItMonth(dateObj) {
     } catch (_) {}
   }
 
-  function getSettingsPayloadFromUI() {
+  
+  function getExerciseYearStorageKey_(user){
+    const uid = user?.id ? String(user.id) : "anon";
+    return "amf_exercise_year_" + uid;
+  }
+  function getLocalExerciseYear_(user){
+    try{ return (localStorage.getItem(getExerciseYearStorageKey_(user)) || "").trim(); }catch(_){ return ""; }
+  }
+  function setLocalExerciseYear_(user, yearStr){
+    try{
+      const v = (yearStr || "").trim();
+      if (!v) localStorage.removeItem(getExerciseYearStorageKey_(user));
+      else localStorage.setItem(getExerciseYearStorageKey_(user), v);
+    }catch(_){}
+  }
+
+function getSettingsPayloadFromUI() {
     return {
       anno_esercizio: ($("#setAnno")?.value || "").trim()
     };
@@ -4216,11 +4244,20 @@ function formatItMonth(dateObj) {
 
   function applySettingsToUI(settings) {
     const s = settings || {};
-    if ($("#setAnno")) $("#setAnno").value = s.anno_esercizio ?? "";
-    const yearStr = (s.anno_esercizio || "").trim();
+    const user = getSession();
+    // Prefer server value; if missing, fall back to localStorage; if still missing keep current UI value.
+    let yearStr = (s.anno_esercizio ?? "").toString().trim();
+    if (!yearStr) yearStr = getLocalExerciseYear_(user);
+    if (!yearStr) yearStr = ($("#setAnno")?.value || "").trim();
+
+    if ($("#setAnno")) $("#setAnno").value = yearStr || "";
     const n = parseInt(yearStr, 10);
     exerciseYearSelected = (isFinite(n) && n >= 2000 && n <= 2100) ? n : null;
-    setPills(getSession(), yearStr);
+
+    // Persist locally so the selection always sticks even if backend settings are unavailable
+    setLocalExerciseYear_(user, yearStr);
+
+    setPills(user, yearStr);
     try { onExerciseYearChanged_(); } catch (_) {}
   }
 
@@ -5291,8 +5328,9 @@ function formatItMonth(dateObj) {
     ensureCurrentTherapies_();
     therapiesWrap.replaceChildren();
 
-    const ySel = getExerciseYearSelected_({ allowNull: true });
-    const arr = filterTherapiesByYear_(currentPatient.terapie_arr, ySel);
+    // In scheda paziente (inserimento/modifica) non applichiamo il filtro anno:
+    // altrimenti la terapia vuota (senza date) sparisce e il tasto + sembra non funzionare.
+    const arr = currentPatient.terapie_arr;
 
     const frag = document.createDocumentFragment();
 
@@ -6320,7 +6358,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.141").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.145").catch(() => {});
     });
   }
 })();
