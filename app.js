@@ -1,7 +1,7 @@
-/* AMF_1.165 */
+/* AMF_1.164 */
 (async () => {
-    const BUILD = "AMF_1.165";
-    const DISPLAY = "1.166";
+    const BUILD = "AMF_1.164";
+    const DISPLAY = "1.164";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -2355,9 +2355,7 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
 
   let calSelectedDate = new Date();
   let calHours = [];
-  let calBuiltMonth = false;
-  let calBuiltDay = false;
-  let calViewMode = "month";
+  let calBuilt = false;
   let calSlotPatients = new Map(); // key "dayKey|HH:MM" -> {count, ids:[]}
   let calMovesCache = []; // spostamenti/override sedute per il mese corrente
   let calMovesHorizonLoading = false;
@@ -2985,31 +2983,17 @@ function paintCalendarSlots(slots) {
       }
     }
 
-    // Nomi in cella: in modalità "day" mostra nome+cognome per esteso, altrimenti iniziali (come prima)
-    if (calViewMode === "day") {
-      const names = Array.isArray(info.names) ? info.names.filter(Boolean) : [];
-      const uniqNames = [];
-      names.forEach((n) => { if (!uniqNames.includes(n)) uniqNames.push(n); });
-      let text = uniqNames.slice(0, 2).join(" · ");
-      if (uniqNames.length > 2) text += ` +${uniqNames.length - 2}`;
-      if (text) {
-        const ini = document.createElement("div");
-        ini.className = "cal-initials cal-fullname";
-        ini.textContent = text;
-        cell.appendChild(ini);
-      }
-    } else {
-      const initialsList = (info.names || []).map(initialsFromName).filter(Boolean);
-      const uniq = [];
-      initialsList.forEach((x) => { if (!uniq.includes(x)) uniq.push(x); });
-      let initialsText = uniq.slice(0, 3).join(" ");
-      if (uniq.length > 3) initialsText += ` +${uniq.length - 3}`;
-      if (initialsText) {
-        const ini = document.createElement("div");
-        ini.className = "cal-initials";
-        ini.textContent = initialsText;
-        cell.appendChild(ini);
-      }
+    // Initials
+    const initialsList = (info.names || []).map(initialsFromName).filter(Boolean);
+    const uniq = [];
+    initialsList.forEach((x) => { if (!uniq.includes(x)) uniq.push(x); });
+    let initialsText = uniq.slice(0, 3).join(" ");
+    if (uniq.length > 3) initialsText += ` +${uniq.length - 3}`;
+    if (initialsText) {
+      const ini = document.createElement("div");
+      ini.className = "cal-initials";
+      ini.textContent = initialsText;
+      cell.appendChild(ini);
     }
     if (info.count === 1) {
       cell.title = info.names[0] || "";
@@ -3361,7 +3345,7 @@ async function ensurePatientsForCalendar() {
       return;
     }
 
-    ensureCalendarMonthBuilt();
+    ensureCalendarBuilt();
     const now = new Date();
     calSelectedDate = now;
 
@@ -3392,12 +3376,10 @@ async function ensurePatientsForCalendar() {
   const now = new Date();
   const ref = new Date(calSelectedDate || now);
 
-  // Day: in modalità "day" usa sempre il giorno selezionato; in modalità mensile, se mese/anno correnti -> oggi
+  // Day: se siamo nel mese/anno correnti -> oggi, altrimenti il giorno selezionato
   let targetDay = ref.getDate();
-  if (calViewMode !== "day") {
-    if (now.getFullYear() === ref.getFullYear() && now.getMonth() === ref.getMonth()) {
-      targetDay = now.getDate();
-    }
+  if (now.getFullYear() === ref.getFullYear() && now.getMonth() === ref.getMonth()) {
+    targetDay = now.getDate();
   }
 
   // Time: clamp all'interno degli slot visibili (07:30 -> 21:00), snap a 30'
@@ -3462,8 +3444,8 @@ async function ensurePatientsForCalendar() {
   requestAnimationFrame(() => { try { doScroll(); } catch (_) {} });
 }
 
-  function ensureCalendarMonthBuilt() {
-  if (calBuiltMonth) return;
+  function ensureCalendarBuilt() {
+  if (calBuilt) return;
   if (!calDaysCol || !calHoursRow || !calBody || !calScroll || !calDaysScroll || !calHoursScroll) return;
 
   // --- Header: days 1..31 (lettera giorno + numero)
@@ -3660,8 +3642,8 @@ async function ensurePatientsForCalendar() {
   });
 
   // Topbar calendar controls (hidden by default)
-  btnCalPrev?.addEventListener("click", () => { if (calViewMode === "day") { shiftCalendarDay(-1); } else { shiftCalendarMonth(-1); } });
-  btnCalNext?.addEventListener("click", () => { if (calViewMode === "day") { shiftCalendarDay(1); } else { shiftCalendarMonth(1); } });
+  btnCalPrev?.addEventListener("click", () => { shiftCalendarMonth(-1); });
+  btnCalNext?.addEventListener("click", () => { shiftCalendarMonth(1); });
   btnCalToday?.addEventListener("click", async () => {
     calSelectedDate = new Date();
     await updateCalendarUI();
@@ -3670,203 +3652,7 @@ async function ensurePatientsForCalendar() {
   btnCalPatients?.addEventListener("click", async () => {
     await openPatientsAfterLogin();
   });
-calBuiltMonth = true;
-}
-
-
-function isCalendarLandscape_() {
-  try { return window.matchMedia && window.matchMedia("(orientation: landscape)").matches; } catch (_) {}
-  try { return window.innerWidth > window.innerHeight; } catch (_) {}
-  return false;
-}
-
-function makeCalendarCell_(dayNum, t) {
-  const cell = document.createElement("div");
-        cell.className = "cal-cell";
-        cell.dataset.day = String(dayNum);
-        cell.dataset.time = t;
-        const c = calColorForDay(dayNum);
-        cell.style.backgroundColor = rgba(c, 0.25);
-  
-        const resolveEffectiveFrom_ = (pid) => {
-          let effective_from_date = "";
-          let effective_from_time = "";
-          try {
-            const year = calSelectedDate.getFullYear();
-            const month = calSelectedDate.getMonth();
-            const dayNum = parseInt(cell.dataset.day || "0", 10);
-            const d = new Date(year, month, dayNum);
-            d.setHours(0, 0, 0, 0);
-            effective_from_date = ymdLocal(d);
-            effective_from_time = normTime(cell.dataset.time || "");
-          } catch (_) {}
-  
-          try {
-            const ymd = effective_from_date;
-            const t = effective_from_time;
-            const mvPrev = Array.isArray(calMovesCache) ? calMovesCache.find((mv) =>
-              String(mv && mv.paziente_id) === String(pid) &&
-              String(mv && mv.to_date || "").slice(0, 10) === String(ymd || "").slice(0, 10) &&
-              normTime(mv && mv.to_time) === normTime(t)
-            ) : null;
-            if (mvPrev) {
-              effective_from_date = String(mvPrev.from_date || "").slice(0, 10) || effective_from_date;
-              effective_from_time = normTime(mvPrev.from_time || "") || effective_from_time;
-            }
-          } catch (_) {}
-  
-          return { from_date: effective_from_date, from_time: effective_from_time };
-        };
-  
-        const doDeleteSlot = async (pid) => {
-          const { from_date, from_time } = resolveEffectiveFrom_(pid);
-          if (!from_date || !from_time) { toast("Dati seduta non validi"); return; }
-  
-          try { cell.dataset.suppressClick = "1"; } catch (_) {}
-  
-          const sure = window.confirm("Cancellare questa terapia?");
-          if (!sure) return;
-  
-          try {
-            const user = getSession();
-            if (!user || !user.id) { toast("Devi accedere"); return; }
-            const ok = await ensureApiReady();
-            if (!ok) return;
-  
-            const terapiaId = getTherapyIdForPatientAtDate_(pid, from_date);
-  
-            await api("deleteSession", {
-              userId: user.id,
-              paziente_id: String(pid),
-              terapia_id: terapiaId,
-              from_date,
-              from_time
-            });
-  
-            invalidateStatsMovesCache_();
-            toast("Cancellato");
-            await updateCalendarUI();
-            try {
-              await loadPatients({ render: false });
-              if (currentView === "pazienti") renderPatients();
-              if (currentView === "stats") await renderStatsTable_();
-            } catch (_) {}
-          } catch (err) {
-            if (apiHintIfUnknownAction(err)) return;
-            toast(String(err && err.message ? err.message : "Errore cancellazione"));
-          }
-        };
-  
-        cell.addEventListener("click", (e) => {
-          if (cell.dataset.suppressClick === "1") {
-            cell.dataset.suppressClick = "";
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-          }
-  
-          const dayNum = parseInt(cell.dataset.day || "0", 10);
-          const t = normTime(cell.dataset.time || "");
-          const slotKey = `${dayNum}|${t}`;
-          const info = calSlotPatients && calSlotPatients.get ? calSlotPatients.get(slotKey) : null;
-          const ids = info && Array.isArray(info.ids) ? info.ids.filter((x) => x != null) : [];
-          if (ids.length === 0) return;
-  
-          if (ids.length !== 1) { toast("Più pazienti in questo slot"); return; }
-  
-          const names = info && Array.isArray(info.names) ? info.names.filter(Boolean) : [];
-          const title = names.length ? String(names[0]) : "Paziente";
-          try {
-            (window.openCalCellActionsModal_ || openCalCellActionsModal_)({
-              pid: ids[0],
-              fromDay: dayNum,
-              fromTime: t,
-              title
-            });
-          } catch (_) {}
-        });
-  return cell;
-}
-
-
-function ensureCalendarDayBuilt() {
-  if (calBuiltDay) return;
-  if (!calDaysCol || !calHoursRow || !calBody || !calScroll || !calDaysScroll || !calHoursScroll) return;
-
-  // Header: solo 1 giorno (verrà aggiornato in updateCalendarUI)
-  calDaysCol.innerHTML = "";
-  const el = document.createElement("div");
-  el.className = "cal-day";
-  el.dataset.day = "1";
-
-  const dow = document.createElement("div");
-  dow.className = "cal-dow";
-  dow.textContent = "";
-
-  const dom = document.createElement("div");
-  dom.className = "cal-dom";
-  dom.textContent = "1";
-
-  el.appendChild(dow);
-  el.appendChild(dom);
-
-  // colore placeholder (aggiornato poi)
-  const c = calColorForDay(1);
-  el.style.backgroundColor = rgba(c, 0.80);
-  el.style.color = "rgba(255,255,255,.95)";
-  calDaysCol.appendChild(el);
-
-  // Hours: reuse già calcolate in month build se esistono, altrimenti calcola
-  if (!Array.isArray(calHours) || !calHours.length) {
-    calHours = [];
-    const startMin = 7 * 60 + 30;
-    const endMin = 21 * 60;
-    for (let m = startMin; m <= endMin; m += 30) {
-      const hh = String(Math.floor(m / 60)).padStart(2, "0");
-      const mm = String(m % 60).padStart(2, "0");
-      calHours.push(`${hh}:${mm}`);
-    }
-  }
-
-  calHoursRow.innerHTML = "";
-  calHours.forEach((t) => {
-    const h = document.createElement("div");
-    h.className = "cal-hour";
-    h.textContent = t;
-    calHoursRow.appendChild(h);
-  });
-
-  // Body: 1 colonna, tante righe quante ore (con le stesse azioni delle celle mensili)
-  calBody.innerHTML = "";
-  const frag = document.createDocumentFragment();
-  for (let r = 0; r < calHours.length; r++) {
-    const t = calHours[r];
-    const cell = makeCalendarCell_(1, t);
-    frag.appendChild(cell);
-  }
-  calBody.appendChild(frag);
-
-  calBuiltDay = true;
-}
-
-function setCalendarViewMode_(mode) {
-  if (!mode) return;
-  if (calViewMode === mode) return;
-  calViewMode = mode;
-
-  try { $("#viewCalendar")?.classList.toggle("cal-daymode", mode === "day"); } catch (_) {}
-
-  // ricostruisci DOM in base alla modalità richiesta
-  if (mode === "day") {
-    calBuiltDay = false;
-    ensureCalendarDayBuilt();
-  } else {
-    calBuiltMonth = false;
-    ensureCalendarMonthBuilt();
-  }
-
-  // reset scroll orizzontale in day mode
-  try { if (mode === "day") { calDaysScroll.scrollLeft = 0; calScroll.scrollLeft = 0; } } catch (_) {}
+calBuilt = true;
 }
 
   // --- Modal: Sposta seduta (single instance / override calendario)
@@ -4284,14 +4070,6 @@ function shiftCalendarMonth(delta) {
   d.setDate(Math.min(day, dim));
   calSelectedDate = d;
   updateCalendarUI();
-
-function shiftCalendarDay(delta) {
-  const d = new Date(calSelectedDate);
-  d.setDate(d.getDate() + delta);
-  calSelectedDate = d;
-  updateCalendarUI();
-}
-
 }
 
 function formatItMonth(dateObj) {
@@ -4319,87 +4097,43 @@ function formatItMonth(dateObj) {
   async function updateCalendarUI() {
   if (!calDateTitle || !calDaysCol || !calBody) return;
 
-  // Modalità: landscape = mensile (come prima), portrait = giornaliera
-  const isLand = isCalendarLandscape_();
-  setCalendarViewMode_(isLand ? "month" : "day");
-
   const year = calSelectedDate.getFullYear();
   const month = calSelectedDate.getMonth();
   const daysInThisMonth = new Date(year, month + 1, 0).getDate();
 
-  if (calViewMode === "day") {
-    const fmtDay = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-    let title = fmtDay.format(new Date(year, month, calSelectedDate.getDate()));
-    title = title.charAt(0).toUpperCase() + title.slice(1);
-    calDateTitle.textContent = title;
-    try { syncCalendarTopbarMonth(); } catch (_) {}
+  const fmt = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" });
+  let title = fmt.format(new Date(year, month, 1));
+  title = title.charAt(0).toUpperCase() + title.slice(1);
+  calDateTitle.textContent = title;
+  try { syncCalendarTopbarMonth(); } catch (_) {}
 
-    const dSel = calSelectedDate.getDate();
+  calDaysCol.querySelectorAll(".cal-day").forEach((el) => {
+    const d = parseInt(el.dataset.day || "0", 10);
+    const valid = d >= 1 && d <= daysInThisMonth;
 
-    // Header: aggiorna unico giorno
-    const el = calDaysCol.querySelector(".cal-day");
-    if (el) {
-      el.dataset.day = String(dSel);
-      const dowEl = el.querySelector(".cal-dow");
-      const domEl = el.querySelector(".cal-dom");
-      if (domEl) domEl.textContent = String(dSel);
-      if (dowEl) {
-        const map = ["D","L","M","M","G","V","S"]; // 0=Dom
-        const wd = new Date(year, month, dSel).getDay();
+    // Aggiorna lettera del giorno (L M M G V S D) + numero
+    const dowEl = el.querySelector(".cal-dow");
+    const domEl = el.querySelector(".cal-dom");
+    if (domEl) domEl.textContent = valid ? String(d) : String(d);
+    if (dowEl) {
+      if (valid) {
+        const map = ["D","L","M","M","G","V","S"]; // JS: 0=Dom ... 6=Sab
+        const wd = new Date(year, month, d).getDay();
         dowEl.textContent = map[wd] || "";
+      } else {
+        dowEl.textContent = "";
       }
-      el.classList.toggle("disabled", false);
-      el.classList.toggle("active", true);
-      const c = calColorForDay(dSel);
-      el.style.backgroundColor = rgba(c, 0.80);
-      el.style.color = "rgba(255,255,255,.95)";
     }
 
-    // Celle: tutte riferite al giorno selezionato
-    calBody.querySelectorAll(".cal-cell").forEach((cell) => {
-      cell.dataset.day = String(dSel);
-      cell.classList.toggle("disabled", false);
-      const c = calColorForDay(dSel);
-      // base background (se non piena verrà mantenuta)
-      if (!cell.classList.contains("filled")) {
-        cell.style.backgroundColor = rgba(c, 0.25);
-      }
-    });
+    el.classList.toggle("disabled", !valid);
+    el.classList.toggle("active", valid && d === calSelectedDate.getDate());
+  });
 
-  } else {
-    const fmt = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" });
-    let title = fmt.format(new Date(year, month, 1));
-    title = title.charAt(0).toUpperCase() + title.slice(1);
-    calDateTitle.textContent = title;
-    try { syncCalendarTopbarMonth(); } catch (_) {}
-
-    calDaysCol.querySelectorAll(".cal-day").forEach((el) => {
-      const d = parseInt(el.dataset.day || "0", 10);
-      const valid = d >= 1 && d <= daysInThisMonth;
-
-      const dowEl = el.querySelector(".cal-dow");
-      const domEl = el.querySelector(".cal-dom");
-      if (domEl) domEl.textContent = valid ? String(d) : String(d);
-      if (dowEl) {
-        if (valid) {
-          const map = ["D","L","M","M","G","V","S"]; // 0=Dom
-          const wd = new Date(year, month, d).getDay();
-          dowEl.textContent = map[wd] || "";
-        } else {
-          dowEl.textContent = "";
-        }
-      }
-
-      el.classList.toggle("disabled", !valid);
-      el.classList.toggle("active", valid && d === calSelectedDate.getDate());
-    });
-
-    calBody.querySelectorAll(".cal-cell").forEach((cell) => {
-      const d = parseInt(cell.dataset.day || "0", 10);
-      const valid = d >= 1 && d <= daysInThisMonth;
-      cell.classList.toggle("disabled", !valid);
-    });
-  }
+  calBody.querySelectorAll(".cal-cell").forEach((cell) => {
+    const d = parseInt(cell.dataset.day || "0", 10);
+    const valid = d >= 1 && d <= daysInThisMonth;
+    cell.classList.toggle("disabled", !valid);
+  });
 
   clearCalendarCells();
   await loadSocietaCache();
