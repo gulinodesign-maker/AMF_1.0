@@ -2395,3 +2395,35 @@ body.cal-landscape #viewCalendar .calendar-nav{
   margin-bottom: 8px;
 }
 
+/* --- Calendar DAY mode (portrait): full width, no horizontal scroll --- */
+#viewCalendar.cal-daymode .cal-days-scroll{
+  overflow-x: hidden;
+}
+
+#viewCalendar.cal-daymode .cal-body-scroll{
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+#viewCalendar.cal-daymode .cal-days{
+  grid-auto-columns: 1fr;
+  width: 100%;
+}
+
+#viewCalendar.cal-daymode .cal-body{
+  grid-template-columns: 1fr;
+  width: 100%;
+}
+
+#viewCalendar.cal-daymode .cal-cell{
+  width: 100%;
+}
+
+#viewCalendar.cal-daymode .cal-initials.cal-fullname{
+  width: calc(100% - 10px);
+  padding: 0 4px;
+  white-space: normal;
+  line-height: 1.15;
+  text-align: center;
+}
+
