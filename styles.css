@@ -1,4 +1,4 @@
-/* AMF_1.163 */
+/* AMF_1.164 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -871,6 +871,26 @@ select.field{ appearance: none; }
   font-weight: 900;
   color: var(--primary);
   opacity: .80;
+}
+
+
+.patient-actions{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.patient-call{
+  background: rgba(46, 204, 113, .80);
+  color: #fff;
+  opacity: .80;
+}
+.patient-call svg{
+  width:20px;
+  height:20px;
+  display:block;
+  fill: currentColor;
 }
 
 

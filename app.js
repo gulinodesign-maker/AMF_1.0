@@ -1,7 +1,7 @@
-/* AMF_1.163 */
+/* AMF_1.164 */
 (async () => {
-    const BUILD = "AMF_1.163";
-    const DISPLAY = "1.163";
+    const BUILD = "AMF_1.164";
+    const DISPLAY = "1.164";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -4962,6 +4962,7 @@ function getSettingsPayloadFromUI() {
       const soc = getSocNameById(p.societa_id || "") || "—";
       const __span = getPatientTherapySpan_(p);
       const period = fmtTherapyPeriod(__span.start || "", __span.end || "");
+      const phone = String((p && (p.telefono || p.phone)) || "").trim();
       const endDateObj = (patientsSortMode === "date") ? (__span.end || null) : null;
       const lastTherapyDay = endDateObj ? fmtItDateLongCap(endDateObj) : "";
 
@@ -4979,11 +4980,18 @@ function getSettingsPayloadFromUI() {
           ${patientsSortMode === "date" && lastTherapyDay ? `<div class="patient-lastdate">${escapeHtml(lastTherapyDay)}</div>` : ""}
           <div class="patient-sub">${escapeHtml(soc)}${period ? " • " + escapeHtml(period) : ""}</div>
         </div>
-        <button class="patient-badge patient-geotag" type="button" aria-label="Naviga" title="Naviga">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M12 2c-3.866 0-7 3.134-7 7 0 5.25 7 13 7 13s7-7.75 7-13c0-3.866-3.134-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"></path>
-          </svg>
-        </button>
+        <div class="patient-actions">
+          <button class="patient-badge patient-call" type="button" aria-label="Chiama" title="Chiama" ${phone ? "" : "hidden"}>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.62 2.6a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.48-1.14a2 2 0 0 1 2.11-.45c.83.29 1.7.5 2.6.62A2 2 0 0 1 22 16.92z"></path>
+            </svg>
+          </button>
+          <button class="patient-badge patient-geotag" type="button" aria-label="Naviga" title="Naviga">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 2c-3.866 0-7 3.134-7 7 0 5.25 7 13 7 13s7-7.75 7-13c0-3.866-3.134-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"></path>
+            </svg>
+          </button>
+        </div>
       `;
 
       frag.appendChild(row);
@@ -4995,6 +5003,21 @@ function getSettingsPayloadFromUI() {
   if (patientsListEl && !patientsListEl.__delegatedClick) {
     patientsListEl.__delegatedClick = true;
     patientsListEl.addEventListener("click", (e) => {
+      const callBtn = e.target && e.target.closest ? e.target.closest(".patient-call") : null;
+      if (callBtn) {
+        const rowC = callBtn.closest(".patient-row");
+        if (!rowC || !patientsListEl.contains(rowC)) return;
+        const idxC = parseInt(rowC.dataset.idx || "-1", 10);
+        const arrC = patientsListEl.__renderedPatients || [];
+        const pC = arrC[idxC];
+        const raw = String((pC && (pC.telefono || pC.phone)) || "").trim();
+        if (raw) {
+          const tel = raw.replace(/[^0-9+]/g, "");
+          try { window.location.href = "tel:" + tel; } catch (_) {}
+        }
+        return;
+      }
+
       const geoBtn = e.target && e.target.closest ? e.target.closest(".patient-geotag") : null;
       if (geoBtn) {
         const rowG = geoBtn.closest(".patient-row");
@@ -5780,6 +5803,7 @@ levelRow.querySelectorAll(".therapy-level-btn").forEach((b) => {
 
     $("#patName").value = "";
     $("#patAddress").value = "";
+    $("#patPhone").value = "";
     $("#patSoc").value = "";
     $("#patSocId").value = "";
 
@@ -5801,6 +5825,7 @@ levelRow.querySelectorAll(".therapy-level-btn").forEach((b) => {
 
     $("#patName").value = currentPatient.nome_cognome || "";
     $("#patAddress").value = currentPatient.address || "";
+    $("#patPhone").value = String(currentPatient.telefono || currentPatient.phone || "").trim();
     $("#patSocId").value = currentPatient.societa_id ? String(currentPatient.societa_id) : "";
     $("#patSoc").value = String(currentPatient.societa_nome || currentPatient.societa || getSocNameById($("#patSocId").value) || "").trim();
 
@@ -5861,6 +5886,7 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
 
     const nome_cognome = ($("#patName")?.value || "").trim();
     const address = ($("#patAddress")?.value || "").trim();
+    const telefono = ($("#patPhone")?.value || "").trim();
     const societa = ($("#patSoc")?.value || "").trim();
     const societa_id = ($("#patSocId")?.value || "").trim();
     const societa_nome = societa;
@@ -5939,6 +5965,7 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     const payload = {
       nome_cognome,
       address,
+      telefono,
       societa,
       societa_id: societa_id,
       societa_nome: societa_nome,
@@ -6711,7 +6738,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.163").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.164").catch(() => {});
     });
   }
 })();
