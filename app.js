@@ -4025,6 +4025,7 @@ const therapyEl = $("#moveSessionTherapyName");
       });
 
       invalidateStatsMovesCache_();
+      try { invalidateTodayCalendarCache_(); } catch (_) {}
       toast("Cancellato");
       await updateCalendarUI();
       try {
@@ -4785,11 +4786,13 @@ function getSettingsPayloadFromUI() {
   let todayCalKey_ = ""; // YYYY-MM-DD
   let todayCalTimesByPid_ = new Map(); // pid -> [HH:MM]
   let todayCalLoading_ = false;
+  let todayCalLoaded_ = false;
 
   function invalidateTodayCalendarCache_() {
     todayCalKey_ = "";
     todayCalTimesByPid_ = new Map();
     todayCalLoading_ = false;
+    todayCalLoaded_ = false;
   }
 
   async function applyCalendarMovesForMonth_(year, month0, baseSlots, patients) {
@@ -4830,7 +4833,7 @@ function getSettingsPayloadFromUI() {
       now.setHours(0,0,0,0);
       const key = ymdLocal(now);
 
-      if (todayCalKey_ === key && todayCalTimesByPid_ && todayCalTimesByPid_.size) return true;
+      if (todayCalKey_ === key && todayCalLoaded_) return true;
       if (todayCalLoading_) return false;
       todayCalLoading_ = true;
 
@@ -4884,6 +4887,7 @@ function getSettingsPayloadFromUI() {
       todayCalKey_ = key;
       todayCalTimesByPid_ = map;
       todayCalLoading_ = false;
+      todayCalLoaded_ = true;
 
       // se siamo su Pazienti/Oggi, ridisegna per riflettere il calendario reale
       try {
@@ -4893,6 +4897,7 @@ function getSettingsPayloadFromUI() {
       return true;
     } catch (_) {
       todayCalLoading_ = false;
+      todayCalLoaded_ = false;
       return false;
     }
   }
