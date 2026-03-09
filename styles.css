@@ -1,4 +1,4 @@
-/* AMF_1.165 */
+/* AMF_1.167 */
 /* Montalto PMS - PWA iOS / GitHub Pages */
 :root{
   --text: #1b1f23;
@@ -280,14 +280,14 @@ body{
   box-shadow: none;
 }
 .pill-btn.selected{
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   background-color: rgba(42,116,184,.80);
   border-color: rgba(42,116,184,.85);
   color: #fff;
 }
 .pill-btn:active{ transform: scale(.99); }
 
-.pill-blue{ background: rgba(42,116,184,.80); background-color: rgba(42,116,184,.80); color:#fff; }
+.pill-blue{ background: rgba(229,57,53,.35); background-color: rgba(42,116,184,.80); color:#fff; }
 .pill-green{ background: rgba(68,171,109,.80); background-color: rgba(68,171,109,.80); color:#fff; }
 .pill-gray{ background: rgba(70,80,95,.80); background-color: rgba(70,80,95,.80); color:#fff; }
 
@@ -784,7 +784,7 @@ select.field{ appearance: none; }
   opacity: .80;
 }
 #viewPatients .pill-tab.active{
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   color: #fff;
 }
 
@@ -1022,7 +1022,7 @@ select.field{ appearance: none; }
   padding:0;
 }
 .circle-btn.active{
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   color: #fff;
 }
 
@@ -1060,7 +1060,7 @@ select.field{ appearance: none; }
   color: rgba(27,31,35,.65);
 }
 .day-btn.active{
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
 }
 .day-btn.active .day,
 .day-btn.active .time{
@@ -1118,7 +1118,7 @@ select.field{ appearance: none; }
   height: 30px;
   border-radius: 999px;
   border: 1px solid rgba(0,0,0,.08);
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   background-color: rgba(42,116,184,.80);
   display:grid;
   place-items:center;
@@ -1164,7 +1164,7 @@ select.field{ appearance: none; }
   opacity: .80;
 }
 .therapy-level-btn.active{
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   background-color: rgba(42,116,184,.80);
   color: #fff;
 }
@@ -1548,7 +1548,7 @@ select.field{ appearance: none; }
 
 
 .seg-tab.selected{
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   background-color: rgba(42,116,184,.80);
   border-color: rgba(42,116,184,.85);
   color: #fff;
@@ -1583,7 +1583,7 @@ select.field{ appearance: none; }
 }
 
 .dot-filter.selected{
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   background-color: rgba(42,116,184,.80);
   color: rgba(255,255,255,.95);
   border-color: rgba(0,0,0,.06);
@@ -1695,7 +1695,7 @@ select.field{ appearance: none; }
 .month-bar{
   height: 100%;
   border-radius: 999px;
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   background-color: rgba(42,116,184,.80);
 }
 
@@ -1740,7 +1740,7 @@ select.field{ appearance: none; }
 .bar-fill{
   height: 100%;
   border-radius: 999px;
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   background-color: rgba(42,116,184,.80);
 }
 
@@ -1866,7 +1866,7 @@ select.field{ appearance: none; }
   border-radius: 999px;
   display:grid;
   place-items:center;
-  background: rgba(42,116,184,.80);
+  background: rgba(229,57,53,.35);
   flex: 0 0 auto;
 }
 .stats-select-badge svg{

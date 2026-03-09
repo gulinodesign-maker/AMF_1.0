@@ -1,7 +1,7 @@
-/* AMF_1.165 */
+/* AMF_1.167 */
 (async () => {
-    const BUILD = "AMF_1.165";
-    const DISPLAY = "1.165";
+    const BUILD = "AMF_1.167";
+    const DISPLAY = "1.167";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -928,10 +928,17 @@
   const topbarTitle = $("#topbarTitle");
   const topbarMonth = $("#topbarMonth");
 
+  let topRightMode = "settings";
+
   function setTopRight(mode) {
     if (!btnTopRight || !iconTopRight) return;
+    topRightMode = mode || "settings";
     iconTopRight.innerHTML = "";
-    if (mode === "home") {
+    if (mode === "backup") {
+      btnTopRight.setAttribute("aria-label", "Carica backup");
+      // upload/restore icon
+      iconTopRight.innerHTML = '<path d="M12 3v12"></path><path d="M8 7l4-4 4 4"></path><path d="M4 21h16"></path><path d="M6 21v-6"></path><path d="M18 21v-6"></path>';
+    } else if (mode === "home") {
       btnTopRight.setAttribute("aria-label", "Home");
       // home icon
       iconTopRight.innerHTML = '<path d="M3 10.5 12 3l9 7.5"></path><path d="M5 10v11h14V10"></path><path d="M10 21v-6h4v6"></path>';
@@ -968,8 +975,9 @@
     });
     currentView = name;
 
-    // Home: right is settings. Others: right is home.
+    // Home: right is settings. Create account: right is backup. Others: right is home.
     if (name === "home") setTopRight("settings");
+    else if (name === "create") setTopRight("backup");
     else setTopRight("home");
 
     if (name === "patients") { setTopPlusMode_("add"); }
@@ -983,6 +991,13 @@
   }
 
   btnTopRight?.addEventListener("click", () => {
+    if (topRightMode === "backup") {
+      try {
+        const inp = $("#fileDbImport");
+        if (inp) inp.click();
+      } catch (_) {}
+      return;
+    }
     if (currentView === "home") {
       openSettingsFlow();
     } else {
@@ -3564,7 +3579,7 @@ async function ensurePatientsForCalendar() {
           await updateCalendarUI();
           try {
             await loadPatients({ render: false });
-            if (currentView === "pazienti") renderPatients();
+            if (currentView === "patients") renderPatients();
             if (currentView === "stats") await renderStatsTable_();
           } catch (_) {}
         } catch (err) {
@@ -3879,10 +3894,11 @@ const therapyEl = $("#moveSessionTherapyName");
       invalidateStatsMovesCache_();
       closeMoveSessionModal_();
       toast("Spostato");
+      try { invalidateTodayCalendarCache_(); } catch (_) {}
       await updateCalendarUI();
       try {
         await loadPatients({ render: false });
-        if (currentView === "pazienti") renderPatients();
+        if (currentView === "patients") renderPatients();
         if (currentView === "stats") await renderStatsTable_();
       } catch (_) {}
     } catch (err) {
@@ -4013,7 +4029,7 @@ const therapyEl = $("#moveSessionTherapyName");
       await updateCalendarUI();
       try {
         await loadPatients({ render: false });
-        if (currentView === "pazienti") renderPatients();
+        if (currentView === "patients") renderPatients();
         if (currentView === "stats") await renderStatsTable_();
       } catch (_) {}
     } catch (err) {
@@ -4510,6 +4526,7 @@ function getSettingsPayloadFromUI() {
 
   async function openPatientsAfterLogin() {
     showView("patients");
+    try { setPatientsSort("today"); } catch (_) {}
     try {
       await loadSocietaCache();
       await loadPatients();
@@ -4586,7 +4603,7 @@ function getSettingsPayloadFromUI() {
   let patientsCache = null;
   let patientsLoaded = false;
   let patientsLoadedForUserId = null;
-  let patientsSortMode = "date"; // date|az|soc|today
+  let patientsSortMode = "today"; // date|az|soc|today
   let currentPatient = null;
   let patientEditEnabled = true; // per create
 
@@ -4762,39 +4779,139 @@ function getSettingsPayloadFromUI() {
     return null;
   }
 
-  function getPatientTodayTimes(p) {
-    if (!p || p.isDeleted) return [];
-    const dayKey = getTodayDayKey();
-    if (!dayKey) return [];
 
-    // active period check
-    const today = dateOnlyLocal(new Date());
-    if (!inRangeDate(today, p.data_inizio, p.data_fine)) return [];
 
-    const raw = p.giorni_settimana || p.giorni || "";
-    if (!raw) return [];
-    const map = parseGiorniMap(raw);
-    if (!map || typeof map !== "object") return [];
+  // --- OGGI: lettura terapie dal Calendario (con spostamenti)
+  let todayCalKey_ = ""; // YYYY-MM-DD
+  let todayCalTimesByPid_ = new Map(); // pid -> [HH:MM]
+  let todayCalLoading_ = false;
 
-    const out = [];
-    Object.keys(map).forEach((k) => {
-      const dayLabel = __normDayLabel(k);
-      let kDay = DAY_LABEL_TO_KEY[dayLabel];
-      if (!kDay && /^\d+$/.test(dayLabel)) {
-        const n = parseInt(dayLabel, 10);
-        if (n >= 1 && n <= 6) kDay = n;
+  function invalidateTodayCalendarCache_() {
+    todayCalKey_ = "";
+    todayCalTimesByPid_ = new Map();
+    todayCalLoading_ = false;
+  }
+
+  async function applyCalendarMovesForMonth_(year, month0, baseSlots, patients) {
+    // clone base slots
+    const slots = new Map();
+    (baseSlots || new Map()).forEach((info, key) => slots.set(key, slotInfoClone_(info)));
+
+    const movesRaw = await fetchCalendarMovesForMonth_(year, month0);
+    const moves0 = (movesRaw || []).map(normalizeMove_).filter(Boolean);
+    const moves = collapseMoves_(moves0);
+
+    const patientById = new Map();
+    (patients || []).forEach((pp) => { if (pp && pp.id != null) patientById.set(String(pp.id), pp); });
+
+    moves.forEach((mv) => {
+      const pp = patientById.get(String(mv.paziente_id));
+      if (!pp) return;
+
+      const from = parseYmd_(mv.from_date);
+      const to = parseYmd_(mv.to_date);
+
+      if (from && from.y === year && from.m === month0) {
+        const kFrom = `${from.d}|${mv.from_time}`;
+        slotRemovePatient_(slots, kFrom, mv.paziente_id);
       }
-      if (kDay !== dayKey) return;
-      const times = normalizeTimeList(map[k]);
-      times.forEach((t) => { if (t) out.push(t); });
+      if (to && to.y === year && to.m === month0) {
+        const kTo = `${to.d}|${mv.to_time}`;
+        slotAddPatient_(slots, kTo, pp);
+      }
     });
 
-    out.sort();
-    return out;
+    return slots;
+  }
+
+  async function ensureTodayCalendarTimes_() {
+    try {
+      const now = new Date();
+      now.setHours(0,0,0,0);
+      const key = ymdLocal(now);
+
+      if (todayCalKey_ === key && todayCalTimesByPid_ && todayCalTimesByPid_.size) return true;
+      if (todayCalLoading_) return false;
+      todayCalLoading_ = true;
+
+      const user = getSession();
+      if (!user || !user.id) { todayCalLoading_ = false; return false; }
+
+      // assicurati di avere pazienti
+      if (!patientsLoaded || patientsLoadedForUserId !== user.id) {
+        try { await loadPatients({ render: false }); } catch (_) {}
+      }
+      const patients = Array.isArray(patientsCache) ? patientsCache : [];
+
+      const year = now.getFullYear();
+      const month0 = now.getMonth();
+      const dayNum = now.getDate();
+
+      // build slots per il mese di oggi (usando lo stesso generatore del calendario)
+      const orig = calSelectedDate;
+      try { calSelectedDate = new Date(year, month0, 1); } catch (_) {}
+      let baseSlots = new Map();
+      try { baseSlots = buildCalendarSlotsFromPatients(patients); } catch (_) { baseSlots = new Map(); }
+      try { calSelectedDate = orig; } catch (_) {}
+
+      // applica spostamenti (moveSession) del mese di oggi
+      const slots = await applyCalendarMovesForMonth_(year, month0, baseSlots, patients);
+
+      const map = new Map();
+      (slots || new Map()).forEach((info, k) => {
+        try {
+          const parts = String(k).split("|");
+          const d = parseInt(parts[0] || "0", 10);
+          const t = normTime(parts[1] || "");
+          if (d != dayNum || !t) return;
+          const ids = Array.isArray(info && info.ids) ? info.ids : [];
+          ids.forEach((pid) => {
+            const id = String(pid || "");
+            if (!id) return;
+            if (!map.has(id)) map.set(id, []);
+            map.get(id).push(t);
+          });
+        } catch (_) {}
+      });
+
+      // sort + dedup
+      map.forEach((arr, pid) => {
+        const uniq = [];
+        (arr || []).map(String).filter(Boolean).sort().forEach((t) => { if (!uniq.includes(t)) uniq.push(t); });
+        map.set(pid, uniq);
+      });
+
+      todayCalKey_ = key;
+      todayCalTimesByPid_ = map;
+      todayCalLoading_ = false;
+
+      // se siamo su Pazienti/Oggi, ridisegna per riflettere il calendario reale
+      try {
+        if (currentView === "patients" && patientsSortMode === "today") renderPatients();
+      } catch (_) {}
+
+      return true;
+    } catch (_) {
+      todayCalLoading_ = false;
+      return false;
+    }
+  }
+  function getPatientTodayTimes(p) {
+    if (!p || p.isDeleted) return [];
+    const pid = p.id != null ? String(p.id) : "";
+    if (!pid) return [];
+
+    // Avvia caricamento (async) se necessario
+    try { void ensureTodayCalendarTimes_(); } catch (_) {}
+
+    if (!todayCalKey_) return [];
+    const arr = todayCalTimesByPid_ && typeof todayCalTimesByPid_.get === "function" ? (todayCalTimesByPid_.get(pid) || []) : [];
+    return Array.isArray(arr) ? arr.slice() : [];
   }
 
   function setPatientsSort(mode) {
     patientsSortMode = mode;
+    try { if (mode === "today") void ensureTodayCalendarTimes_(); } catch (_) {}
     btnSortDate?.classList.toggle("active", mode === "date");
     btnSortAZ?.classList.toggle("active", mode === "az");
     btnSortSoc?.classList.toggle("active", mode === "soc");
@@ -6701,9 +6818,22 @@ function openDbIOModal_() {
       await __importDbObject(obj);
       clearSession();
       closeDbIOModal_();
-      toast("Database importato");
-      // Richiedi password per sbloccare
-      showView("auth");
+      toast("Backup importato");
+
+      // Se import in fase di creazione account: porta direttamente al login dell'account del backup.
+      if (topRightMode === "backup") {
+        const username = (obj && obj.meta && typeof obj.meta.userNome === "string") ? obj.meta.userNome.trim() : "";
+        if (username) {
+          try { setLastLoginName_(username); } catch (_) {}
+          showView("quick");
+          try { openQuickLoginModal_(username); } catch (_) {}
+        } else {
+          showView("auth");
+        }
+      } else {
+        // Richiedi password per sbloccare
+        showView("auth");
+      }
     } catch (err) {
       toast(String(err && err.message ? err.message : "Errore"));
     } finally {
@@ -6752,7 +6882,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.165").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.167").catch(() => {});
     });
   }
 })();
