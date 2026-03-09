@@ -1,7 +1,7 @@
-/* AMF_1.164 */
+/* AMF_1.165 */
 (async () => {
-    const BUILD = "AMF_1.164";
-    const DISPLAY = "1.164";
+    const BUILD = "AMF_1.165";
+    const DISPLAY = "1.165";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -4730,6 +4730,20 @@ function getSettingsPayloadFromUI() {
       if (!acc.minStart) consider(p?.data_inizio ?? p?.start ?? "", "", acc);
       if (!acc.maxEnd) consider("", p?.data_fine ?? p?.end ?? "", acc);
     }
+    // 3) Scadenza reale: letta dal Calendario (ultima cella occupata cronologicamente dal paziente)
+    // Se disponibile, questa data sostituisce qualsiasi data_fine presente nella scheda paziente.
+    try {
+      const pid = String(p?.id ?? p?.paziente_id ?? p?.patient_id ?? p?.pid ?? "");
+      const ts = pid && calMovesMaxTsByPatient && typeof calMovesMaxTsByPatient.get === "function" ? (calMovesMaxTsByPatient.get(pid) || 0) : 0;
+      if (ts) {
+        const d = new Date(ts);
+        if (!isNaN(d.getTime())) {
+          d.setHours(0, 0, 0, 0);
+          acc.maxEnd = d;
+        }
+      }
+    } catch (_) {}
+
 
     return {
       start: acc.minStart,
@@ -6738,7 +6752,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.164").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.165").catch(() => {});
     });
   }
 })();
