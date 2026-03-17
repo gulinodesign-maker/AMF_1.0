@@ -1,7 +1,7 @@
-/* AMF_1.167 */
+/* AMF_1.170 */
 (async () => {
-    const BUILD = "AMF_1.167";
-    const DISPLAY = "1.167";
+    const BUILD = "AMF_1.170";
+    const DISPLAY = "1.170";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -2380,7 +2380,22 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
   const CAL_COLOR_START = { r: 160, g: 160, b: 160 }; // grey
   const CAL_COLOR_MID   = { r: 90,  g: 150, b: 210 }; // azzurro chiaro
   const CAL_COLOR_END   = { r: 42,  g: 116, b: 184 }; // azzurro (primary)
+  const CAL_COLOR_SUNDAY = { r: 198, g: 56, b: 56 }; // rosso domenica
+  function isSundayInSelectedMonth(dayNum) {
+    const n = Number(dayNum);
+    if (!Number.isFinite(n) || n < 1 || n > 31) return false;
+    try {
+      const year = calSelectedDate.getFullYear();
+      const month = calSelectedDate.getMonth();
+      const daysInThisMonth = new Date(year, month + 1, 0).getDate();
+      if (n > daysInThisMonth) return false;
+      return new Date(year, month, n).getDay() === 0;
+    } catch (_) {
+      return false;
+    }
+  }
   function calColorForDay(dayNum) {
+    if (isSundayInSelectedMonth(dayNum)) return CAL_COLOR_SUNDAY;
     const t = Math.min(1, Math.max(0, (Number(dayNum) - 1) / 30));
 
     // gradiente a 3 stop: grigio -> arancione -> azzurro
@@ -2989,8 +3004,9 @@ function paintCalendarSlots(slots) {
 
     cell.classList.add("filled");
     {
+      const isSunday = isSundayInSelectedMonth(dayNum);
       const tag = Array.isArray(info.tags) && info.tags.length ? info.tags[0] : null;
-      if (tag !== null && tag !== undefined && SOC_TAG_COLORS[tag] !== undefined) {
+      if (!isSunday && tag !== null && tag !== undefined && SOC_TAG_COLORS[tag] !== undefined) {
         cell.style.backgroundColor = hexToRgba(SOC_TAG_COLORS[tag], 0.50);
       } else {
         const col = calColorForDay(dayNum);
@@ -4144,6 +4160,9 @@ function formatItMonth(dateObj) {
 
     el.classList.toggle("disabled", !valid);
     el.classList.toggle("active", valid && d === calSelectedDate.getDate());
+    const col = calColorForDay(d);
+    el.style.backgroundColor = valid ? rgba(col, 0.80) : rgba(col, 0.80);
+    el.style.color = "rgba(255,255,255,.95)";
   });
 
   calBody.querySelectorAll(".cal-cell").forEach((cell) => {
@@ -4972,6 +4991,33 @@ function getSettingsPayloadFromUI() {
       );
       arr = filtered;
     } else if (patientsSortMode === "soc") {
+  const spanOf = (p) => {
+    try {
+      const raw = (p && (p.terapie ?? p.terapia)) ?? "";
+      let sig = "";
+      try {
+        if (typeof raw === "string") sig = raw;
+        else sig = JSON.stringify(raw);
+      } catch (_) { sig = String(raw || ""); }
+      const legacySig = `${String(p?.data_inizio ?? p?.start ?? "")}|${String(p?.data_fine ?? p?.end ?? "")}`;
+      sig = `${sig}||${legacySig}`;
+      if (p && p.___amfSpan && typeof p.___amfSpan === "object" && p.___amfSpanSig === sig) return p.___amfSpan;
+      const sp = getPatientTherapySpan_(p);
+      if (p && typeof p === "object") {
+        p.___amfSpan = sp;
+        p.___amfSpanSig = sig;
+      }
+      return sp;
+    } catch (_) {
+      return { start: null, end: null, startTs: Infinity, endTs: Infinity };
+    }
+  };
+  const today = dateOnlyLocal(new Date());
+  const todayTs = today ? today.getTime() : Date.now();
+  arr = arr.filter((p) => {
+    const t = spanOf(p).endTs;
+    return t === Infinity || t >= todayTs;
+  });
   const socKey = (p) => String(getSocNameById(p?.societa_id || "") || p?.societa_nome || p?.societa || "").trim();
   const nameKey = (p) => {
     const full = String(p?.nome_cognome || p?.nome || "").trim();
@@ -5709,6 +5755,31 @@ function getSettingsPayloadFromUI() {
     openPickTimeModal();
   }
 
+  function syncTherapiesFromDom_() {
+    try {
+      ensureCurrentTherapies_();
+      const cards = therapiesWrap ? Array.from(therapiesWrap.querySelectorAll(".therapy-card")) : [];
+      if (!cards.length) return;
+
+      cards.forEach((card, idx) => {
+        const base = currentPatient.terapie_arr[idx] || normalizeTherapy_({});
+        const next = normalizeTherapy_(base);
+
+        const startEl = card.querySelector('input[data-role="start"]');
+        const endEl = card.querySelector('input[data-role="end"]');
+        const activeLevelEl = card.querySelector('.therapy-level-btn.active');
+
+        next.data_inizio = String(startEl && startEl.value ? startEl.value : next.data_inizio || "").trim();
+        next.data_fine = String(endEl && endEl.value ? endEl.value : next.data_fine || "").trim();
+        if (activeLevelEl && activeLevelEl.dataset && activeLevelEl.dataset.level) {
+          next.livello = String(activeLevelEl.dataset.level || "").trim();
+        }
+
+        currentPatient.terapie_arr[idx] = normalizeTherapy_(next);
+      });
+    } catch (_) {}
+  }
+
   function renderTherapiesUI_() {
     if (!therapiesWrap) return;
     ensureCurrentTherapies_();
@@ -6031,6 +6102,7 @@ $("#btnPatEdit")?.addEventListener("click", () => setPatientFormEnabled(true));
     if (!address) { toast("Inserisci l\u2019indirizzo"); return; }
     if (!societa_id) { toast("Seleziona la società"); return; }
 
+    syncTherapiesFromDom_();
     ensureCurrentTherapies_();
     const therapies = (currentPatient && Array.isArray(currentPatient.terapie_arr)) ? currentPatient.terapie_arr.map(normalizeTherapy_) : [normalizeTherapy_({})];
 
@@ -6887,7 +6959,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.167").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.170").catch(() => {});
     });
   }
 })();
