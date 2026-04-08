@@ -1,7 +1,7 @@
-/* AMF_1.171 */
+/* AMF_1.172 */
 (async () => {
-    const BUILD = "AMF_1.171";
-    const DISPLAY = "1.171";
+    const BUILD = "AMF_1.172";
+    const DISPLAY = "1.172";
 
 
     const STANDALONE = true; // Standalone protetto (nessuna API remota)
@@ -2373,6 +2373,7 @@ document.querySelectorAll("[data-route]").forEach((btn) => {
   let calBuilt = false;
   let calSlotPatients = new Map(); // key "dayKey|HH:MM" -> {count, ids:[]}
   let calMovesCache = []; // spostamenti/override sedute per il mese corrente
+  let calMovesHorizonCache = []; // spostamenti collassati sull'orizzonte letto per scadenze reali
   let calMovesHorizonLoading = false;
   let calMovesHorizonLoadedAt = 0;
   let calMovesMaxTsByPatient = new Map(); // pid -> max date ts (midnight local) derived from calendario (moves/add)
@@ -3123,6 +3124,7 @@ async function fetchCalendarMovesForMonth_(year, month0) {
 function normalizeMove_(m) {
   if (!m) return null;
   const pid = m.paziente_id || m.pazienteId || m.patient_id || m.patientId || m.pid;
+  const tid = m.terapia_id || m.terapiaId || m.therapy_id || m.therapyId || m.tid;
   const fd = m.from_date || m.fromDate || m.da_data || m.daData || m.from_day || m.fromDay;
   const ft = m.from_time || m.fromTime || m.da_ora || m.daOra || m.from_hour || m.fromHour;
   const td = m.to_date || m.toDate || m.a_data || m.aData || m.to_day || m.toDay;
@@ -3138,6 +3140,7 @@ function normalizeMove_(m) {
   return {
     id: m.id || "",
     paziente_id: String(pid),
+    terapia_id: String(tid || "").trim(),
     from_date: String(fd).slice(0, 10),
     from_time: normTime(ft),
     to_date: hasTo ? String(td).slice(0, 10) : "",
@@ -3213,6 +3216,7 @@ function collapseMoves_(moves) {
       out.push({
         id: mv.id || "",
         paziente_id: pid,
+        terapia_id: String(mv.terapia_id || cur.terapia_id || "").trim(),
         from_date: String(mv.from_date).slice(0,10),
         from_time: normTime(mv.from_time),
         to_date: String(cur.to_date || "").slice(0,10),
@@ -3226,6 +3230,83 @@ function collapseMoves_(moves) {
 
   return out;
 
+}
+
+function clearPatientSpanCache_() {
+  try {
+    const arr = Array.isArray(patientsCache) ? patientsCache : [];
+    for (let i = 0; i < arr.length; i++) {
+      const p = arr[i];
+      if (!p || typeof p !== "object") continue;
+      delete p.___amfSpan;
+      delete p.___amfSpanSig;
+    }
+  } catch (_) {}
+}
+
+function invalidateMovesHorizon_() {
+  calMovesHorizonLoadedAt = 0;
+  calMovesHorizonCache = [];
+  calMovesMaxTsByPatient = new Map();
+  clearPatientSpanCache_();
+}
+
+function getCollapsedMovesForRealEnd_() {
+  if (Array.isArray(calMovesHorizonCache) && calMovesHorizonCache.length) return calMovesHorizonCache;
+  if (Array.isArray(calMovesCache) && calMovesCache.length) return calMovesCache;
+  return [];
+}
+
+function getResolvedTherapyEndDate_(p, th) {
+  try {
+    const rawEnd = dateOnlyLocal(th && th.data_fine ? th.data_fine : "");
+    if (!rawEnd) return null;
+
+    const pid = String((p && (p.id ?? p.paziente_id ?? p.patient_id ?? p.pid)) || "").trim();
+    if (!pid) return rawEnd;
+
+    const tid = String((th && (th.id || th.therapy_id || th.terapia_id)) || "").trim();
+    const rawEndYmd = ymdLocal(rawEnd);
+    const moves = getCollapsedMovesForRealEnd_();
+    if (!Array.isArray(moves) || !moves.length) return rawEnd;
+
+    let match = null;
+    for (let i = 0; i < moves.length; i++) {
+      const mv = moves[i];
+      if (!mv) continue;
+      if (String(mv.paziente_id || "") !== pid) continue;
+      if (String(mv.from_date || "").slice(0, 10) !== rawEndYmd) continue;
+      const mvTid = String(mv.terapia_id || "").trim();
+      if (tid && mvTid && mvTid !== tid) continue;
+      if (tid && !mvTid) {
+        if (match && String(match.terapia_id || "").trim()) continue;
+      }
+      match = mv;
+      if (tid && mvTid === tid) break;
+    }
+
+    if (!match || !String(match.to_date || "").trim()) return rawEnd;
+
+    const movedEnd = dateOnlyLocal(match.to_date);
+    return movedEnd || rawEnd;
+  } catch (_) {
+    return dateOnlyLocal(th && th.data_fine ? th.data_fine : "");
+  }
+}
+
+function getPatientTherapiesForDisplay_(p, therapies) {
+  try {
+    const base = Array.isArray(therapies) ? therapies : [];
+    if (!base.length) return [];
+    return base.map((th0) => {
+      const th = normalizeTherapy_(th0);
+      const resolvedEnd = getResolvedTherapyEndDate_(p, th);
+      if (resolvedEnd) th.data_fine = ymdLocal(resolvedEnd);
+      return th;
+    });
+  } catch (_) {
+    return Array.isArray(therapies) ? therapies.map((th) => normalizeTherapy_(th)) : [];
+  }
 }
 
 async function ensureMovesHorizonLoaded_(opts = {}) {
@@ -3268,6 +3349,7 @@ async function ensureMovesHorizonLoaded_(opts = {}) {
 
     const moves0 = (all || []).map(normalizeMove_).filter(Boolean);
     const moves = collapseMoves_(moves0);
+    calMovesHorizonCache = moves;
 
     const maxByPid = new Map();
     (moves || []).forEach((mv) => {
@@ -3287,6 +3369,7 @@ async function ensureMovesHorizonLoaded_(opts = {}) {
     calMovesMaxTsByPatient = maxByPid;
     calMovesHorizonLoadedAt = Date.now();
     calMovesHorizonLoading = false;
+    clearPatientSpanCache_();
 
     // aggiorna card pazienti quando arriva la scadenza reale da calendario
     try {
@@ -3591,6 +3674,7 @@ async function ensurePatientsForCalendar() {
           });
 
           invalidateStatsMovesCache_();
+          invalidateMovesHorizon_();
           toast("Cancellato");
           await updateCalendarUI();
           try {
@@ -3908,6 +3992,7 @@ const therapyEl = $("#moveSessionTherapyName");
       });
 
       invalidateStatsMovesCache_();
+      invalidateMovesHorizon_();
       closeMoveSessionModal_();
       toast("Spostato");
       try { invalidateTodayCalendarCache_(); } catch (_) {}
@@ -4041,6 +4126,7 @@ const therapyEl = $("#moveSessionTherapyName");
       });
 
       invalidateStatsMovesCache_();
+      invalidateMovesHorizon_();
       try { invalidateTodayCalendarCache_(); } catch (_) {}
       toast("Cancellato");
       await updateCalendarUI();
@@ -4743,14 +4829,10 @@ function getSettingsPayloadFromUI() {
       if (e && (!acc.maxEnd || e.getTime() > acc.maxEnd.getTime())) acc.maxEnd = e;
     };
 
-    // Scadenza (semplificata):
-    // - letta SOLO dalla card paziente (terapie) senza calcoli calendario / giorni / orari.
-    // - se ci sono più terapie, usa la data_fine più avanti (max).
     const acc = { minStart: null, maxEnd: null };
 
-    // 1) Terapie (preferito)
     let therapies = [];
-    try { therapies = getPatientTherapiesForStats_(p) || []; } catch (_) { therapies = []; }
+    try { therapies = getPatientTherapiesForDisplay_(p, getPatientTherapiesForStats_(p) || []); } catch (_) { therapies = []; }
 
     if (Array.isArray(therapies) && therapies.length) {
       for (const t of therapies) {
@@ -4760,27 +4842,18 @@ function getSettingsPayloadFromUI() {
       }
     }
 
-    // 2) Fallback su campi legacy del paziente (se non ci sono terapie parseabili)
     if (!acc.minStart && !acc.maxEnd) {
-      consider(p?.data_inizio ?? p?.start ?? "", p?.data_fine ?? p?.end ?? "", acc);
+      const legacyStart = p?.data_inizio ?? p?.start ?? "";
+      let legacyEnd = p?.data_fine ?? p?.end ?? "";
+      try {
+        const resolvedLegacyEnd = getResolvedTherapyEndDate_(p, { id: "", data_fine: legacyEnd });
+        if (resolvedLegacyEnd) legacyEnd = ymdLocal(resolvedLegacyEnd);
+      } catch (_) {}
+      consider(legacyStart, legacyEnd, acc);
     } else {
       if (!acc.minStart) consider(p?.data_inizio ?? p?.start ?? "", "", acc);
       if (!acc.maxEnd) consider("", p?.data_fine ?? p?.end ?? "", acc);
     }
-    // 3) Scadenza reale: letta dal Calendario (ultima cella occupata cronologicamente dal paziente)
-    // Se disponibile, questa data sostituisce qualsiasi data_fine presente nella scheda paziente.
-    try {
-      const pid = String(p?.id ?? p?.paziente_id ?? p?.patient_id ?? p?.pid ?? "");
-      const ts = pid && calMovesMaxTsByPatient && typeof calMovesMaxTsByPatient.get === "function" ? (calMovesMaxTsByPatient.get(pid) || 0) : 0;
-      if (ts) {
-        const d = new Date(ts);
-        if (!isNaN(d.getTime())) {
-          d.setHours(0, 0, 0, 0);
-          acc.maxEnd = d;
-        }
-      }
-    } catch (_) {}
-
 
     return {
       start: acc.minStart,
@@ -5787,7 +5860,7 @@ function getSettingsPayloadFromUI() {
 
     // In scheda paziente (inserimento/modifica) non applichiamo il filtro anno:
     // altrimenti la terapia vuota (senza date) sparisce e il tasto + sembra non funzionare.
-    const arr = currentPatient.terapie_arr;
+    const arr = getPatientTherapiesForDisplay_(currentPatient, currentPatient.terapie_arr);
 
     const frag = document.createDocumentFragment();
 
@@ -6029,6 +6102,14 @@ levelRow.querySelectorAll(".therapy-level-btn").forEach((b) => {
     currentPatient = Object.assign({}, p || {});
     currentPatient.terapie_arr = parseTherapiesFromPatient_(currentPatient);
     activeTherapyIndex = 0;
+    try {
+      const pidOpen = String(currentPatient && currentPatient.id ? currentPatient.id : "");
+      ensureMovesHorizonLoaded_({ silent: true }).then(() => {
+        try {
+          if (currentView === "patientForm" && currentPatient && String(currentPatient.id || "") === pidOpen) renderTherapiesUI_();
+        } catch (_) {}
+      }).catch(() => {});
+    } catch (_) {}
 
     $("#patName").value = currentPatient.nome_cognome || "";
     $("#patAddress").value = currentPatient.address || "";
@@ -6959,7 +7040,7 @@ function openDbIOModal_() {
   // PWA (iOS): registra Service Worker
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js?v=1.171").catch(() => {});
+      navigator.serviceWorker.register("./service-worker.js?v=1.172").catch(() => {});
     });
   }
 })();
